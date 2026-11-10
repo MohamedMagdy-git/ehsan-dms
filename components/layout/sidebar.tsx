@@ -17,6 +17,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { NAVIGATION_SECTIONS } from '@/lib/navigation-config';
+import { PWAInstallWidget } from './pwa-install-widget';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -271,6 +272,9 @@ export function Sidebar({
             </div>
           ))}
         </nav>
+
+        {/* Custom PWA Install Widget (Placed at the bottom of the sidebar) */}
+        <PWAInstallWidget collapsed={collapsed} />
       </aside>
     </>
   );
