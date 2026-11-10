@@ -1,0 +1,179 @@
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Cairo:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Vazirmatn', 'IBM Plex Sans Arabic', 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+@layer base {
+  :root {
+    --primary-teal: #005756;
+    --primary-teal-hover: #004241;
+    --primary-teal-light: #e6f1f0;
+    --secondary-green: #76B837;
+    --secondary-green-hover: #639c2e;
+    --secondary-green-light: #f1f8eb;
+  }
+
+  html,
+  body,
+  input,
+  button,
+  select,
+  textarea,
+  table,
+  th,
+  td {
+    font-family: 'Vazirmatn', 'IBM Plex Sans Arabic', 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  body {
+    direction: rtl;
+    text-align: right;
+    background-color: #f8fafc;
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* Custom scrollbars for data tables and panels */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Tabular numerals for all financial figures and metrics */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================
+   Mobile-First Touch & Typography Optimization
+   ========================================================== */
+/* Prevent iOS Safari unwanted auto-zoom when tapping inputs */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Remove tap blue flash highlight on mobile touches */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ==========================================================
+   Print Receipt Area Isolation & Single-Page Strict Layout
+   ========================================================== */
+@media print {
+  /* إخفاء التطبيق الأساسي عند فتح نافذة الطباعة */
+  body:has(#custody-modal-root) > *:not(#custody-modal-root),
+  body:has(#print-receipt-area) > *:not(#print-receipt-area) {
+    display: none !important;
+  }
+
+  /* تطهير خواص body و html للطباعة متعددة الصفحات بنظام التدفق الطبيعي */
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body:has(#print-receipt-area) {
+    height: 100%;
+    overflow: hidden !important;
+  }
+
+  body:has(#custody-modal-root),
+  body:has(#printable-area) {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  /* عزل وطباعة نافذة النماذج الميدانية (#custody-modal-root) */
+  #custody-modal-root {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  .no-print,
+  .no-print * {
+    display: none !important;
+  }
+
+  /* الحاوية القابلة للطباعة بنظام static flow يمنع التكرار والتراكب */
+  #printable-area {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  #printable-area * {
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* قواعد منع انقسام القسائم وصفوف الجداول بين الصفحات */
+  .slip-card {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    break-inside: avoid-page !important;
+    box-sizing: border-box !important;
+  }
+
+  .slip-page {
+    page-break-after: always !important;
+    break-after: page !important;
+    box-sizing: border-box !important;
+  }
+  .slip-page:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+
+  table {
+    page-break-inside: auto;
+    border-collapse: collapse;
+  }
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  thead {
+    display: table-header-group !important;
+  }
+  tfoot {
+    display: table-footer-group !important;
+  }
+}
+

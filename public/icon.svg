@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="ehsanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#005756"/>
+      <stop offset="100%" stop-color="#003534"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background with rounded squircles -->
+  <rect width="512" height="512" rx="112" fill="url(#ehsanGrad)"/>
+
+  <!-- Subtle Islamic Geometry / Badge Accent -->
+  <circle cx="256" cy="256" r="200" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="4"/>
+  <circle cx="256" cy="256" r="170" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="2" stroke-dasharray="8 8"/>
+
+  <!-- Helping Hands / Crescent Silhouette -->
+  <g transform="translate(256, 230) scale(1.15)">
+    <!-- Heart / Giving emblem -->
+    <path d="M0 -50 C-35 -95 -100 -65 -100 -10 C-100 45 0 95 0 115 C0 95 100 45 100 -10 C100 -65 35 -95 0 -50 Z" 
+          fill="#10b981" 
+          opacity="0.95"/>
+    
+    <!-- Inner Radiant Crescent -->
+    <path d="M-20 -25 C-10 -70 50 -60 65 -15 C45 -35 15 -35 -5 -15 C-25 5 -15 35 15 50 C-15 45 -40 10 -20 -25 Z" 
+          fill="#ffffff" 
+          opacity="0.9"/>
+
+    <!-- Small Star of Excellence -->
+    <circle cx="25" cy="-45" r="8" fill="url(#goldGrad)"/>
+  </g>
+
+  <!-- Arabic Typography "إحسان" -->
+  <text x="256" y="420" 
+        font-family="system-ui, -apple-system, sans-serif" 
+        font-size="64" 
+        font-weight="bold" 
+        fill="#ffffff" 
+        text-anchor="middle" 
+        letter-spacing="2">
+    إحسـان
+  </text>
+  <text x="256" y="455" 
+        font-family="system-ui, -apple-system, sans-serif" 
+        font-size="20" 
+        font-weight="500" 
+        fill="#6ee7b7" 
+        text-anchor="middle" 
+        letter-spacing="1">
+    منظومة البحث الميداني
+  </text>
+</svg>

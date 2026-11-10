@@ -1,0 +1,6 @@
+{
+  "name": "منظومة إحسان - إدارة المستحقين وتخصيص المساعدات",
+  "description": "منصة شاملة لإدارة الحالات والمستحقين، والبحث الميداني، وإدارة التبرعات، وتخصيص الميزانية الشهرية المتغيرة وفق معايير الاحتياج والأولوية.",
+  "requestFramePermissions": ["geolocation", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
