@@ -184,63 +184,66 @@ export function ReportsView() {
           </div>
         </div>
 
-        {/* Filter Toolbar & Custody Summary Bento Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
-          {/* Batch Selector */}
-          <div className="md:col-span-4 p-3 sm:p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80">
-            <label className="text-xs font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
-              <Calendar size={13} className="text-[#005756] shrink-0" />
-              <span>الدفعة الشهرية المعتمدة:</span>
-            </label>
-            <div className="relative">
-              <select
-                value={currentPeriod}
-                onChange={(e) => {
-                  const selected = e.target.value;
-                  setCurrentPeriod(selected);
-                  if (!allocations[selected]) {
-                    generateOrRefreshAllocation(selected);
-                  }
-                }}
-                className="w-full h-10 px-3 py-2 text-sm font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] pr-3 pl-8 appearance-none transition-colors shadow-2xs cursor-pointer"
-              >
-                {Object.entries(allocations).map(([key, alloc]) => (
-                  <option key={key} value={key}>
-                    {alloc.batchTitle
-                      ? `${alloc.batchTitle} (${alloc.periodLabel || key})`
-                      : alloc.periodLabel || key}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        {/* Filter Toolbar & Custody Summary */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
+          {/* Filters Bar: 2 columns on mobile, 8 cols on desktop */}
+          <div className="lg:col-span-8 p-3 bg-slate-50/60 rounded-xl border border-slate-200/70 grid grid-cols-2 gap-2.5 items-end">
+            {/* Batch Selector */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-500 mb-1 flex items-center gap-1.5 truncate">
+                <Calendar size={13} className="text-[#005756] shrink-0" />
+                <span className="truncate">الدفعة المعتمدة:</span>
+              </label>
+              <div className="relative">
+                <select
+                  value={currentPeriod}
+                  onChange={(e) => {
+                    const selected = e.target.value;
+                    setCurrentPeriod(selected);
+                    if (!allocations[selected]) {
+                      generateOrRefreshAllocation(selected);
+                    }
+                  }}
+                  className="w-full h-9 px-2.5 py-1.5 pr-2.5 pl-7 text-xs sm:text-sm font-normal text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] appearance-none shadow-xs transition-colors cursor-pointer"
+                >
+                  {Object.entries(allocations).map(([key, alloc]) => (
+                    <option key={key} value={key}>
+                      {alloc.batchTitle
+                        ? `${alloc.batchTitle} (${alloc.periodLabel || key})`
+                        : alloc.periodLabel || key}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
-          </div>
 
-          {/* Researcher Selector */}
-          <div className="md:col-span-4 p-3 sm:p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80">
-            <label className="text-xs font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
-              <User size={13} className="text-[#005756] shrink-0" />
-              <span>الباحث الميداني المسؤول:</span>
-            </label>
-            <div className="relative">
-              <select
-                value={selectedResearcher}
-                onChange={(e) => setSelectedResearcher(e.target.value)}
-                className="w-full h-10 px-3 py-2 text-sm font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] pr-3 pl-8 appearance-none transition-colors shadow-2xs cursor-pointer"
-              >
-                <option value="all">كافة الباحثين (الكشف الميداني الشامل)</option>
-                {researchers.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            {/* Researcher Selector */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-500 mb-1 flex items-center gap-1.5 truncate">
+                <User size={13} className="text-[#005756] shrink-0" />
+                <span className="truncate">الباحث المسؤول:</span>
+              </label>
+              <div className="relative">
+                <select
+                  value={selectedResearcher}
+                  onChange={(e) => setSelectedResearcher(e.target.value)}
+                  className="w-full h-9 px-2.5 py-1.5 pr-2.5 pl-7 text-xs sm:text-sm font-normal text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] appearance-none shadow-xs transition-colors cursor-pointer"
+                >
+                  <option value="all">كافة الباحثين (شامل)</option>
+                  {researchers.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
           </div>
 
           {/* Custody Amount Box */}
-          <div className="md:col-span-4 p-3.5 bg-teal-50/60 rounded-2xl border border-teal-200/80 flex flex-col justify-between">
+          <div className="lg:col-span-4 p-3 bg-teal-50/60 rounded-xl border border-teal-200/80 flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-teal-800">إجمالي العهدة النقدية المطلوبة</span>
               <span className="text-[11px] font-bold font-mono px-2 py-0.5 rounded-md bg-teal-100 text-teal-900">
@@ -387,7 +390,7 @@ export function ReportsView() {
                           }));
                         }}
                         placeholder="اكتب ملاحظة التسليم الميداني..."
-                        className="w-full h-10 px-3 py-2 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] transition"
+                        className="w-full h-9 px-2.5 py-1.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 rounded-lg text-xs sm:text-sm font-normal text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] transition"
                       />
                     </div>
                   </div>
