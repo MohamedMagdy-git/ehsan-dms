@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: '/icon.svg',
-    apple: '/apple-touch-icon.png',
+    apple: '/icon.svg',
   },
   openGraph: {
     title: 'منظومة إحسان | إدارة المستحقين وتخصيص المساعدات',

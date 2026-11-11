@@ -1,55 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <linearGradient id="ehsanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="ehsanBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#005756"/>
       <stop offset="100%" stop-color="#003534"/>
     </linearGradient>
-    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f59e0b"/>
-      <stop offset="100%" stop-color="#d97706"/>
+    <linearGradient id="heartGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#10b981"/>
     </linearGradient>
   </defs>
 
-  <!-- Background with rounded squircles -->
-  <rect width="512" height="512" rx="112" fill="url(#ehsanGrad)"/>
+  <!-- Background with smooth rounded squircle corners -->
+  <rect width="512" height="512" rx="112" fill="url(#ehsanBgGrad)"/>
 
-  <!-- Subtle Islamic Geometry / Badge Accent -->
-  <circle cx="256" cy="256" r="200" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="4"/>
-  <circle cx="256" cy="256" r="170" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="2" stroke-dasharray="8 8"/>
+  <!-- Subtle glow / inner badge circle -->
+  <circle cx="256" cy="256" r="190" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="3"/>
+  <circle cx="256" cy="256" r="160" fill="rgba(255,255,255,0.03)" stroke="rgba(45,212,191,0.15)" stroke-width="2"/>
 
-  <!-- Helping Hands / Crescent Silhouette -->
-  <g transform="translate(256, 230) scale(1.15)">
-    <!-- Heart / Giving emblem -->
-    <path d="M0 -50 C-35 -95 -100 -65 -100 -10 C-100 45 0 95 0 115 C0 95 100 45 100 -10 C100 -65 35 -95 0 -50 Z" 
-          fill="#10b981" 
-          opacity="0.95"/>
-    
-    <!-- Inner Radiant Crescent -->
-    <path d="M-20 -25 C-10 -70 50 -60 65 -15 C45 -35 15 -35 -5 -15 C-25 5 -15 35 15 50 C-15 45 -40 10 -20 -25 Z" 
-          fill="#ffffff" 
-          opacity="0.9"/>
-
-    <!-- Small Star of Excellence -->
-    <circle cx="25" cy="-45" r="8" fill="url(#goldGrad)"/>
+  <!-- Official HandHeart Emblem (Identical to Sidebar Header Logo) Scaled and Centered -->
+  <g transform="translate(106, 106) scale(12.5)" fill="none" stroke="#2dd4bf" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Hand base and fingers -->
+    <path d="M11 14h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 16" />
+    <path d="m7 20 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9" />
+    <path d="m2 15 6 6" />
+    <!-- Heart with luminous emerald glow -->
+    <path d="M19.5 8.5c.7-.7 1.5-1.6 1.5-2.7A2.8 2.8 0 0 0 18.2 3c-1.4 0-2.3.8-3.2 2-1-1.2-1.8-2-3.2-2A2.8 2.8 0 0 0 9 5.8c0 1.1.8 2 1.5 2.7l4.5 4.5 4.5-4.5z" 
+          fill="url(#heartGrad)" 
+          fill-opacity="0.3" 
+          stroke="#5eead4" 
+          stroke-width="1.85"/>
   </g>
-
-  <!-- Arabic Typography "إحسان" -->
-  <text x="256" y="420" 
-        font-family="system-ui, -apple-system, sans-serif" 
-        font-size="64" 
-        font-weight="bold" 
-        fill="#ffffff" 
-        text-anchor="middle" 
-        letter-spacing="2">
-    إحسـان
-  </text>
-  <text x="256" y="455" 
-        font-family="system-ui, -apple-system, sans-serif" 
-        font-size="20" 
-        font-weight="500" 
-        fill="#6ee7b7" 
-        text-anchor="middle" 
-        letter-spacing="1">
-    منظومة البحث الميداني
-  </text>
 </svg>
