@@ -69,6 +69,7 @@
 @media print {
   /* إخفاء التطبيق الأساسي عند فتح نافذة الطباعة */
   body:has(#custody-modal-root) > *:not(#custody-modal-root),
+  body:has(#quick-delivery-modal-root) > *:not(#quick-delivery-modal-root),
   body:has(#print-receipt-area) > *:not(#print-receipt-area) {
     display: none !important;
   }
@@ -88,14 +89,16 @@
   }
 
   body:has(#custody-modal-root),
+  body:has(#quick-delivery-modal-root),
   body:has(#printable-area) {
     height: auto !important;
     overflow: visible !important;
     background: #fff !important;
   }
 
-  /* عزل وطباعة نافذة النماذج الميدانية (#custody-modal-root) */
-  #custody-modal-root {
+  /* عزل وطباعة نافذة النماذج الميدانية (#custody-modal-root) وكشف الصرف الميداني (#quick-delivery-modal-root) */
+  #custody-modal-root,
+  #quick-delivery-modal-root {
     display: block !important;
     position: static !important;
     width: 100% !important;
