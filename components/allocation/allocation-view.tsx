@@ -357,7 +357,7 @@ export function AllocationView() {
       )}
 
       {/* 2. Focused Batch Configuration & Liquidity Card */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-xs space-y-5">
+      <div className="bg-white border border-slate-200/70 rounded-xl p-5 sm:p-6 shadow-none space-y-5">
         {/* Top: Batch Title, Execution Date, Coverage Months */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-start pb-4 border-b border-slate-100">
           {/* Field 1: Batch Title (e.g. دفعة شهري أكتوبر ونوفمبر 2026) */}
@@ -580,7 +580,7 @@ export function AllocationView() {
       {/* 3. Approved Beneficiaries Roster (Clean Focused Table / Mobile Cards) */}
       <div className="space-y-3">
         {/* Search & Priority Filter Toolbar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200/70 shadow-none">
           <div className="relative flex-1 max-w-md">
             <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -627,7 +627,7 @@ export function AllocationView() {
         </div>
 
         {/* Desktop Table View (>= 1024px) */}
-        <div className="hidden lg:block bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="hidden lg:block bg-white rounded-xl border border-slate-200/70 shadow-none overflow-hidden">
           <div className="w-full overflow-x-auto">
             <table className="w-full min-w-[950px] text-right border-collapse text-xs">
               <thead>

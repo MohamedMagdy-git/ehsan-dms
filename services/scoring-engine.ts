@@ -147,7 +147,7 @@ export function getStatusLabel(status: string): string {
   switch (status) {
     case 'pending_field_research': return 'قائمة الانتظار · تحتاج بحث ميداني';
     case 'pending_review': return 'بانتظار المراجعة';
-    case 'needs_revision': return 'تحتاج تعديل';
+    case 'needs_revision': return 'بانتظار استكمال البيانات';
     case 'active_eligible':
     case 'active': return 'معتمدة للصرف';
     case 'under_review': return 'تحت البحث والمراجعة';

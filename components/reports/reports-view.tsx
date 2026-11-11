@@ -131,7 +131,7 @@ export function ReportsView() {
   return (
     <div className="space-y-6">
       {/* 1. HERO BENTO CARD: كشوف الصرف الميداني السريعة للباحثين */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-6 space-y-5">
+      <div className="bg-white rounded-xl border border-slate-200/70 shadow-none p-5 sm:p-6 space-y-5">
         {/* Header & Main Actions */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-5">
           <div className="space-y-1">
@@ -154,19 +154,19 @@ export function ReportsView() {
             <button
               onClick={() => setIsQuickPrintModalOpen(true)}
               disabled={activeQuickItems.length === 0}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#005756] hover:bg-[#004241] active:scale-95 disabled:opacity-50 disabled:pointer-events-none text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
-              title="طباعة كشف الصرف الميداني السريع للباحث (A4 Portrait)"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#005756] hover:bg-[#004241] active:scale-95 disabled:opacity-50 disabled:pointer-events-none text-white text-xs font-bold rounded-xl shadow-none transition-all cursor-pointer"
+              title="طباعة كشف الصرف الميداني للباحث"
             >
               <Printer size={15} />
-              <span>طباعة كشف ميداني سريع PDF</span>
+              <span>طباعة كشف الصرف الميداني</span>
             </button>
 
             {/* Quick Excel Export */}
             <button
               onClick={handleExportQuickExcel}
               disabled={activeQuickItems.length === 0}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-emerald-700 hover:bg-emerald-800 active:scale-95 disabled:opacity-50 disabled:pointer-events-none text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
-              title="تصدير كشف الصرف الميداني السريع إلى ملف إكسل (.xlsx)"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-emerald-700 hover:bg-emerald-800 active:scale-95 disabled:opacity-50 disabled:pointer-events-none text-white text-xs font-bold rounded-xl shadow-none transition-all cursor-pointer"
+              title="تصدير كشف الصرف الميداني إلى ملف إكسل (.xlsx)"
             >
               <FileSpreadsheet size={15} />
               <span>تصدير إكسل</span>

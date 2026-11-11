@@ -6,11 +6,9 @@ import {
   ShieldAlert,
   Save,
   RotateCcw,
-  Sparkles,
   Clock,
   Coins,
   CheckCircle2,
-  Cpu,
   AlertTriangle,
   Plus,
   Edit2,
@@ -74,9 +72,6 @@ export function SettingsView() {
 
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Future AI boundary simulation state
-  const [aiSimulationOutput, setAiSimulationOutput] = useState<string | null>(null);
-
   // Sharia category modal state
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<ShariaDonationCategory | null>(null);
@@ -115,15 +110,6 @@ export function SettingsView() {
     updateScoringConfig(DEFAULT_SCORING_CONFIG);
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3500);
-  };
-
-  const handleSimulateAiAudit = () => {
-    setAiSimulationOutput(
-      'تقرير التدقيق الاسترشادي وتحليل البيانات الميدانية:\n\n' +
-      '• تم رصد 3 حالات بها تباين بين الدخل المعلن في الأوراق الرسمية والمصروفات الحتمية (مثل EHS-104 و EHS-102)، وأوصى النموذج بالاعتماد على رصد الباحث الميداني للدخل غير المباشر.\n' +
-      '• مقترح استفسارات للمتابعة: سؤال أسرة EHS-106 عن مستجدات عمل الابن باليومية بعد انتهاء موسم المعمار.\n' +
-      '• تنبيه رقابي: لا يُتخذ أي قرار مالي آلي؛ يتطلب الاعتماد موافقة بشرية معتمدة من الإدارة.'
-    );
   };
 
   const totalWeight = gapWeight + medicalWeight + orphanWeight + housingWeight;
@@ -214,10 +200,8 @@ export function SettingsView() {
       </div>
 
       {activeTab === 'rules' ? (
-        <>
-          {/* Main Settings Form */}
-          <form onSubmit={handleSaveConfig} className="space-y-6">
-        <div className="p-5 bg-white rounded-xl border border-slate-200 shadow-xs space-y-5">
+        <form onSubmit={handleSaveConfig} className="space-y-6">
+          <div className="p-5 bg-white rounded-xl border border-slate-200 shadow-xs space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
               <h3 className="font-bold text-slate-900 text-base">أوزان محاور تقييم أولوية الحالات</h3>
@@ -443,43 +427,7 @@ export function SettingsView() {
           </div>
         </div>
       </form>
-
-      {/* Future Gemini AI Architecture Boundary Section */}
-      <div className="p-5 bg-slate-900 text-white rounded-xl space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2.5">
-            <Cpu size={20} className="text-teal-400" />
-            <div>
-              <h3 className="font-bold text-sm text-white">
-                التدقيق الاسترشادي وتحليل المستندات الميدانية
-              </h3>
-              <p className="text-xs text-slate-400">
-                حدود الخدمة الآمنة: دعم اتخاذ القرار، تلخيص تقارير الباحثين، وكشف التناقضات
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={handleSimulateAiAudit}
-            className="px-3.5 py-1.5 bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <Sparkles size={14} />
-            <span>تشغيل التدقيق الاسترشادي</span>
-          </button>
-        </div>
-
-        <p className="text-xs text-slate-300 leading-relaxed">
-          تم تصميم بنية النظام مع عزل تام لمحرك التقييم: يتم اتخاذ كافة القرارات المالية والاعتماد بموافقة بشرية معتمدة من الإدارة، ويقتصر دور التدقيق الذكي على فحص تباين البيانات وتلخيص ملاحظات الباحث الميداني.
-        </p>
-
-        {aiSimulationOutput && (
-          <div className="p-4 bg-slate-800/90 border border-teal-700/50 rounded-lg text-xs font-sans text-teal-100 whitespace-pre-line leading-relaxed">
-            {aiSimulationOutput}
-          </div>
-        )}
-      </div>
-    </>
-  ) : (
+    ) : (
     /* Sharia Donation Categories Management */
     <div className="space-y-6">
       {/* Top Header & Metrics */}

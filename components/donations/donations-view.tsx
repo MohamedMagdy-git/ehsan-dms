@@ -226,7 +226,7 @@ export function DonationsView({ onOpenNewDonation }: DonationsViewProps) {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="p-4 bg-white rounded-2xl border border-slate-200/60 ring-1 ring-black/[0.02] shadow-sm shadow-slate-950/5 space-y-3">
+      <div className="p-4 bg-white rounded-xl border border-slate-200/70 shadow-none space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div className="relative">
             <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -288,7 +288,7 @@ export function DonationsView({ onOpenNewDonation }: DonationsViewProps) {
       </div>
 
       {/* Donations View: Responsive Cards on Mobile + Table on Desktop */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200/70 shadow-none overflow-hidden">
         {/* Mobile View: Responsive Card List (360px - 430px) */}
         <div className="block md:hidden divide-y divide-slate-100">
           {filteredDonations.length === 0 ? (

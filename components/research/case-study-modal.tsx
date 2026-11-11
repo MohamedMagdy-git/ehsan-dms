@@ -2174,16 +2174,16 @@ export function CaseStudyModal() {
               <button
                 type="button"
                 onClick={handleNext}
-                className="flex-1 h-14 bg-slate-900 hover:bg-slate-950 active:scale-[0.98] text-white rounded-2xl text-sm sm:text-base font-black shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="flex-1 h-14 bg-slate-900 hover:bg-slate-950 active:scale-[0.98] text-white rounded-xl text-sm sm:text-base font-bold shadow-none transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>التالي</span>
+                <span>حفظ ومتابعة</span>
                 <ArrowLeft size={18} />
               </button>
             ) : (
               <button
                 type="button"
                 onClick={handleFinalSubmit}
-                className="flex-1 h-14 bg-teal-800 hover:bg-teal-900 active:scale-[0.98] text-white rounded-2xl text-sm sm:text-base font-black shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="flex-1 h-14 bg-teal-800 hover:bg-teal-900 active:scale-[0.98] text-white rounded-xl text-sm sm:text-base font-bold shadow-none transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <CheckCircle2 size={20} />
                 <span>تأكيد وحفظ البحث</span>

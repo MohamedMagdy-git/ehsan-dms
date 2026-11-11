@@ -136,7 +136,7 @@ export function DashboardView() {
 
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3.5">
           {/* Metric 1: Total Received Donations */}
-          <div className="p-3 sm:p-4 bg-white rounded-xl sm:rounded-2xl border border-slate-200/60 ring-1 ring-black/[0.02] shadow-xs sm:shadow-sm shadow-slate-950/5 flex flex-col justify-between hover:border-slate-300/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+          <div className="p-3 sm:p-4 bg-white rounded-xl border border-slate-200/70 shadow-none flex flex-col justify-between hover:border-slate-300 transition-all duration-150 group">
             <div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500 tracking-tight">إجمالي التبرعات المحصلة</span>
@@ -169,7 +169,7 @@ export function DashboardView() {
           </div>
 
           {/* Metric 2: Unrestricted Donations */}
-          <div className="p-4 bg-white rounded-2xl border border-slate-200/60 ring-1 ring-black/[0.02] shadow-sm shadow-slate-950/5 flex flex-col justify-between hover:border-slate-300/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+          <div className="p-4 bg-white rounded-xl border border-slate-200/70 shadow-none flex flex-col justify-between hover:border-slate-300 transition-all duration-150 group">
             <div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500 tracking-tight">التبرعات غير المقيدة</span>
@@ -202,7 +202,7 @@ export function DashboardView() {
           </div>
 
           {/* Metric 3: Restricted Donations */}
-          <div className="p-4 bg-white rounded-2xl border border-slate-200/60 ring-1 ring-black/[0.02] shadow-sm shadow-slate-950/5 flex flex-col justify-between hover:border-slate-300/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+          <div className="p-4 bg-white rounded-xl border border-slate-200/70 shadow-none flex flex-col justify-between hover:border-slate-300 transition-all duration-150 group">
             <div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500 tracking-tight">التبرعات المقيدة</span>
@@ -247,7 +247,7 @@ export function DashboardView() {
           </div>
 
           {/* Metric 4: Approved Assistance */}
-          <div className="p-4 bg-white rounded-2xl border border-slate-200/60 ring-1 ring-black/[0.02] shadow-sm shadow-slate-950/5 flex flex-col justify-between hover:border-slate-300/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+          <div className="p-4 bg-white rounded-xl border border-slate-200/70 shadow-none flex flex-col justify-between hover:border-slate-300 transition-all duration-150 group">
             <div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500 tracking-tight">المعتمد للصرف</span>
@@ -280,7 +280,7 @@ export function DashboardView() {
           </div>
 
           {/* Metric 5: Disbursed Assistance */}
-          <div className="p-4 bg-white rounded-2xl border border-slate-200/60 ring-1 ring-black/[0.02] shadow-sm shadow-slate-950/5 flex flex-col justify-between hover:border-slate-300/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+          <div className="p-4 bg-white rounded-xl border border-slate-200/70 shadow-none flex flex-col justify-between hover:border-slate-300 transition-all duration-150 group">
             <div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500 tracking-tight">المصروف فعلياً</span>
@@ -315,7 +315,7 @@ export function DashboardView() {
           </div>
 
           {/* Metric 6: Unrestricted Available Balance */}
-          <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-200/70 ring-1 ring-emerald-500/10 shadow-sm shadow-slate-950/5 flex flex-col justify-between hover:border-emerald-300/80 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+          <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-200/70 shadow-none flex flex-col justify-between hover:border-emerald-300 transition-all duration-150 group">
             <div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-emerald-950 tracking-tight">الرصيد المتاح للتخصيص</span>
@@ -356,7 +356,7 @@ export function DashboardView() {
       </div>
 
       {/* 3. Family Status & Beneficiary Pipeline (مؤشرات الأسر والاستحقاق وتوزيع الحالات) */}
-      <div className="p-5 bg-white rounded-2xl border border-slate-200/60 ring-1 ring-black/[0.02] shadow-sm shadow-slate-950/5 space-y-4">
+      <div className="p-5 bg-white rounded-xl border border-slate-200/70 shadow-none space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <span className="p-2 rounded-xl bg-teal-50 text-teal-800 border border-teal-100/80">
@@ -529,10 +529,10 @@ export function DashboardView() {
       {/* 4. Actionable Management Decisions & Operational Alerts (بنود الإجراءات والقرارات المعلقة) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Card 1: Cycle Approval Decision */}
-        <div className={`p-5 rounded-2xl border ring-1 shadow-sm shadow-slate-950/5 flex flex-col justify-between transition-all duration-200 hover:shadow-md ${
+        <div className={`p-5 rounded-xl border shadow-none flex flex-col justify-between transition-all duration-150 ${
           isAllocationApproved
-            ? 'bg-emerald-50/40 border-emerald-200/80 ring-emerald-500/10'
-            : 'bg-amber-50/40 border-amber-200/80 ring-amber-500/10'
+            ? 'bg-emerald-50/40 border-emerald-200/80'
+            : 'bg-amber-50/40 border-amber-200/80'
         }`}>
           <div>
             <div className="flex items-center justify-between">
@@ -591,7 +591,7 @@ export function DashboardView() {
         </div>
 
         {/* Card 2: Exceptions & Urgent Case Review */}
-        <div className="p-5 bg-white rounded-2xl border border-slate-200/60 ring-1 ring-black/[0.02] shadow-sm shadow-slate-950/5 flex flex-col justify-between transition-all duration-200 hover:shadow-md">
+        <div className="p-5 bg-white rounded-xl border border-slate-200/70 shadow-none flex flex-col justify-between transition-all duration-150">
           <div>
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-tight bg-indigo-500/10 text-indigo-800 border border-indigo-500/20">
@@ -625,7 +625,7 @@ export function DashboardView() {
         </div>
 
         {/* Card 3: Overdue Visits & Incomplete Documents */}
-        <div className="p-5 bg-white rounded-2xl border border-slate-200/60 ring-1 ring-black/[0.02] shadow-sm shadow-slate-950/5 flex flex-col justify-between transition-all duration-200 hover:shadow-md">
+        <div className="p-5 bg-white rounded-xl border border-slate-200/70 shadow-none flex flex-col justify-between transition-all duration-150">
           <div>
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-tight bg-rose-500/10 text-rose-800 border border-rose-500/20">
@@ -660,7 +660,7 @@ export function DashboardView() {
       {/* 5. Visual Analytics Charts Grid (الرسوم البيانية التوضيحية والتحليل) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Chart 1: Family Need Gap vs Proposed/Approved Assistance (2 cols) */}
-        <div className="lg:col-span-2 p-5 md:p-6 bg-white rounded-2xl border border-slate-200/60 ring-1 ring-black/[0.02] shadow-sm shadow-slate-950/5 space-y-4">
+        <div className="lg:col-span-2 p-5 md:p-6 bg-white rounded-xl border border-slate-200/70 shadow-none space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="text-sm font-bold text-slate-900 tracking-tight">
@@ -768,7 +768,7 @@ export function DashboardView() {
         </div>
 
         {/* Chart 2: Priority breakdown (1 col) */}
-        <div className="p-5 md:p-6 bg-white rounded-2xl border border-slate-200/60 ring-1 ring-black/[0.02] shadow-sm shadow-slate-950/5 space-y-4 flex flex-col justify-between">
+        <div className="p-5 md:p-6 bg-white rounded-xl border border-slate-200/70 shadow-none space-y-4 flex flex-col justify-between">
           <div>
             <h3 className="text-sm font-bold text-slate-900 tracking-tight">توزيع الحالات حسب درجة الأولوية</h3>
             <p className="text-xs text-slate-500 mt-0.5">محسوبة بنظام النقاط وفق الفجوة، المرض، والأيتام</p>
@@ -828,7 +828,7 @@ export function DashboardView() {
       {/* 6. Operational Follow-up & Audit Trail (سجل الإجراءات والقرارات الرقابية) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Urgent Follow-up Cases List */}
-        <div className="p-5 md:p-6 bg-white rounded-2xl border border-slate-200/60 ring-1 ring-black/[0.02] shadow-sm shadow-slate-950/5 space-y-4">
+        <div className="p-5 md:p-6 bg-white rounded-xl border border-slate-200/70 shadow-none space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100/80">
             <div>
               <h3 className="text-sm font-bold text-slate-900 tracking-tight">حالات تتطلب متابعة تشغيلية عاجلة</h3>

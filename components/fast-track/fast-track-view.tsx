@@ -916,7 +916,7 @@ export function FastTrackView() {
                           className="flex-1 min-h-[44px] py-2 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs"
                         >
                           <Check className="w-4 h-4" />
-                          <span>توثيق التسليم</span>
+                          <span>تأكيد التسليم</span>
                         </button>
                       )}
 
@@ -1302,7 +1302,7 @@ export function FastTrackView() {
               <button
                 type="button"
                 onClick={handleConfirmDisbursement}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-teal-700 text-white hover:bg-teal-800 transition-all shadow-md flex items-center gap-1.5 active:scale-95"
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-teal-700 text-white hover:bg-teal-800 transition-all shadow-none flex items-center gap-1.5 active:scale-95 cursor-pointer"
               >
                 <Check className="w-4 h-4 stroke-[2.5]" />
                 اعتماد وإصدار إذن الصرف فورياً
@@ -1479,10 +1479,10 @@ export function FastTrackView() {
               <button
                 type="button"
                 onClick={handleConfirmFulfillment}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-700 text-white hover:bg-emerald-800 transition-all shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95"
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-700 text-white hover:bg-emerald-800 transition-all shadow-none flex items-center gap-1.5 cursor-pointer active:scale-95"
               >
                 <Check className="w-4 h-4 stroke-[2.5]" />
-                اعتماد التسليم وتوثيق الإذن رسمياً
+                تأكيد التسليم
               </button>
             </div>
           </div>

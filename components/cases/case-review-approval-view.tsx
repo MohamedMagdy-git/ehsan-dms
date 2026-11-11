@@ -222,7 +222,7 @@ export function CaseReviewApprovalView() {
 
       {/* Overview Stat Badges: 5-Card Responsive Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="p-3.5 bg-white rounded-xl border border-slate-200/70 shadow-none">
           <span className="block text-2xl font-black text-amber-800 font-mono leading-none">
             {pendingCount}
           </span>
@@ -231,7 +231,7 @@ export function CaseReviewApprovalView() {
           </span>
         </div>
 
-        <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="p-3.5 bg-white rounded-xl border border-slate-200/70 shadow-none">
           <span className="block text-2xl font-black text-rose-800 font-mono leading-none">
             {needsRevisionCount}
           </span>
@@ -240,7 +240,7 @@ export function CaseReviewApprovalView() {
           </span>
         </div>
 
-        <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="p-3.5 bg-white rounded-xl border border-slate-200/70 shadow-none">
           <span className="block text-2xl font-black text-teal-800 font-mono leading-none">
             {totalPendingGap.toLocaleString('ar-EG')} ج.م
           </span>
@@ -249,7 +249,7 @@ export function CaseReviewApprovalView() {
           </span>
         </div>
 
-        <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="p-3.5 bg-white rounded-xl border border-slate-200/70 shadow-none">
           <div className="flex items-center justify-between">
             <span className="block text-[11px] text-slate-500 font-medium">اكتمال الثبوتيات</span>
             <span className="text-[10px] text-emerald-800 font-bold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
@@ -268,7 +268,7 @@ export function CaseReviewApprovalView() {
         </div>
 
         {/* Card 5: Dedicated Survey Data Completeness with Progress Bar and Dynamic Badge */}
-        <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between col-span-2 sm:col-span-1">
+        <div className="p-3.5 bg-white rounded-xl border border-slate-200/70 shadow-none flex flex-col justify-between col-span-2 sm:col-span-1">
           <div className="flex items-center justify-between gap-1">
             <span className="block text-[11px] text-slate-500 font-medium truncate">اكتمال بيانات البحث</span>
             <span
@@ -314,7 +314,7 @@ export function CaseReviewApprovalView() {
       </div>
 
       {/* Filter and Search Bar with View Mode Toggle */}
-      <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="p-3.5 bg-white rounded-xl border border-slate-200/70 shadow-none flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           <div className="relative">
             <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -447,7 +447,7 @@ export function CaseReviewApprovalView() {
                           </span>
                           <span className="text-slate-300" aria-hidden="true">·</span>
                           <span className={c.status === 'needs_revision' ? 'text-rose-600 font-bold' : 'text-amber-600 font-bold'}>
-                            {c.status === 'needs_revision' ? 'تحتاج تعديل' : 'بانتظار المراجعة'}
+                            {c.status === 'needs_revision' ? 'بانتظار استكمال البيانات' : 'بانتظار المراجعة'}
                           </span>
                           {isFullyReady && (
                             <>
