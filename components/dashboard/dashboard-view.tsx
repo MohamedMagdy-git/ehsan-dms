@@ -122,7 +122,7 @@ export function DashboardView() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-bold text-slate-900">الموقف المالي الحقيقي للخزينة والصناديق</h2>
-            <span className="text-xs text-slate-400 font-mono">· عملة الجنيه المصري (ج.م)</span>
+            <span className="text-xs text-slate-400 font-medium">· عملة الجنيه المصري (ج.م)</span>
           </div>
           <button
             type="button"
@@ -196,7 +196,7 @@ export function DashboardView() {
               />
               <div className="mt-2 pt-2 border-t border-slate-100/80 flex items-center justify-between text-[10px] text-slate-500 tabular-nums">
                 <span>وعاء التوزيع الأساسي</span>
-                <span className="font-mono text-teal-800 font-bold">58% من النقد</span>
+                <span className="text-teal-800 font-bold"><span className="font-mono" dir="ltr">58%</span> من النقد</span>
               </div>
             </div>
           </div>
@@ -241,7 +241,7 @@ export function DashboardView() {
                 >
                   عرض تفصيل الأغراض
                 </button>
-                <span className="font-mono text-indigo-800 font-bold">4 مصارف</span>
+                <span className="text-indigo-800 font-bold"><span className="font-mono" dir="ltr">4</span> مصارف</span>
               </div>
             </div>
           </div>
@@ -348,7 +348,7 @@ export function DashboardView() {
               />
               <div className="mt-2 pt-2 border-t border-emerald-200/70 flex items-center justify-between text-[10px] tabular-nums">
                 <span className="text-emerald-800 font-medium">موقف آمن تماماً</span>
-                <span className="font-mono text-emerald-900 font-bold">جاهز للصرف</span>
+                <span className="text-emerald-900 font-bold">جاهز للصرف</span>
               </div>
             </div>
           </div>
@@ -407,37 +407,37 @@ export function DashboardView() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
           <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/60 ring-1 ring-black/[0.02]">
             <span className="text-[11px] text-slate-500 block">إجمالي المسجلين</span>
-            <span className="text-base font-bold text-slate-900 font-mono mt-0.5 block tabular-nums">{metrics.totalCases} أسرة</span>
+            <span className="text-base font-bold text-slate-900 mt-0.5 block tabular-nums"><span className="font-mono" dir="ltr">{metrics.totalCases}</span> أسرة</span>
             <span className="text-[10px] text-slate-400">قاعدة البيانات</span>
           </div>
 
           <div className="p-3 bg-teal-50/60 rounded-xl border border-teal-200/60 ring-1 ring-teal-500/10">
             <span className="text-[11px] text-teal-900 block font-medium">الأسر المؤهلة والنشطة</span>
-            <span className="text-base font-bold text-teal-900 font-mono mt-0.5 block tabular-nums">{metrics.eligibleCases} أسر</span>
+            <span className="text-base font-bold text-teal-900 mt-0.5 block tabular-nums"><span className="font-mono" dir="ltr">{metrics.eligibleCases}</span> أسر</span>
             <span className="text-[10px] text-teal-700">8 أساسي + 1 استثناء</span>
           </div>
 
           <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-200/60 ring-1 ring-blue-500/10">
             <span className="text-[11px] text-blue-900 block font-medium">مدرجة بمقترح الصرف</span>
-            <span className="text-base font-bold text-blue-900 font-mono mt-0.5 block tabular-nums">{metrics.eligibleCases} أسر</span>
+            <span className="text-base font-bold text-blue-900 mt-0.5 block tabular-nums"><span className="font-mono" dir="ltr">{metrics.eligibleCases}</span> أسر</span>
             <span className="text-[10px] text-blue-700">دورة أكتوبر 2026</span>
           </div>
 
           <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-200/60 ring-1 ring-indigo-500/10">
             <span className="text-[11px] text-indigo-900 block font-medium">معتمد لها الصرف</span>
-            <span className="text-base font-bold text-indigo-900 font-mono mt-0.5 block tabular-nums">{metrics.eligibleCases} أسر</span>
+            <span className="text-base font-bold text-indigo-900 mt-0.5 block tabular-nums"><span className="font-mono" dir="ltr">{metrics.eligibleCases}</span> أسر</span>
             <span className="text-[10px] text-indigo-700 tabular-nums">{metrics.approvedAssistanceTotal.toLocaleString('ar-EG')} ج.م</span>
           </div>
 
           <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-200/60 ring-1 ring-emerald-500/10">
             <span className="text-[11px] text-emerald-900 block font-medium">الصرف والتسليم</span>
-            <span className="text-base font-bold text-emerald-800 font-mono mt-0.5 block tabular-nums">{metrics.disbursedAssistanceTotal > 0 ? `${metrics.eligibleCases} أسر` : 'جاهزة للصرف'}</span>
+            <span className="text-base font-bold text-emerald-800 mt-0.5 block tabular-nums">{metrics.disbursedAssistanceTotal > 0 ? <><span className="font-mono" dir="ltr">{metrics.eligibleCases}</span> أسر</> : 'جاهزة للصرف'}</span>
             <span className="text-[10px] text-emerald-700">تغطية 100% للاحتياج</span>
           </div>
 
           <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/60 ring-1 ring-amber-500/10">
             <span className="text-[11px] text-amber-900 block font-medium">غير مشمولة هذا الشهر</span>
-            <span className="text-base font-bold text-amber-900 font-mono mt-0.5 block tabular-nums">{metrics.excludedOrClosedCases + metrics.underInvestigationCases} أسر</span>
+            <span className="text-base font-bold text-amber-900 mt-0.5 block tabular-nums"><span className="font-mono" dir="ltr">{metrics.excludedOrClosedCases + metrics.underInvestigationCases}</span> أسر</span>
             <button
               type="button"
               onClick={() => setShowFamiliesStatusModal(true)}
@@ -484,7 +484,7 @@ export function DashboardView() {
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
                 <span className="font-semibold text-emerald-950 text-[11px] tracking-tight">مستفيدة هذا الشهر</span>
               </div>
-              <span className="font-mono font-bold text-emerald-800 text-xs tabular-nums">9 أسر (75%)</span>
+              <span className="font-bold text-emerald-800 text-xs tabular-nums"><span className="font-mono" dir="ltr">9</span> أسر (<span className="font-mono" dir="ltr">75%</span>)</span>
             </button>
 
             <button
@@ -496,7 +496,7 @@ export function DashboardView() {
                 <span className="w-2.5 h-2.5 rounded-full bg-sky-500 shrink-0"></span>
                 <span className="font-semibold text-sky-950 text-[11px] tracking-tight">استبعاد مؤقت (دعم خارجي)</span>
               </div>
-              <span className="font-mono font-bold text-sky-800 text-xs tabular-nums">1 أسرة</span>
+              <span className="font-bold text-sky-800 text-xs tabular-nums"><span className="font-mono" dir="ltr">1</span> أسرة</span>
             </button>
 
             <button
@@ -508,7 +508,7 @@ export function DashboardView() {
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span>
                 <span className="font-semibold text-amber-950 text-[11px] tracking-tight">قيد البحث والأوراق</span>
               </div>
-              <span className="font-mono font-bold text-amber-800 text-xs tabular-nums">1 أسرة</span>
+              <span className="font-bold text-amber-800 text-xs tabular-nums"><span className="font-mono" dir="ltr">1</span> أسرة</span>
             </button>
 
             <button
@@ -520,7 +520,7 @@ export function DashboardView() {
                 <span className="w-2.5 h-2.5 rounded-full bg-slate-500 shrink-0"></span>
                 <span className="font-semibold text-slate-800 text-[11px] tracking-tight">ملف مغلق (زال الاستحقاق)</span>
               </div>
-              <span className="font-mono font-bold text-slate-700 text-xs tabular-nums">1 أسرة</span>
+              <span className="font-bold text-slate-700 text-xs tabular-nums"><span className="font-mono" dir="ltr">1</span> أسرة</span>
             </button>
           </div>
         </div>
@@ -542,7 +542,7 @@ export function DashboardView() {
                 {isAllocationApproved ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}
                 {isAllocationApproved ? 'دورة معتمدة رسمياً' : 'قرار معلق ينتظر المدير'}
               </span>
-              <span className="text-xs font-mono text-slate-400">أكتوبر 2026</span>
+              <span className="text-xs font-medium text-slate-500">أكتوبر <span className="font-mono text-slate-400" dir="ltr">2026</span></span>
             </div>
 
             <h4 className="text-sm font-bold text-slate-900 mt-2.5 tracking-tight">
@@ -598,7 +598,7 @@ export function DashboardView() {
                 <ShieldAlert size={13} />
                 استثناء إنساني معتمد
               </span>
-              <span className="text-xs font-mono text-slate-400">EHS-104</span>
+              <span className="text-xs font-mono text-slate-400" dir="ltr">EHS-104</span>
             </div>
 
             <h4 className="text-sm font-bold text-slate-900 mt-2.5 tracking-tight">
@@ -616,7 +616,7 @@ export function DashboardView() {
             <button
               type="button"
               onClick={() => setSelectedCaseId('case-04')}
-              className="text-xs text-indigo-700 hover:text-indigo-900 font-bold underline flex items-center gap-1 cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+              className="text-xs text-indigo-700 hover:text-indigo-900 font-semibold flex items-center gap-1 cursor-pointer transition-colors"
             >
               <span>فحص ملف الحالة والمستندات</span>
               <ChevronLeft size={13} />
@@ -632,11 +632,11 @@ export function DashboardView() {
                 <AlertTriangle size={13} />
                 تنبيه رقابي ميداني
               </span>
-              <span className="text-xs font-mono text-rose-700 font-bold">متأخرة {'>'} 8 أشهر</span>
+              <span className="text-xs text-rose-700 font-bold">متأخرة <span className="font-mono" dir="ltr">&gt; 8</span> أشهر</span>
             </div>
 
             <h4 className="text-sm font-bold text-slate-900 mt-2.5 tracking-tight">
-              نادية فؤاد حسن (EHS-106 - عزبة النخل)
+              نادية فؤاد حسن (<span className="font-mono text-xs font-normal text-slate-500" dir="ltr">EHS-106</span> - عزبة النخل)
             </h4>
             <p className="text-xs text-slate-600 mt-1 leading-relaxed">
               آخر زيارة ميدانية تمت في 10 فبراير 2026. تجاوزت 6 أشهر دون تقرير تحديث دوري لدخل الابن والوضع الصحي.
@@ -644,11 +644,11 @@ export function DashboardView() {
           </div>
 
           <div className="pt-3 border-t border-slate-100/80 mt-3 flex items-center justify-between">
-            <span className="text-[11px] text-slate-500">الباحث: أ. هبة الشامي</span>
+            <span className="text-xs font-medium text-slate-600">الباحث: أ. هبة الشامي</span>
             <button
               type="button"
               onClick={() => setActiveSection('research')}
-              className="text-xs text-rose-700 hover:text-rose-900 font-bold underline flex items-center gap-1 cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+              className="text-xs text-rose-700 hover:text-rose-900 font-semibold flex items-center gap-1 cursor-pointer transition-colors"
             >
               <span>جدولة زيارة / تكليف باحث</span>
               <ChevronLeft size={13} />
@@ -1190,12 +1190,14 @@ export function DashboardView() {
                 <div className="p-3 bg-sky-50/60 rounded-xl border border-sky-200 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900">محمود عبد العليم سلامة (EHS-109)</span>
+                      <span className="font-bold text-slate-900">
+                        محمود عبد العليم سلامة <span className="font-mono text-xs font-normal text-slate-500">(EHS-109)</span>
+                      </span>
                       <span className="text-[10px] bg-sky-100 text-sky-800 font-semibold px-2 py-0.5 rounded-md">
                         استبعاد مؤقت (شهر أكتوبر فقط)
                       </span>
                     </div>
-                    <span className="text-[11px] font-mono text-slate-500">فيصل (العشرين)</span>
+                    <span className="text-[11px] text-slate-500 font-medium">فيصل (العشرين)</span>
                   </div>
                   <p className="text-slate-600 text-[11.5px] leading-relaxed">
                     <strong>السبب الموثق:</strong> استلمت الأسرة منحة طارئة مباشرة من فاعل خير بقيمة 5,000 ج.م ومواد غذائية تكفيها لشهرين، فأصبحت فجوة احتياجها صفر هذا الشهر. تم تأجيل الصرف مؤقتاً لتوجيه الدعم لحالات أشد فقراً.
@@ -1206,12 +1208,14 @@ export function DashboardView() {
                 <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900">صابر جاد المولى مهران (EHS-110)</span>
+                      <span className="font-bold text-slate-900">
+                        صابر جاد المولى مهران <span className="font-mono text-xs font-normal text-slate-500">(EHS-110)</span>
+                      </span>
                       <span className="text-[10px] bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded-md">
                         تحت البحث الميداني وتجهيز الأوراق
                       </span>
                     </div>
-                    <span className="text-[11px] font-mono text-slate-500">المرج الشرقية</span>
+                    <span className="text-[11px] text-slate-500 font-medium">المرج الشرقية</span>
                   </div>
                   <p className="text-slate-600 text-[11.5px] leading-relaxed">
                     <strong>السبب الموثق:</strong> الأوراق الثبوتية غير مكتملة، وبانتظار استكمال تقرير البحث الميداني المفصل لـ أ. هبة الشامي للتحقق من دخل الإعالة الفعلي وتحديد درجة الاستحقاق قبل إدراجها بالصرف.
@@ -1222,12 +1226,14 @@ export function DashboardView() {
                 <div className="p-3 bg-slate-100/70 rounded-xl border border-slate-200 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900">كمال حامد عثمان الصعيدي (EHS-112)</span>
+                      <span className="font-bold text-slate-900">
+                        كمال حامد عثمان الصعيدي <span className="font-mono text-xs font-normal text-slate-500">(EHS-112)</span>
+                      </span>
                       <span className="text-[10px] bg-slate-200 text-slate-800 font-semibold px-2 py-0.5 rounded-md">
                         ملف مغلق (زال الاستحقاق نهائياً)
                       </span>
                     </div>
-                    <span className="text-[11px] font-mono text-slate-500">الجمالية</span>
+                    <span className="text-[11px] text-slate-500 font-medium">الجمالية</span>
                   </div>
                   <p className="text-slate-600 text-[11.5px] leading-relaxed">
                     <strong>السبب الموثق:</strong> تم إغلاق الملف رسمياً لزوال الاستحقاق بعد تخرج الابن وتعيينه بوظيفة محاسب براتب مستقر (7,500 ج.م)، وأصبح دخل الأسرة كافياً ومستقلاً ولا تحتاج إلى معونات.

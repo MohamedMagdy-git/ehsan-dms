@@ -189,17 +189,16 @@ export function PWAInstallWidget({ collapsed = false }: PWAInstallWidgetProps) {
           <circle cx="160" cy="20" r="50" fill="#10b981" opacity="0.08" />
         </svg>
 
-        {/* Top Header: Circular Emblem + Subtle Close Button */}
+        {/* Top Header: Sleek Smartphone Icon + Subtle Close Button */}
         <div className="relative z-10 flex items-center justify-between">
-          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#005756] font-black text-sm shadow-md ring-2 ring-white/10 shrink-0">
-            {/* System monogram / icon */}
-            <span className="font-bold text-base leading-none">إ</span>
+          <div className="w-8 h-8 rounded-full bg-white/15 border border-white/20 flex items-center justify-center text-white shadow-xs shrink-0">
+            <Smartphone size={16} className="text-white" />
           </div>
 
           <button
             type="button"
             onClick={handleDismiss}
-            className="w-6 h-6 rounded-full flex items-center justify-center text-teal-200/60 hover:text-white hover:bg-white/10 active:scale-90 transition-all cursor-pointer"
+            className="w-6 h-6 rounded-full flex items-center justify-center text-teal-200/70 hover:text-white hover:bg-white/15 active:scale-90 transition-all cursor-pointer"
             title="إخفاء التنبيه"
             aria-label="إخفاء التنبيه"
           >
@@ -217,12 +216,12 @@ export function PWAInstallWidget({ collapsed = false }: PWAInstallWidgetProps) {
           </p>
         </div>
 
-        {/* Pill Action Button (CTA) */}
+        {/* Action Button (CTA) */}
         <div className="relative z-10 mt-3.5">
           <button
             type="button"
             onClick={handleInstallClick}
-            className="w-full py-2.5 rounded-full font-bold text-xs sm:text-sm bg-[#00665c] hover:bg-[#028476] active:bg-[#004d40] text-white shadow-md shadow-teal-950/40 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full py-2 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white shadow-xs transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.01] active:scale-[0.98]"
           >
             <Download size={14} className="shrink-0" />
             <span>تثبيت الآن</span>

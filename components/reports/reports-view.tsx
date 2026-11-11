@@ -310,8 +310,10 @@ export function ReportsView() {
                         {/* 2. اسم الحالة وشهرتها */}
                         <td className="py-3 px-4 whitespace-nowrap">
                           <div className="font-bold text-slate-900">{displayName}</div>
-                          <div className="text-[11px] font-mono text-slate-400 mt-0.5">
-                            {item.caseCode} · الباحث: {caseObj?.assignedResearcher || 'غير محدد'}
+                          <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5">
+                            <span className="font-mono font-semibold text-slate-700">{item.caseCode}</span>
+                            <span>·</span>
+                            <span>الباحث: {caseObj?.assignedResearcher || 'غير محدد'}</span>
                           </div>
                         </td>
 
@@ -366,12 +368,17 @@ export function ReportsView() {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <div className="font-bold text-sm text-slate-900">{displayName}</div>
-                        <div className="text-[11px] font-mono text-slate-400 mt-0.5">
-                          #{idx + 1} · {item.caseCode} · {caseObj?.assignedResearcher || 'غير محدد'}
+                        <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono text-slate-400 font-semibold">#{idx + 1}</span>
+                          <span>·</span>
+                          <span className="font-mono font-semibold text-teal-800">{item.caseCode}</span>
+                          <span>·</span>
+                          <span>الباحث: {caseObj?.assignedResearcher || 'غير محدد'}</span>
                         </div>
                       </div>
-                      <div className="font-mono font-black text-sm text-[#005756] shrink-0 bg-teal-50 px-2 py-1 rounded-lg">
-                        {item.approvedAmount.toLocaleString('ar-EG')} ج.م
+                      <div className="font-bold text-sm text-[#005756] shrink-0 bg-teal-50 px-2 py-1 rounded-lg">
+                        <span className="font-mono tabular-nums font-black">{item.approvedAmount.toLocaleString('ar-EG')}</span>
+                        <span className="text-xs mr-0.5"> ج.م</span>
                       </div>
                     </div>
 

@@ -688,8 +688,9 @@ export function AllocationView() {
                               </span>
                             )}
                           </div>
-                          <div className="text-[11px] font-mono text-slate-400 mt-0.5">
-                            {item.caseCode} {c?.secondaryName && `· شهرة: ${c.secondaryName}`}
+                          <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono font-semibold text-slate-700">{item.caseCode}</span>
+                            {c?.secondaryName && <span>· شهرة: {c.secondaryName}</span>}
                           </div>
                         </td>
 
@@ -869,8 +870,12 @@ export function AllocationView() {
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] font-mono text-slate-400 mt-0.5">
-                        {item.caseCode} · الرقم القومي: {c?.nationalId || 'مرفق'} · الباحث: {c?.assignedResearcher || 'غير محدد'}
+                      <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono font-semibold text-teal-800">{item.caseCode}</span>
+                        <span>·</span>
+                        <span>الرقم القومي: <span className="font-mono tabular-nums">{c?.nationalId || 'مرفق'}</span></span>
+                        <span>·</span>
+                        <span>الباحث: {c?.assignedResearcher || 'غير محدد'}</span>
                       </div>
                     </div>
 

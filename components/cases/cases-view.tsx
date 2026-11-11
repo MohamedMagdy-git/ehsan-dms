@@ -297,8 +297,8 @@ export function CasesView({ onOpenNewCase }: { onOpenNewCase: () => void }) {
                         <span className="text-xs text-slate-500 font-normal">({c.secondaryName})</span>
                       )}
                     </div>
-                    <div className="text-[11px] font-mono text-slate-500 mt-0.5 flex items-center gap-2">
-                      <span className="font-semibold text-teal-800">{c.code}</span>
+                    <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2">
+                      <span className="font-mono font-semibold text-teal-800">{c.code}</span>
                       <span>·</span>
                       <span className="text-slate-600">{c.district}</span>
                     </div>
@@ -313,9 +313,10 @@ export function CasesView({ onOpenNewCase }: { onOpenNewCase: () => void }) {
                   <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${getStatusBadgeStyle(c.status)}`}>
                     {getStatusLabel(c.status)}
                   </span>
-                  <div className="text-left font-mono">
+                  <div className="text-left">
                     <span className="text-[11px] text-slate-400 ml-1">فجوة:</span>
-                    <span className="font-bold text-slate-900 text-xs">{c.financials.netFinancialGap.toLocaleString('ar-EG')} ج.م</span>
+                    <span className="font-bold text-slate-900 text-xs font-mono tabular-nums">{c.financials.netFinancialGap.toLocaleString('ar-EG')}</span>
+                    <span className="text-xs text-slate-500 mr-0.5"> ج.م</span>
                   </div>
                 </div>
 
@@ -417,8 +418,8 @@ export function CasesView({ onOpenNewCase }: { onOpenNewCase: () => void }) {
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] font-mono text-slate-500 mt-0.5 flex items-center gap-2">
-                        <span className="font-semibold text-teal-800">{c.code}</span>
+                      <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2">
+                        <span className="font-mono font-semibold text-teal-800">{c.code}</span>
                         {c.vulnerability.isOrphanHousehold && (
                           <span className="text-amber-700">· أيتام ({c.vulnerability.orphanCount})</span>
                         )}
