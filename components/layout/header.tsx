@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { AppUserRole } from '@/types';
 import { NetworkStatusBadge } from '@/components/common/network-status-badge';
-import { PWAInstallButton } from '@/components/common/pwa-install-button';
 import { getSectionMeta } from '@/lib/navigation-config';
 
 interface HeaderProps {
@@ -117,11 +116,8 @@ export function Header({
         </div>
       </div>
 
-      {/* Zone 2: Operational Controls (Network Status, PWA Install & User Profile) */}
+      {/* Zone 2: Operational Controls (Network Status & User Profile) */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* PWA In-App Install Prompt */}
-        <PWAInstallButton />
-
         {/* Live Network & Offline Sync Status */}
         <NetworkStatusBadge onTriggerSync={triggerSync} isSyncing={isSyncing} />
 

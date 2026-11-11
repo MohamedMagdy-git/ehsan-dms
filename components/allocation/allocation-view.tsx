@@ -24,6 +24,7 @@ import {
   CheckCircle,
   FileText,
   UserCheck,
+  ChevronDown,
 } from 'lucide-react';
 import { exportMonthlyAllocationToExcel } from '@/services/excel-export';
 import { getPriorityLabel } from '@/services/scoring-engine';
@@ -253,26 +254,29 @@ export function AllocationView() {
         {/* Header Actions */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Cycle Dropdown */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-700 shadow-2xs">
+          <div className="flex items-center gap-1.5 px-3 h-10 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-700 shadow-2xs">
             <Calendar size={14} className="text-teal-700 shrink-0" />
-            <span className="text-slate-400 font-medium text-[11px]">الدورة:</span>
-            <select
-              value={currentPeriod}
-              onChange={(e) => {
-                const selected = e.target.value;
-                setCurrentPeriod(selected);
-                if (!allocations[selected]) {
-                  generateOrRefreshAllocation(selected);
-                }
-              }}
-              className="bg-transparent font-bold text-slate-900 focus:outline-hidden cursor-pointer text-xs"
-            >
-              {Object.entries(allocations).map(([key, alloc]) => (
-                <option key={key} value={key}>
-                  {alloc.batchTitle ? `${alloc.batchTitle} (${alloc.periodLabel || key})` : (alloc.periodLabel || key)}
-                </option>
-              ))}
-            </select>
+            <span className="text-slate-400 font-medium text-[11px] shrink-0">الدورة:</span>
+            <div className="relative flex items-center">
+              <select
+                value={currentPeriod}
+                onChange={(e) => {
+                  const selected = e.target.value;
+                  setCurrentPeriod(selected);
+                  if (!allocations[selected]) {
+                    generateOrRefreshAllocation(selected);
+                  }
+                }}
+                className="bg-transparent font-medium text-slate-900 focus:outline-hidden cursor-pointer text-sm pr-1 pl-6 appearance-none"
+              >
+                {Object.entries(allocations).map(([key, alloc]) => (
+                  <option key={key} value={key}>
+                    {alloc.batchTitle ? `${alloc.batchTitle} (${alloc.periodLabel || key})` : (alloc.periodLabel || key)}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute left-0.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
           </div>
 
           {/* Excel Export Button */}
@@ -357,13 +361,13 @@ export function AllocationView() {
         {/* Top: Batch Title, Execution Date, Coverage Months */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-start pb-4 border-b border-slate-100">
           {/* Field 1: Batch Title (e.g. دفعة شهري أكتوبر ونوفمبر 2026) */}
-          <div className="md:col-span-6 space-y-1.5">
-            <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+          <div className="md:col-span-6 space-y-1">
+            <label className="text-xs font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
               <Tag size={13} className="text-teal-700" />
               <span>مسمى الدفعة (مثال: دفعة شهري أكتوبر ونوفمبر 2026)</span>
             </label>
             {isApproved ? (
-              <div className="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900">
+              <div className="h-10 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 flex items-center">
                 {currentAllocation.batchTitle || currentAllocation.periodLabel}
               </div>
             ) : (
@@ -373,7 +377,7 @@ export function AllocationView() {
                   value={currentAllocation.batchTitle || ''}
                   onChange={(e) => updateAllocationBatchConfig(currentPeriod, { batchTitle: e.target.value })}
                   placeholder="مثال: دفعة شهري أكتوبر ونوفمبر 2026"
-                  className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#005756] focus:border-transparent transition"
+                  className="w-full h-10 px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#005756] focus:border-transparent transition"
                 />
                 <div className="flex flex-wrap items-center gap-1">
                   <span className="text-[10px] text-slate-400">اقتراحات:</span>
@@ -398,13 +402,13 @@ export function AllocationView() {
           </div>
 
           {/* Field 2: Execution Date */}
-          <div className="md:col-span-3 space-y-1.5">
-            <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+          <div className="md:col-span-3 space-y-1">
+            <label className="text-xs font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
               <Clock size={13} className="text-teal-700" />
               <span>تاريخ تنفيذ الصرف المقرر</span>
             </label>
             {isApproved ? (
-              <div className="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900">
+              <div className="h-10 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-medium text-slate-900 flex items-center">
                 {currentAllocation.executionDate || `${currentPeriod}-15`}
               </div>
             ) : (
@@ -412,14 +416,14 @@ export function AllocationView() {
                 type="date"
                 value={currentAllocation.executionDate || `${currentPeriod}-15`}
                 onChange={(e) => updateAllocationBatchConfig(currentPeriod, { executionDate: e.target.value })}
-                className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono font-medium text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#005756] focus:border-transparent transition cursor-pointer"
+                className="w-full h-10 px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm font-mono font-medium text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#005756] focus:border-transparent transition cursor-pointer"
               />
             )}
           </div>
 
           {/* Field 3: Coverage Multiplier */}
-          <div className="md:col-span-3 space-y-1.5">
-            <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+          <div className="md:col-span-3 space-y-1">
+            <label className="text-xs font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
               <Repeat size={13} className="text-teal-700" />
               <span>معامل التغطية الزمني</span>
             </label>

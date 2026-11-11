@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useApp } from '@/context/app-context';
-import { UserCheck, Plus, Check, X, UserPlus, AlertCircle } from 'lucide-react';
+import { UserCheck, Plus, Check, X, UserPlus, AlertCircle, ChevronDown } from 'lucide-react';
 
 export interface ResearcherSelectProps {
   value: string;
@@ -94,11 +94,11 @@ export function ResearcherSelect({
   };
 
   return (
-    <div className={`space-y-1.5 ${className}`}>
+    <div className={`space-y-1 ${className}`}>
       {label && (
-        <div className="flex items-center justify-between">
-          <label className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-            <UserCheck size={14} className="text-teal-700 shrink-0" />
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+            <UserCheck size={14} className="text-[#005756] shrink-0" />
             <span>{label}</span>
             {required && <span className="text-rose-600">*</span>}
           </label>
@@ -111,10 +111,10 @@ export function ResearcherSelect({
                 setNewResearcherName('');
                 setInputError('');
               }}
-              className="text-[11px] font-bold text-teal-800 hover:text-teal-950 flex items-center gap-1 cursor-pointer transition-colors"
+              className="text-xs font-semibold text-[#005756] hover:text-[#004241] flex items-center gap-1 cursor-pointer transition-colors"
               title="إضافة باحث جديد للقائمة"
             >
-              <Plus size={12} />
+              <Plus size={13} />
               <span>باحث جديد</span>
             </button>
           )}
@@ -136,10 +136,10 @@ export function ResearcherSelect({
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder="اكتب اسم الباحث الجديد (مثال: أ. أحمد صلاح)..."
-                className={`w-full p-2.5 text-xs bg-white border rounded-lg focus:ring-2 focus:ring-teal-600 focus:outline-hidden transition-all ${
+                className={`w-full h-10 px-3 py-2 text-sm font-medium bg-white border rounded-xl focus:ring-2 focus:ring-[#005756]/20 focus:border-[#005756] focus:outline-hidden transition-all shadow-2xs ${
                   inputError
                     ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-200'
-                    : 'border-teal-400 focus:border-teal-600'
+                    : 'border-slate-300 focus:border-[#005756]'
                 }`}
               />
             </div>
@@ -147,7 +147,7 @@ export function ResearcherSelect({
             <button
               type="button"
               onClick={() => handleConfirmNew()}
-              className="px-3 py-2 bg-teal-800 hover:bg-teal-900 active:bg-teal-950 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer"
+              className="h-10 px-3.5 bg-[#005756] hover:bg-[#004241] active:bg-[#003534] text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer"
               title="تأكيد إضافة الباحث"
             >
               <Check size={14} />
@@ -157,7 +157,7 @@ export function ResearcherSelect({
             <button
               type="button"
               onClick={handleCancelNew}
-              className="px-2.5 py-2 border border-slate-300 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+              className="h-10 px-3 border border-slate-300 hover:bg-slate-100 text-slate-600 rounded-xl text-xs font-semibold transition-colors shrink-0 cursor-pointer"
               title="إلغاء والعودة للقائمة"
             >
               <X size={14} />
@@ -165,12 +165,12 @@ export function ResearcherSelect({
           </div>
 
           {inputError ? (
-            <p className="text-[11px] text-rose-600 flex items-center gap-1 font-medium">
+            <p className="text-[11px] text-rose-600 flex items-center gap-1 font-medium mt-1">
               <AlertCircle size={11} className="shrink-0" />
               <span>{inputError}</span>
             </p>
           ) : (
-            <p className="text-[10px] text-slate-500">
+            <p className="text-[11px] text-slate-400 mt-0.5">
               اضغط Enter للحفظ السريع أو Esc للإلغاء
             </p>
           )}
@@ -183,7 +183,7 @@ export function ResearcherSelect({
             onChange={handleSelectChange}
             disabled={disabled}
             required={required}
-            className="w-full p-2.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-teal-600 focus:outline-hidden font-medium text-slate-800 transition-colors disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer"
+            className="w-full h-10 px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-[#005756]/20 focus:border-[#005756] focus:outline-hidden font-medium text-slate-800 transition-colors disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer appearance-none pr-3 pl-8 shadow-2xs"
           >
             <option value="" disabled={required}>
               {placeholder}
@@ -199,16 +199,17 @@ export function ResearcherSelect({
 
             <option
               value="__ADD_NEW__"
-              className="font-bold text-teal-800 bg-teal-50/80 py-1"
+              className="font-bold text-[#005756] bg-teal-50/80 py-1"
             >
               ➕ إضافة باحث ميداني جديد...
             </option>
           </select>
+          <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
       )}
 
       {helperText && !isAddingNew && (
-        <p className="text-[11px] text-slate-500">{helperText}</p>
+        <p className="text-xs text-slate-500 mt-1">{helperText}</p>
       )}
     </div>
   );

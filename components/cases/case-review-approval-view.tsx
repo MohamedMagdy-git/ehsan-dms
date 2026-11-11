@@ -23,6 +23,7 @@ import {
   LayoutGrid,
   List,
   X,
+  ChevronDown,
 } from 'lucide-react';
 import { BeneficiaryCase, PriorityLevel } from '@/types';
 import { CaseReviewApprovalModal } from './case-review-approval-modal';
@@ -316,21 +317,21 @@ export function CaseReviewApprovalView() {
       <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           <div className="relative">
-            <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="بحث بالاسم، الكود، أو الباحث..."
-              className="w-full pr-9 pl-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-700 focus:bg-white focus:outline-hidden"
+              className="w-full h-10 pr-9 pl-3 py-2 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl focus:border-[#005756] focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-[#005756] transition"
             />
           </div>
 
-          <div>
+          <div className="relative">
             <select
               value={selectedPriority}
               onChange={(e) => setSelectedPriority(e.target.value)}
-              className="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 cursor-pointer"
+              className="w-full h-10 px-3 py-2 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl text-slate-800 pr-3 pl-8 appearance-none focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] cursor-pointer shadow-2xs"
             >
               <option value="all">كافة مستويات الأولوية</option>
               <option value="critical">حرجة</option>
@@ -338,13 +339,14 @@ export function CaseReviewApprovalView() {
               <option value="medium">متوسطة</option>
               <option value="low">منخفضة</option>
             </select>
+            <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          <div>
+          <div className="relative">
             <select
               value={selectedResearcher}
               onChange={(e) => setSelectedResearcher(e.target.value)}
-              className="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 cursor-pointer"
+              className="w-full h-10 px-3 py-2 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl text-slate-800 pr-3 pl-8 appearance-none focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] cursor-pointer shadow-2xs"
             >
               <option value="all">كافة الباحثين الميدانيين</option>
               {researchersList.map((res) => (
@@ -353,6 +355,7 @@ export function CaseReviewApprovalView() {
                 </option>
               ))}
             </select>
+            <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
 

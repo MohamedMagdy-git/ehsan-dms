@@ -15,6 +15,7 @@ import {
   ArrowUpRight,
   User,
   ShieldCheck,
+  ChevronDown,
 } from 'lucide-react';
 import { DonationRestriction, DonationChannel } from '@/types';
 import { InfoTooltip } from '@/components/common/info-tooltip';
@@ -225,24 +226,24 @@ export function DonationsView({ onOpenNewDonation }: DonationsViewProps) {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs space-y-3">
+      <div className="p-4 bg-white rounded-2xl border border-slate-200/60 ring-1 ring-black/[0.02] shadow-sm shadow-slate-950/5 space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div className="relative">
-            <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               type="text"
-              placeholder="البحث بالمتبرع، الكود المرجعي، أو اسم الحالة المقيدة..."
+              placeholder="البحث بالمتبرع، الكود المرجعي، أو اسم الحالة..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pr-9 pl-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-hidden focus:border-teal-600"
+              className="w-full h-10 pr-9 pl-3 py-2 text-sm font-medium border border-slate-200 rounded-xl focus:outline-hidden focus:border-teal-600 focus:ring-1 focus:ring-teal-600 bg-slate-50/50"
             />
           </div>
 
-          <div>
+          <div className="relative">
             <select
               value={shariaFilter}
               onChange={(e) => setShariaFilter(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-hidden"
+              className="w-full h-10 px-3 py-2 text-sm font-medium border border-slate-200 rounded-xl focus:outline-hidden focus:border-teal-600 bg-slate-50/50 pr-3 pl-8 appearance-none text-slate-800"
             >
               <option value="all">كل المصارف الشرعية</option>
               {shariaCategories.map((cat) => (
@@ -251,26 +252,28 @@ export function DonationsView({ onOpenNewDonation }: DonationsViewProps) {
                 </option>
               ))}
             </select>
+            <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          <div>
+          <div className="relative">
             <select
               value={restrictionFilter}
               onChange={(e) => setRestrictionFilter(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-hidden"
+              className="w-full h-10 px-3 py-2 text-sm font-medium border border-slate-200 rounded-xl focus:outline-hidden focus:border-teal-600 bg-slate-50/50 pr-3 pl-8 appearance-none text-slate-800"
             >
               <option value="all">كل قيود التبرعات</option>
               <option value="unrestricted">عام غير مقيد (الصندوق العام)</option>
               <option value="restricted_purpose">مقيد بغرض محدد (طبي/أيتام/سكن)</option>
               <option value="restricted_case">مقيد بالاسم لحالة معينة</option>
             </select>
+            <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          <div>
+          <div className="relative">
             <select
               value={channelFilter}
               onChange={(e) => setChannelFilter(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-hidden"
+              className="w-full h-10 px-3 py-2 text-sm font-medium border border-slate-200 rounded-xl focus:outline-hidden focus:border-teal-600 bg-slate-50/50 pr-3 pl-8 appearance-none text-slate-800"
             >
               <option value="all">كل قنوات الدفع والتحصيل</option>
               <option value="bank_transfer">تحويل بنكي</option>
@@ -279,6 +282,7 @@ export function DonationsView({ onOpenNewDonation }: DonationsViewProps) {
               <option value="cheque">شيك بنكي</option>
               <option value="cash_hand">نقدي يدوي</option>
             </select>
+            <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
       </div>

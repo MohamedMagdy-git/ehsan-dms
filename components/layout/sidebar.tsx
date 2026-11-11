@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   Zap,
   ShieldCheck,
+  HandHeart,
 } from 'lucide-react';
 import { NAVIGATION_SECTIONS } from '@/lib/navigation-config';
 import { PWAInstallWidget } from './pwa-install-widget';
@@ -187,20 +188,20 @@ export function Sidebar({
         <div className="h-16 flex items-center justify-between px-4 border-b border-white/10 shrink-0">
           {!collapsed ? (
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-[#76B837] flex items-center justify-center text-white font-bold text-lg shadow-sm shadow-emerald-950/20">
-                إ
+              <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-400/20 flex items-center justify-center text-teal-300 shadow-xs backdrop-blur-xs shrink-0">
+                <HandHeart size={22} className="text-teal-300" />
               </div>
               <div>
                 <h1 className="font-bold text-base leading-tight tracking-tight text-white">
                   منظومة إحسان
                 </h1>
-                <p className="text-[11px] text-teal-200/80">إدارة الحالات وتخصيص المساعدات</p>
+                <p className="text-xs text-teal-100/70 mt-0.5">كفالة ودعم الأسر</p>
               </div>
             </div>
           ) : (
             <div className="w-full flex justify-center">
-              <div className="w-9 h-9 rounded-xl bg-[#76B837] flex items-center justify-center text-white font-bold text-lg shadow-sm">
-                إ
+              <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-400/20 flex items-center justify-center text-teal-300 shadow-xs">
+                <HandHeart size={22} className="text-teal-300" />
               </div>
             </div>
           )}

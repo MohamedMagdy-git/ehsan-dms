@@ -170,22 +170,22 @@ export function CasesView({ onOpenNewCase }: { onOpenNewCase: () => void }) {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           {/* Search box */}
           <div className="relative md:col-span-2">
-            <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               type="text"
               placeholder="البحث بالاسم، الرقم القومي، كود الحالة، أو الحي..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pr-9 pl-4 py-2 text-xs border border-slate-200 rounded-xl focus:outline-hidden focus:border-teal-600 focus:ring-1 focus:ring-teal-600 bg-slate-50/50"
+              className="w-full h-10 pr-9 pl-4 py-2 text-sm font-medium border border-slate-200 rounded-xl focus:outline-hidden focus:border-teal-600 focus:ring-1 focus:ring-teal-600 bg-slate-50/50"
             />
           </div>
 
           {/* Status filter */}
-          <div>
+          <div className="relative">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-hidden focus:border-teal-600 bg-slate-50/50 font-medium"
+              className="w-full h-10 px-3 py-2 text-sm font-medium border border-slate-200 rounded-xl focus:outline-hidden focus:border-teal-600 bg-slate-50/50 pr-3 pl-8 appearance-none text-slate-800"
             >
               <option value="all">كل الحالات التشغيلية</option>
               <option value="pending_review">بانتظار المراجعة</option>
@@ -198,14 +198,15 @@ export function CasesView({ onOpenNewCase }: { onOpenNewCase: () => void }) {
               <option value="temporarily_suspended">موقوفة مؤقتاً</option>
               <option value="closed">مغلقة / زال الاستحقاق</option>
             </select>
+            <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
           {/* Priority filter */}
-          <div>
+          <div className="relative">
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-hidden focus:border-teal-600 bg-slate-50/50 font-medium"
+              className="w-full h-10 px-3 py-2 text-sm font-medium border border-slate-200 rounded-xl focus:outline-hidden focus:border-teal-600 bg-slate-50/50 pr-3 pl-8 appearance-none text-slate-800"
             >
               <option value="all">كل مستويات الأولوية</option>
               <option value="critical">حرجة وعاجلة جداً</option>
@@ -213,6 +214,7 @@ export function CasesView({ onOpenNewCase }: { onOpenNewCase: () => void }) {
               <option value="medium">أولوية متوسطة</option>
               <option value="low">أولوية اعتيادية</option>
             </select>
+            <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
 
@@ -221,19 +223,22 @@ export function CasesView({ onOpenNewCase }: { onOpenNewCase: () => void }) {
           <div className="flex flex-wrap items-center gap-3">
             {/* Researcher Filter */}
             <div className="flex items-center gap-1.5">
-              <span className="text-slate-500 font-medium">الباحث المسؤول:</span>
-              <select
-                value={researcherFilter}
-                onChange={(e) => setResearcherFilter(e.target.value)}
-                className="py-1 px-2 border border-slate-200 rounded-md text-xs bg-white"
-              >
-                <option value="all">الجميع</option>
-                {researchers.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
+              <span className="text-slate-500 font-medium text-xs">الباحث المسؤول:</span>
+              <div className="relative">
+                <select
+                  value={researcherFilter}
+                  onChange={(e) => setResearcherFilter(e.target.value)}
+                  className="h-8 py-1 pr-2.5 pl-7 border border-slate-200 rounded-lg text-xs font-medium bg-white appearance-none text-slate-800"
+                >
+                  <option value="all">الجميع</option>
+                  {researchers.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute left-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
 
             {/* Overdue Checkbox */}

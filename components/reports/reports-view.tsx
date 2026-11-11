@@ -187,50 +187,56 @@ export function ReportsView() {
         {/* Filter Toolbar & Custody Summary Bento Grid */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
           {/* Batch Selector */}
-          <div className="md:col-span-4 p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-1.5">
-            <span className="text-[11px] font-bold text-slate-500 block flex items-center gap-1.5">
-              <Calendar size={13} className="text-[#005756]" />
+          <div className="md:col-span-4 p-3 sm:p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80">
+            <label className="text-xs font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+              <Calendar size={13} className="text-[#005756] shrink-0" />
               <span>الدفعة الشهرية المعتمدة:</span>
-            </span>
-            <select
-              value={currentPeriod}
-              onChange={(e) => {
-                const selected = e.target.value;
-                setCurrentPeriod(selected);
-                if (!allocations[selected]) {
-                  generateOrRefreshAllocation(selected);
-                }
-              }}
-              className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-hidden focus:border-[#005756] cursor-pointer"
-            >
-              {Object.entries(allocations).map(([key, alloc]) => (
-                <option key={key} value={key}>
-                  {alloc.batchTitle
-                    ? `${alloc.batchTitle} (${alloc.periodLabel || key})`
-                    : alloc.periodLabel || key}
-                </option>
-              ))}
-            </select>
+            </label>
+            <div className="relative">
+              <select
+                value={currentPeriod}
+                onChange={(e) => {
+                  const selected = e.target.value;
+                  setCurrentPeriod(selected);
+                  if (!allocations[selected]) {
+                    generateOrRefreshAllocation(selected);
+                  }
+                }}
+                className="w-full h-10 px-3 py-2 text-sm font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] pr-3 pl-8 appearance-none transition-colors shadow-2xs cursor-pointer"
+              >
+                {Object.entries(allocations).map(([key, alloc]) => (
+                  <option key={key} value={key}>
+                    {alloc.batchTitle
+                      ? `${alloc.batchTitle} (${alloc.periodLabel || key})`
+                      : alloc.periodLabel || key}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
           </div>
 
           {/* Researcher Selector */}
-          <div className="md:col-span-4 p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-1.5">
-            <span className="text-[11px] font-bold text-slate-500 block flex items-center gap-1.5">
-              <User size={13} className="text-[#005756]" />
+          <div className="md:col-span-4 p-3 sm:p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80">
+            <label className="text-xs font-semibold text-slate-500 flex items-center gap-1.5 mb-1">
+              <User size={13} className="text-[#005756] shrink-0" />
               <span>الباحث الميداني المسؤول:</span>
-            </span>
-            <select
-              value={selectedResearcher}
-              onChange={(e) => setSelectedResearcher(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-hidden focus:border-[#005756] cursor-pointer"
-            >
-              <option value="all">كافة الباحثين (الكشف الميداني الشامل)</option>
-              {researchers.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
+            </label>
+            <div className="relative">
+              <select
+                value={selectedResearcher}
+                onChange={(e) => setSelectedResearcher(e.target.value)}
+                className="w-full h-10 px-3 py-2 text-sm font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] pr-3 pl-8 appearance-none transition-colors shadow-2xs cursor-pointer"
+              >
+                <option value="all">كافة الباحثين (الكشف الميداني الشامل)</option>
+                {researchers.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
           </div>
 
           {/* Custody Amount Box */}
@@ -314,7 +320,7 @@ export function ReportsView() {
                         </td>
 
                         {/* 4. ملاحظات الإدارة والتسليم الميداني (حقل إدخال مباشر) */}
-                        <td className="py-2.5 px-4">
+                        <td className="py-2 px-4">
                           <input
                             type="text"
                             value={currentNote}
@@ -326,7 +332,7 @@ export function ReportsView() {
                               }));
                             }}
                             placeholder="اكتب ملاحظة للباحث بالشارع (مثال: تسليم باليد للأم، التأكد من البطاقة)..."
-                            className="w-full px-3 py-1.5 bg-slate-50/70 hover:bg-white focus:bg-white border border-slate-200 focus:border-[#005756] rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-[#005756] transition"
+                            className="w-full h-10 px-3 py-2 bg-slate-50/70 hover:bg-white focus:bg-white border border-slate-200 focus:border-[#005756] rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-[#005756] transition"
                           />
                         </td>
                       </tr>
@@ -366,8 +372,8 @@ export function ReportsView() {
                       </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 block">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500 block mb-1">
                         ملاحظة التسليم للباحث:
                       </label>
                       <input
@@ -381,7 +387,7 @@ export function ReportsView() {
                           }));
                         }}
                         placeholder="اكتب ملاحظة التسليم الميداني..."
-                        className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:border-[#005756]"
+                        className="w-full h-10 px-3 py-2 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] transition"
                       />
                     </div>
                   </div>
