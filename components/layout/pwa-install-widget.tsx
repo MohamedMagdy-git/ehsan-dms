@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useSyncExternalStore } from 'react';
-import { Download, X, Share2, PlusSquare, HandHeart } from 'lucide-react';
+import { Download, X, Share2, PlusSquare, Smartphone } from 'lucide-react';
 import { usePWAInstall } from '@/hooks/use-pwa-install';
 
 const STORAGE_KEY = 'ehsan_pwa_install_dismissed';
@@ -90,7 +90,7 @@ export function PWAInstallWidget({ collapsed = false }: PWAInstallWidgetProps) {
           title="تثبيت تطبيق إحسان"
           aria-label="تثبيت تطبيق إحسان"
         >
-          <HandHeart size={19} className="text-teal-300 group-hover:text-white transition-colors" />
+          <Download size={18} className="text-teal-200 group-hover:text-white transition-colors" />
         </button>
 
         {/* iOS Instruction Modal */}
@@ -107,7 +107,7 @@ export function PWAInstallWidget({ collapsed = false }: PWAInstallWidgetProps) {
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-800 flex items-center justify-center font-bold">
-                    <HandHeart size={20} className="text-[#005756]" />
+                    <Smartphone size={20} />
                   </div>
                   <h3 className="font-bold text-sm text-slate-900">تثبيت تطبيق إحسان</h3>
                 </div>
@@ -189,10 +189,10 @@ export function PWAInstallWidget({ collapsed = false }: PWAInstallWidgetProps) {
           <circle cx="160" cy="20" r="50" fill="#10b981" opacity="0.08" />
         </svg>
 
-        {/* Top Header: Official HandHeart Logo + Subtle Close Button */}
+        {/* Top Header: Sleek Smartphone Icon + Subtle Close Button */}
         <div className="relative z-10 flex items-center justify-between">
-          <div className="w-8 h-8 rounded-xl bg-teal-500/20 border border-teal-400/30 flex items-center justify-center text-teal-300 shadow-xs shrink-0">
-            <HandHeart size={18} className="text-teal-300" />
+          <div className="w-8 h-8 rounded-full bg-white/15 border border-white/20 flex items-center justify-center text-white shadow-xs shrink-0">
+            <Smartphone size={16} className="text-white" />
           </div>
 
           <button
@@ -243,7 +243,7 @@ export function PWAInstallWidget({ collapsed = false }: PWAInstallWidgetProps) {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-800 flex items-center justify-center font-bold">
-                  <HandHeart size={20} className="text-[#005756]" />
+                  <Smartphone size={20} />
                 </div>
                 <h3 className="font-bold text-sm text-slate-900">تثبيت تطبيق إحسان</h3>
               </div>
