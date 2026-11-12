@@ -1964,7 +1964,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                         relation: m.relation,
                         age: Number(m.age) || 30,
                         educationLevel: m.educationLevel || 'متوسط',
-                        healthStatus: 'سليم',
+                        healthStatus: m.chronicIllness?.conditionName
+                          ? `مريض مزمن (${m.chronicIllness.conditionName})`
+                          : 'سليم',
                         workStatus: m.currentJob || 'لا يعمل',
                         maritalStatus: m.maritalStatus,
                         workCapacity: m.workCapacity,
@@ -2022,7 +2024,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             relation: m.relation,
             age: Number(m.age) || 30,
             educationLevel: m.educationLevel || 'متوسط',
-            healthStatus: 'سليم',
+            healthStatus: m.chronicIllness?.conditionName
+              ? `مريض مزمن (${m.chronicIllness.conditionName})`
+              : 'سليم',
             workStatus: m.currentJob || 'لا يعمل',
             maritalStatus: m.maritalStatus,
             workCapacity: m.workCapacity,
@@ -2048,7 +2052,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             foodInsecurityLevel: 'moderate',
             workCapacity: 'partial',
             confidenceScore: 95,
-            incompleteDocuments: !report.attachments?.nationalIdsAdults,
+            incompleteDocuments: !report.attachments?.nationalIdsAdults || !report.attachments?.insurancePrintOut,
             exceptionApproved: false,
           },
           notes: `[بحث حالة ميداني]: ${report.caseSummary || ''}\n${report.additionalNotesAndRemarks || ''}`.trim(),

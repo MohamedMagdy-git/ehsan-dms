@@ -32,7 +32,7 @@ import {
   HeartHandshake,
   Eye,
 } from 'lucide-react';
-import { CaseStudyReport, CaseStudyFamilyMember, PriorityLevel } from '@/types';
+import { CaseStudyReport, CaseStudyFamilyMember, PriorityLevel, HousingFacilities } from '@/types';
 import { ResearcherSelect } from '@/components/cases/researcher-select';
 
 const DRAFT_STORAGE_KEY = 'ehsan_case_study_draft_v1';
@@ -111,29 +111,43 @@ export function CaseStudyModal() {
   const [caseSummary, setCaseSummary] = useState('');
   const [landmarkAddress, setLandmarkAddress] = useState('');
 
+  // مرافق السكن والأجهزة الأساسية
+  const [roofType, setRoofType] = useState<'concrete' | 'wood_straw' | 'damaged'>('wood_straw');
+  const [waterConnection, setWaterConnection] = useState<'independent' | 'shared' | 'none'>('shared');
+  const [electricityMeter, setElectricityMeter] = useState<'formal' | 'code_meter' | 'none'>('code_meter');
+  const [hasPrivateBathroom, setHasPrivateBathroom] = useState<boolean>(true);
+  const [basicAppliances, setBasicAppliances] = useState<string[]>(['غسالة', 'بوتاجاز']);
+
   // 1. أفراد الأسرة بنظام البطاقة الفردية (Member Sub-flow)
   const [familyMembers, setFamilyMembers] = useState<CaseStudyFamilyMember[]>([
     {
       id: 'mem-init-1',
       orderNumber: 1,
       name: '',
-      relation: 'رب الأسرة',
+      relation: 'نفس الحالة (صاحب الملف الأساسي)',
       maritalStatus: 'متزوج',
       age: 46,
       educationLevel: 'ابتدائي',
       workCapacity: 'عاجز جزئياً أو مسن',
       currentJob: 'عمالة يومية غير منتظمة',
+      isPrimaryCaregiver: true,
+      chronicIllness: {
+        conditionName: 'انزلاق غضروفي وخشونة ركبتين',
+        monthlyCost: 350,
+        isCoveredByStateInsurance: false,
+      },
     },
     {
       id: 'mem-init-2',
       orderNumber: 2,
       name: '',
-      relation: 'زوجة',
+      relation: 'الزوج / الزوجة',
       maritalStatus: 'متزوج',
       age: 41,
       educationLevel: 'أمية',
       workCapacity: 'قادر على العمل',
       currentJob: 'ربة منزل',
+      isPrimaryCaregiver: false,
     },
   ]);
   const [activeMemberIndex, setActiveMemberIndex] = useState<number>(0);
@@ -185,6 +199,17 @@ export function CaseStudyModal() {
       status: 'completed',
     },
   ]);
+
+  // قائمة التحقق الرسمية للمستندات والثبوتيات (Official Checklist)
+  const [checklist, setChecklist] = useState({
+    nationalIdsAdults: true,
+    birthCertificatesMinors: true,
+    insurancePrintOut: true,
+    utilityReceipt: true,
+    leaseContractOrRentReceipt: false,
+    recentMedicalProof: true,
+    deathOrDivorceCertificates: false,
+  });
 
   const [additionalNotesAndRemarks, setAdditionalNotesAndRemarks] = useState(
     'الحالة مستحقة للدعم المالي الشهري العاجل مع سداد متأخرات الإيجار لتفادي الطرد وتوفير علاج شهري.'
@@ -322,7 +347,7 @@ export function CaseStudyModal() {
             id: m.id || `mem-${idx}`,
             orderNumber: idx + 1,
             name: m.name || '',
-            relation: m.relation || 'ابن',
+            relation: m.relation || 'الابن / الابنة',
             maritalStatus: m.maritalStatus || 'أعزب',
             age: m.age || 20,
             educationLevel: m.educationLevel || 'إعدادي',
@@ -411,6 +436,12 @@ export function CaseStudyModal() {
       if (d.housingStatus) setHousingStatus(d.housingStatus);
       if (d.caseSummary) setCaseSummary(d.caseSummary);
       if (d.landmarkAddress) setLandmarkAddress(d.landmarkAddress);
+      if (d.roofType) setRoofType(d.roofType);
+      if (d.waterConnection) setWaterConnection(d.waterConnection);
+      if (d.electricityMeter) setElectricityMeter(d.electricityMeter);
+      if (d.hasPrivateBathroom !== undefined) setHasPrivateBathroom(d.hasPrivateBathroom);
+      if (d.basicAppliances && Array.isArray(d.basicAppliances)) setBasicAppliances(d.basicAppliances);
+      if (d.checklist) setChecklist((prev) => ({ ...prev, ...d.checklist }));
       if (d.familyMembers && Array.isArray(d.familyMembers)) setFamilyMembers(d.familyMembers);
       if (d.basicIncomeAmount !== undefined) setBasicIncomeAmount(d.basicIncomeAmount);
       if (d.additionalIncomeAmount !== undefined) setAdditionalIncomeAmount(d.additionalIncomeAmount);
@@ -458,6 +489,12 @@ export function CaseStudyModal() {
           housingStatus,
           caseSummary,
           landmarkAddress,
+          roofType,
+          waterConnection,
+          electricityMeter,
+          hasPrivateBathroom,
+          basicAppliances,
+          checklist,
           familyMembers,
           basicIncomeAmount,
           additionalIncomeAmount,
@@ -497,6 +534,12 @@ export function CaseStudyModal() {
     housingStatus,
     caseSummary,
     landmarkAddress,
+    roofType,
+    waterConnection,
+    electricityMeter,
+    hasPrivateBathroom,
+    basicAppliances,
+    checklist,
     familyMembers,
     basicIncomeAmount,
     additionalIncomeAmount,
@@ -527,12 +570,13 @@ export function CaseStudyModal() {
       id: `mem-${Date.now()}-${newIdx + 1}`,
       orderNumber: newIdx + 1,
       name: '',
-      relation: 'ابن',
+      relation: 'الابن / الابنة',
       maritalStatus: 'أعزب',
       age: 14,
       educationLevel: 'إعدادي',
       workCapacity: 'طفل / قاصر',
       currentJob: 'طالب',
+      isPrimaryCaregiver: false,
     };
     setFamilyMembers((prev) => [...prev, newMember]);
     setActiveMemberIndex(newIdx);
@@ -732,6 +776,13 @@ export function CaseStudyModal() {
       housingStatus,
       caseSummary: caseSummary.trim(),
       landmarkAddress: landmarkAddress.trim() || undefined,
+      housingFacilities: {
+        roofType,
+        waterConnection,
+        electricityMeter,
+        hasPrivateBathroom,
+        basicAppliancesAvailable: basicAppliances,
+      },
       familyMembers,
       basicIncomeSources,
       basicIncomeAmount: Number(basicIncomeAmount) || 0,
@@ -748,10 +799,13 @@ export function CaseStudyModal() {
       monthlyMedicalCosts: Number(monthlyMedicalCosts) || 0,
       stateHealthInsuranceDetails: stateHealthInsurance,
       attachments: {
-        nationalIdsAdults: true,
-        birthCertificatesMinors: true,
-        deathOrDivorceCertificates: false,
-        recentMedicalProof: true,
+        nationalIdsAdults: checklist.nationalIdsAdults,
+        birthCertificatesMinors: checklist.birthCertificatesMinors,
+        deathOrDivorceCertificates: checklist.deathOrDivorceCertificates,
+        recentMedicalProof: checklist.recentMedicalProof,
+        insurancePrintOut: checklist.insurancePrintOut,
+        utilityReceipt: checklist.utilityReceipt,
+        leaseContractOrRentReceipt: checklist.leaseContractOrRentReceipt,
         uploadedFiles: uploadedDocs.map((d) => ({
           id: d.id,
           title: d.customDescription ? `${d.title} - ${d.customDescription}` : d.title,
@@ -904,9 +958,9 @@ export function CaseStudyModal() {
         </div>
 
         {/* ==================================================== */}
-        {/* 2. CENTER BODY (Single Question - ZERO SCROLL)        */}
+        {/* 2. CENTER BODY (Single Question Flow)                 */}
         {/* ==================================================== */}
-        <div className="flex-1 flex flex-col justify-center px-6 py-3 overflow-hidden">
+        <div className="flex-1 flex flex-col px-4 sm:px-6 py-3 overflow-y-auto overscroll-contain">
           {isSuccessSubmitted ? (
             /* Success Screen */
             <div className="text-center space-y-4 animate-in zoom-in-95 duration-200">
@@ -957,7 +1011,11 @@ export function CaseStudyModal() {
               </button>
             </div>
           ) : (
-            <div className="space-y-3.5 animate-in fade-in duration-200">
+            <div
+              className={`space-y-3.5 animate-in fade-in duration-200 ${
+                currentQuestion === 22 ? 'flex-1 flex flex-col min-h-0' : 'my-auto'
+              }`}
+            >
               
               {/* Q1: Case Name */}
               {currentQuestion === 1 && (
@@ -1289,30 +1347,146 @@ export function CaseStudyModal() {
                 </div>
               )}
 
-              {/* Q9: Housing Description */}
+              {/* Q9: Housing Facilities & Description */}
               {currentQuestion === 9 && (
                 <div className="space-y-3">
                   <div className="space-y-1">
                     <span className="text-xs font-bold text-teal-800 flex items-center gap-1.5">
                       <Home size={15} />
-                      <span>المعاينة الميدانية</span>
+                      <span>المعاينة الميدانية ومرافق السكن</span>
                     </span>
                     <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
-                      صف حالة السكن والبيئة المحيطة
+                      مرافق السكن وتوصيف البيئة المعيشية
                     </h2>
                     <p className="text-xs text-slate-500">
-                      حالة الجدران والأسقف ودورة المياه والأثاث.
+                      حدد حالة المرافق والأجهزة الأساسية واكتب وصف المسكن.
                     </p>
                   </div>
 
+                  {/* Housing Facilities Quick Chips */}
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5">
+                    {/* Roof Type */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">حالة السقف</label>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {[
+                          { id: 'concrete' as const, label: 'خرساني مسلّح' },
+                          { id: 'wood_straw' as const, label: 'خشب وقش / صاج' },
+                          { id: 'damaged' as const, label: 'متصدع / متهدم' },
+                        ].map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setRoofType(opt.id)}
+                            className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all border text-center cursor-pointer ${
+                              roofType === opt.id
+                                ? 'bg-teal-700 border-teal-700 text-white shadow-xs'
+                                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Water & Electricity */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700 block mb-1">مياه الشرب</label>
+                        <select
+                          value={waterConnection}
+                          onChange={(e) => setWaterConnection(e.target.value as any)}
+                          className="w-full p-2 text-xs bg-white border border-slate-200 rounded-xl font-medium cursor-pointer"
+                        >
+                          <option value="independent">عداد مياه مستقل</option>
+                          <option value="shared">وصلة مياه مشتركة</option>
+                          <option value="none">بدون مياه بالمنزل</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-700 block mb-1">مصدر الكهرباء</label>
+                        <select
+                          value={electricityMeter}
+                          onChange={(e) => setElectricityMeter(e.target.value as any)}
+                          className="w-full p-2 text-xs bg-white border border-slate-200 rounded-xl font-medium cursor-pointer"
+                        >
+                          <option value="formal">عداد رسمي مسجل</option>
+                          <option value="code_meter">عداد كودي / ممارسة</option>
+                          <option value="none">بدون عداد كهرباء</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Private Bathroom Toggle */}
+                    <div className="flex items-center justify-between p-2 bg-white rounded-xl border border-slate-200">
+                      <span className="text-xs font-bold text-slate-800">دورة مياه خاصة ومستقلة صالحة</span>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setHasPrivateBathroom(true)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            hasPrivateBathroom ? 'bg-teal-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          نعم
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setHasPrivateBathroom(false)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            !hasPrivateBathroom ? 'bg-rose-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          مشتركة / غير صالحة
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Basic Appliances Chips */}
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                        الأجهزة الأساسية المتوفرة بالمنزل
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {['ثلاجة', 'غسالة', 'بوتاجاز', 'أسرّة كافية'].map((appliance) => {
+                          const isSelected = basicAppliances.includes(appliance);
+                          return (
+                            <button
+                              key={appliance}
+                              type="button"
+                              onClick={() => {
+                                setBasicAppliances((prev) =>
+                                  isSelected ? prev.filter((a) => a !== appliance) : [...prev, appliance]
+                                );
+                              }}
+                              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1 cursor-pointer ${
+                                isSelected
+                                  ? 'bg-emerald-50 border-emerald-600 text-emerald-900 shadow-2xs'
+                                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                              }`}
+                            >
+                              <Check
+                                size={12}
+                                className={isSelected ? 'text-emerald-700 stroke-[3]' : 'text-slate-300'}
+                              />
+                              <span>{appliance}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Detailed Summary Textarea */}
                   <div className="relative">
                     <textarea
-                      rows={4}
-                      autoFocus
+                      rows={3}
                       value={caseSummary}
                       onChange={(e) => setCaseSummary(e.target.value)}
-                      placeholder="اكتب المعاينة الميدانية للمسكن..."
-                      className="w-full p-3.5 pl-12 text-xs sm:text-sm font-medium bg-slate-50 border-2 border-slate-200 rounded-2xl focus:border-teal-700 focus:bg-white focus:outline-hidden text-slate-900 shadow-xs leading-relaxed"
+                      placeholder="اكتب المعاينة الميدانية التكميلية لحالة الجدران والبيئة المحيطة..."
+                      className="w-full p-3 pl-12 text-xs sm:text-sm font-medium bg-slate-50 border-2 border-slate-200 rounded-2xl focus:border-teal-700 focus:bg-white focus:outline-hidden text-slate-900 shadow-xs leading-relaxed"
                     />
                     <button
                       type="button"
@@ -1346,14 +1520,28 @@ export function CaseStudyModal() {
                     </p>
                   </div>
 
-                  <input
-                    type="text"
-                    autoFocus
-                    value={landmarkAddress}
-                    onChange={(e) => setLandmarkAddress(e.target.value)}
-                    placeholder="مثال: بجوار مسجد النور، أمام صيدلية الأمل"
-                    className="w-full p-4 text-xs sm:text-sm font-semibold bg-slate-50 border-2 border-slate-200 rounded-2xl focus:border-teal-700 focus:bg-white focus:outline-hidden text-slate-900 shadow-xs"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={landmarkAddress}
+                      onChange={(e) => setLandmarkAddress(e.target.value)}
+                      placeholder="مثال: بجوار مسجد النور، أمام صيدلية الأمل"
+                      className="w-full p-4 pl-12 text-xs sm:text-sm font-semibold bg-slate-50 border-2 border-slate-200 rounded-2xl focus:border-teal-700 focus:bg-white focus:outline-hidden text-slate-900 shadow-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => toggleVoiceDictation('landmark', setLandmarkAddress)}
+                      className={`absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all cursor-pointer ${
+                        isListening && activeVoiceField === 'landmark'
+                          ? 'bg-rose-600 text-white animate-pulse'
+                          : 'bg-slate-200/80 hover:bg-teal-100 text-slate-700'
+                      }`}
+                      title="إملاء صوتي للعلامة المميزة"
+                    >
+                      {isListening && activeVoiceField === 'landmark' ? <MicOff size={16} /> : <Mic size={16} />}
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -1391,48 +1579,84 @@ export function CaseStudyModal() {
                   </div>
 
                   {/* Single Member Compact Form (Strictly Zero-Scroll) */}
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 shadow-2xs">
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5 shadow-2xs">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] font-bold text-slate-600 block mb-0.5">الاسم</label>
+                        <label className="text-[10px] font-bold text-slate-700 block mb-0.5">الاسم</label>
                         <input
                           type="text"
                           value={currentMember?.name || (activeMemberIndex === 0 ? caseName : '')}
                           onChange={(e) => updateCurrentMember('name', e.target.value)}
-                          placeholder="اسم الفرد"
+                          placeholder="اسم الفرد رباعياً"
                           className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg font-bold"
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-slate-600 block mb-0.5">الصلة</label>
+                        <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
+                          صلة القرابة بالنسبة للحالة
+                        </label>
                         <select
-                          value={currentMember?.relation || 'ابن'}
+                          value={currentMember?.relation || 'نفس الحالة (صاحب الملف الأساسي)'}
                           onChange={(e) => updateCurrentMember('relation', e.target.value)}
-                          className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg cursor-pointer font-medium"
+                          className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg cursor-pointer font-bold text-teal-950"
                         >
-                          <option value="رب الأسرة">رب الأسرة</option>
-                          <option value="زوجة">زوجة</option>
-                          <option value="ابن">ابن</option>
-                          <option value="ابنة">ابنة</option>
-                          <option value="أم">أم</option>
-                          <option value="أب">أب</option>
-                          <option value="أخ / أخت">أخ / أخت</option>
+                          <option value="نفس الحالة (صاحب الملف الأساسي)">نفس الحالة (صاحب الملف الأساسي)</option>
+                          <option value="الأب">الأب</option>
+                          <option value="الأم">الأم</option>
+                          <option value="الزوج / الزوجة">الزوج / الزوجة</option>
+                          <option value="الابن / الابنة">الابن / الابنة</option>
+                          <option value="الأخ / الأخت">الأخ / الأخت</option>
+                          <option value="الجد / الجدة">الجد / الجدة</option>
+                          <option value="قريب / كفيل آخر">قريب / كفيل آخر</option>
                         </select>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
+                    {/* Primary Caregiver Toggle Card */}
+                    <label className="flex items-center gap-2 p-2 bg-white rounded-xl border border-slate-200 cursor-pointer text-xs transition-colors hover:bg-teal-50/40">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(currentMember?.isPrimaryCaregiver)}
+                        onChange={(e) => updateCurrentMember('isPrimaryCaregiver', e.target.checked)}
+                        className="w-4 h-4 rounded text-teal-700 accent-teal-700 shrink-0"
+                      />
+                      <div className="leading-tight">
+                        <span className="font-bold text-slate-900 block text-xs">
+                          المتكفل الفعلي بالإنفاق والرعاية على الأسرة
+                        </span>
+                        <span className="text-[10.5px] text-slate-500 block">
+                          العائل الرئيسي المسؤول عن تأمين المعيشة للأفراد
+                        </span>
+                      </div>
+                    </label>
+
+                    <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <label className="text-[10px] font-bold text-slate-600 block mb-0.5">السن (عمر الفرد)</label>
+                        <label className="text-[10px] font-bold text-slate-700 block mb-0.5">السن (عمر الفرد)</label>
                         <input
                           type="number"
                           value={currentMember?.age || 20}
                           onChange={(e) => updateCurrentMember('age', Number(e.target.value) || 0)}
-                          className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg font-bold"
+                          className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg font-bold font-mono"
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-slate-600 block mb-0.5">القدرة على العمل</label>
+                        <label className="text-[10px] font-bold text-slate-700 block mb-0.5">الحالة الدراسية</label>
+                        <select
+                          value={currentMember?.educationLevel || 'إعدادي'}
+                          onChange={(e) => updateCurrentMember('educationLevel', e.target.value)}
+                          className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg cursor-pointer font-medium"
+                        >
+                          <option value="أمية">أمية</option>
+                          <option value="ابتدائي">ابتدائي</option>
+                          <option value="إعدادي">إعدادي</option>
+                          <option value="ثانوي / دبلوم">ثانوي / دبلوم</option>
+                          <option value="جامعي">جامعي</option>
+                          <option value="غير ملتحق">غير ملتحق</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-700 block mb-0.5">القدرة على العمل</label>
                         <select
                           value={currentMember?.workCapacity || 'قادر على العمل'}
                           onChange={(e) => updateCurrentMember('workCapacity', e.target.value)}
@@ -1447,7 +1671,7 @@ export function CaseStudyModal() {
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-bold text-slate-600 block mb-0.5">العمل الحالي ومصدر الدخل</label>
+                      <label className="text-[10px] font-bold text-slate-700 block mb-0.5">العمل الحالي ومصدر الدخل</label>
                       <input
                         type="text"
                         value={currentMember?.currentJob || ''}
@@ -1455,6 +1679,79 @@ export function CaseStudyModal() {
                         placeholder="مثال: عامل يومية / ربة منزل / طالب"
                         className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg font-medium"
                       />
+                    </div>
+
+                    {/* Chronic Illness Sub-card */}
+                    <div className="p-2.5 bg-white border border-slate-200 rounded-xl space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer text-xs">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(currentMember?.chronicIllness)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              updateCurrentMember('chronicIllness', {
+                                conditionName: 'مرض مزمن / عجز',
+                                monthlyCost: 250,
+                                isCoveredByStateInsurance: false,
+                              });
+                            } else {
+                              updateCurrentMember('chronicIllness', undefined);
+                            }
+                          }}
+                          className="w-4 h-4 rounded text-rose-600 accent-rose-600 shrink-0"
+                        />
+                        <span className="font-bold text-slate-800">يعاني هذا الفرد من مرض مزمن أو عجز صحي</span>
+                      </label>
+
+                      {currentMember?.chronicIllness && (
+                        <div className="space-y-2 pt-2 border-t border-slate-100">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-600 block mb-0.5">تشخيص المرض / العجز</label>
+                              <input
+                                type="text"
+                                value={currentMember.chronicIllness.conditionName}
+                                onChange={(e) =>
+                                  updateCurrentMember('chronicIllness', {
+                                    ...currentMember.chronicIllness!,
+                                    conditionName: e.target.value,
+                                  })
+                                }
+                                placeholder="مثال: غسيل كلى، سكري، قلب"
+                                className="w-full p-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-medium"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-600 block mb-0.5">تكلفة العلاج (ج.م/شهر)</label>
+                              <input
+                                type="number"
+                                value={currentMember.chronicIllness.monthlyCost}
+                                onChange={(e) =>
+                                  updateCurrentMember('chronicIllness', {
+                                    ...currentMember.chronicIllness!,
+                                    monthlyCost: Number(e.target.value) || 0,
+                                  })
+                                }
+                                className="w-full p-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold"
+                              />
+                            </div>
+                          </div>
+                          <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-700">
+                            <input
+                              type="checkbox"
+                              checked={currentMember.chronicIllness.isCoveredByStateInsurance}
+                              onChange={(e) =>
+                                updateCurrentMember('chronicIllness', {
+                                  ...currentMember.chronicIllness!,
+                                  isCoveredByStateInsurance: e.target.checked,
+                                })
+                              }
+                              className="w-3.5 h-3.5 rounded text-teal-700 accent-teal-700"
+                            />
+                            <span>مشمول بالتأمين الصحي أو علاج على نفقة الدولة</span>
+                          </label>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1698,13 +1995,27 @@ export function CaseStudyModal() {
                       </span>
                     </div>
 
-                    <input
-                      type="text"
-                      value={debtsAndObligations}
-                      onChange={(e) => setDebtsAndObligations(e.target.value)}
-                      placeholder="بيان أسماء الدائنين وسبب الدين..."
-                      className="w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={debtsAndObligations}
+                        onChange={(e) => setDebtsAndObligations(e.target.value)}
+                        placeholder="بيان أسماء الدائنين وسبب الدين..."
+                        className="w-full p-3.5 pl-12 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:border-teal-700 focus:bg-white focus:outline-hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => toggleVoiceDictation('debts', setDebtsAndObligations)}
+                        className={`absolute left-2.5 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all cursor-pointer ${
+                          isListening && activeVoiceField === 'debts'
+                            ? 'bg-rose-600 text-white animate-pulse'
+                            : 'bg-slate-200/80 hover:bg-teal-100 text-slate-700'
+                        }`}
+                        title="إملاء تفاصيل الدائنين والالتزامات صوتياً"
+                      >
+                        {isListening && activeVoiceField === 'debts' ? <MicOff size={15} /> : <Mic size={15} />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1938,21 +2249,105 @@ export function CaseStudyModal() {
                 </div>
               )}
 
-              {/* Q22: 3 & 5. المرفقات الثبوتية والمستندات الإضافية المرنة */}
+              {/* Q22: قائمة التحقق الرسمية والمرفقات (Official Checklist & Documents) */}
               {currentQuestion === 22 && (
-                <div className="space-y-2.5">
+                <div className="space-y-3 flex-1 overflow-y-auto overscroll-contain pr-1 pl-1 pb-32">
                   <div className="space-y-1">
                     <span className="text-xs font-bold text-teal-800 flex items-center gap-1.5">
                       <FileCheck size={15} />
-                      <span>المرفقات الثبوتية</span>
+                      <span>قائمة التحقق الميدانية الرسمية (Checklist)</span>
                     </span>
                     <h2 className="text-lg sm:text-xl font-black text-slate-900 leading-tight">
-                      رفع وتصوير المستندات الميدانية
+                      فحص ومطابقة المستندات الثبوتية
                     </h2>
+                    <p className="text-xs text-slate-500">
+                      حدد بالضغط المباشر المستندات المتوفرة والمطابقة لمعايير الاستحقاق.
+                    </p>
+                  </div>
+
+                  {/* Official Checklist Items (Interactive Toggle Cards) */}
+                  <div className="space-y-1.5">
+                    {[
+                      {
+                        key: 'nationalIdsAdults' as const,
+                        label: 'بطاقات رقم قومي سارية لكامل البالغين (وش وضهر)',
+                        desc: 'إلزامي للتحقق من هوية الأفراد البالغين بالأسرة',
+                        required: true,
+                      },
+                      {
+                        key: 'birthCertificatesMinors' as const,
+                        label: 'شهادات ميلاد مميكنة لكامل أفراد الأسرة القصر',
+                        desc: 'إثبات أعداد وتواريخ ميلاد الأبناء القصر',
+                        required: true,
+                      },
+                      {
+                        key: 'insurancePrintOut' as const,
+                        label: 'برنت تأميني موجه / إفادة تكافل وكرامة',
+                        desc: 'بيان المعاش أو عدم وجود دخل تأميني ثابت',
+                        required: true,
+                      },
+                      {
+                        key: 'utilityReceipt' as const,
+                        label: 'إيصال مرافق حديث (كهرباء أو مياه)',
+                        desc: 'إثبات محل السكن الفعلي واستقرار العنوان',
+                        required: true,
+                      },
+                      {
+                        key: 'leaseContractOrRentReceipt' as const,
+                        label: 'عقد إيجار موثق / إيصال سداد إيجار حديث',
+                        desc: 'في حالات الإيجار لتأكيد الالتزام وقيمة الإيجار',
+                        required: false,
+                      },
+                      {
+                        key: 'recentMedicalProof' as const,
+                        label: 'تقارير وفحوصات وروشتات طبية حديثة',
+                        desc: 'إثبات الأمراض المزمنة وتكاليف الأدوية الشهرية',
+                        required: false,
+                      },
+                      {
+                        key: 'deathOrDivorceCertificates' as const,
+                        label: 'شهادة وفاة العائل أو قسيمة طلاق مميكنة',
+                        desc: 'للأسر فاقدة العائل والأيتام والمطلقات',
+                        required: false,
+                      },
+                    ].map((item) => {
+                      const isChecked = checklist[item.key];
+                      return (
+                        <div
+                          key={item.key}
+                          onClick={() => setChecklist((prev) => ({ ...prev, [item.key]: !prev[item.key] }))}
+                          className={`p-2.5 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between gap-2.5 ${
+                            isChecked
+                              ? 'bg-teal-50/90 border-teal-600 text-teal-950 shadow-2xs'
+                              : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold leading-snug">{item.label}</span>
+                              {item.required && (
+                                <span className="text-[10px] px-1.5 py-0.2 bg-teal-100 text-teal-800 rounded font-bold">
+                                  أساسي
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10.5px] text-slate-500 block">{item.desc}</span>
+                          </div>
+
+                          <div
+                            className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+                              isChecked ? 'bg-teal-700 border-teal-700 text-white' : 'border-slate-300 bg-white'
+                            }`}
+                          >
+                            {isChecked && <Check size={13} className="stroke-[3]" />}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Camera & Quick Upload triggers (Strictly Zero-Scroll) */}
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2 pt-1">
                     <button
                       type="button"
                       onClick={() => cameraInputRef.current?.click()}
@@ -2023,7 +2418,7 @@ export function CaseStudyModal() {
                   )}
 
                   {/* Attached Documents List */}
-                  <div className="space-y-1 max-h-[140px] overflow-y-auto">
+                  <div className="space-y-1">
                     {uploadedDocs.map((doc) => (
                       <div
                         key={doc.id}
@@ -2097,6 +2492,20 @@ export function CaseStudyModal() {
                       <span className="text-slate-500 font-medium">صافي الفجوة الشهرية:</span>
                       <span className="font-black text-teal-800 font-mono text-sm">
                         {netFinancialGap.toLocaleString('ar-EG')} ج.م
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center pb-1.5 border-b border-slate-200/60">
+                      <span className="text-slate-500 font-medium">مرافق السكن:</span>
+                      <span className="font-bold text-slate-800">
+                        سقف {roofType === 'concrete' ? 'خرساني' : roofType === 'wood_straw' ? 'خشب/قش' : 'متصدع'} · {hasPrivateBathroom ? 'حمام خاص' : 'حمام مشترك'} ({basicAppliances.length} أجهزة)
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center pb-1.5 border-b border-slate-200/60">
+                      <span className="text-slate-500 font-medium">مستندات الـ Checklist:</span>
+                      <span className="font-bold text-emerald-800">
+                        {Object.values(checklist).filter(Boolean).length} من 7 بنود مستوفاة
                       </span>
                     </div>
 

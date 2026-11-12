@@ -353,12 +353,26 @@ export interface CaseStudyFamilyMember {
   id: string;
   orderNumber: number;            // م (رقم المسلسل)
   name: string;                   // الاسم
-  relation: string;               // الصلة (رب الأسرة، زوجة، ابن، ابنة، أم، أب، أخ...)
+  relation: string;               // صلة القرابة بالنسبة للحالة المستهدفة بالبحث (رب الأسرة، زوجة، ابن، ابنة، أم، أب، أخ...)
   maritalStatus: string;          // الحالة الاجتماعية (أعزب، متزوج، أرمل، مطلق، مهجور)
   age: number | string;           // الحالة العمرية والسن
   educationLevel: string;         // الحالة الدراسية (أمية، ابتدائي، إعدادي، ثانوي، جامعي، غير ملتحق)
   workCapacity: string;           // القدرة على العمل (قادر على العمل، عاجز كلياً، عاجز جزئياً/مسن، طفل/قاصر)
   currentJob: string;             // العمل (لا يعمل، عامل يومية، موظف، حرفي...)
+  isPrimaryCaregiver?: boolean;   // المتكفل الفعلي بالإنفاق / الرعاية
+  chronicIllness?: {
+    conditionName: string;        // مسمى المرض / العجز
+    monthlyCost: number;          // التكلفة الشهرية للعلاج والدواء (ج.م)
+    isCoveredByStateInsurance: boolean; // هل مشمول بتأمين صحي أو علاج على نفقة الدولة
+  };
+}
+
+export interface HousingFacilities {
+  roofType: 'concrete' | 'wood_straw' | 'damaged';
+  waterConnection: 'independent' | 'shared' | 'none';
+  electricityMeter: 'formal' | 'code_meter' | 'none';
+  hasPrivateBathroom: boolean;
+  basicAppliancesAvailable: string[]; // ['ثلاجة', 'غسالة', 'بوتاجاز', 'أسرّة كافية']
 }
 
 export interface CaseStudyReport {
@@ -379,6 +393,7 @@ export interface CaseStudyReport {
   housingStatus: HousingCondition | string; // الحالة السكنية (ملك، إيجار مستقر، إيجار غير مستقر، آيل للسقوط...)
   caseSummary: string;            // مختصر وصف الحالة والبيئة السكنية
   landmarkAddress?: string;       // علامة مميزة لموقع السكن
+  housingFacilities?: HousingFacilities; // مرافق السكن والأجهزة الأساسية
   
   // الخطوة 3: أفراد الأسرة ومصادر الدخل
   familyMembers: CaseStudyFamilyMember[]; // جدول أفراد الأسرة (PDF Page 2)
@@ -401,12 +416,15 @@ export interface CaseStudyReport {
   monthlyMedicalCosts: number;    // تكاليف العلاج والفحوصات الدورية
   stateHealthInsuranceDetails: string; // تفاصيل التأمين أو العلاج على نفقة الدولة
   
-  // الخطوة 6: المرفقات والثبوتيات
+  // الخطوة 6: المرفقات وقائمة التحقق (Checklist & Documents)
   attachments: {
     nationalIdsAdults: boolean;   // بطاقات وش وضهر سارية لكامل البالغين في أفراد الأسرة
     birthCertificatesMinors: boolean; // شهادات ميلاد لكامل أفراد الأسرة القصر
     deathOrDivorceCertificates: boolean; // شهادات الوفاة / قسيمة الطلاق
     recentMedicalProof: boolean;  // إثباتات حديثة للحالة المرضية
+    insurancePrintOut?: boolean;  // برنت تأميني / إفادة تكافل وكرامة
+    utilityReceipt?: boolean;     // إيصال مرافق حديث (كهرباء أو مياه)
+    leaseContractOrRentReceipt?: boolean; // عقد إيجار / إيصال سداد
     uploadedFiles?: Array<{
       id: string;
       title: string;
