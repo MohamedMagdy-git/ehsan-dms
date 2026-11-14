@@ -1942,6 +1942,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const now = new Date().toISOString().split('T')[0];
       let targetCaseId = report.caseId;
 
+      const mappedAttachments: MockAttachment[] = (report.attachments?.uploadedFiles || []).map((f) => ({
+        id: f.id,
+        title: f.title,
+        category:
+          f.category === 'voiceRecording'
+            ? 'voice_memo'
+            : f.category === 'adultIds'
+            ? 'national_id'
+            : f.category === 'minorCerts'
+            ? 'family_records'
+            : f.category === 'medicalProof'
+            ? 'medical_report'
+            : 'housing_contract',
+        fileName: f.fileName,
+        fileSize: f.category === 'voiceRecording' ? '320 KB' : '1.4 MB',
+        uploadDate: report.visitDate || now,
+        url: f.url,
+        durationSeconds: f.durationSeconds,
+      }));
+
       if (targetCaseId) {
         setCases((prev) =>
           prev.map((c) => {
@@ -1956,6 +1976,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 status: 'pending_review' as CaseStatus,
                 priority: report.priorityLevel || c.priority,
                 lastVisitDate: report.visitDate || now,
+                voiceNoteUrl: report.voiceNoteUrl || c.voiceNoteUrl,
+                voiceNoteDuration: report.voiceNoteDuration || c.voiceNoteDuration,
+                attachments:
+                  mappedAttachments.length > 0
+                    ? [
+                        ...mappedAttachments,
+                        ...(c.attachments || []).filter(
+                          (existing) => !mappedAttachments.some((m) => m.fileName === existing.fileName)
+                        ),
+                      ]
+                    : c.attachments,
                 householdMembers:
                   report.familyMembers && report.familyMembers.length > 0
                     ? report.familyMembers.map((m) => ({
@@ -2017,7 +2048,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           nextVisitDueDate: now,
           isVisitOverdue: false,
           historicalAssistanceTotal: 0,
-          attachments: [],
+          voiceNoteUrl: report.voiceNoteUrl,
+          voiceNoteDuration: report.voiceNoteDuration,
+          attachments: mappedAttachments,
           householdMembers: (report.familyMembers || []).map((m) => ({
             id: m.id || `m-${Date.now()}-${m.orderNumber}`,
             name: m.name,
@@ -2055,7 +2088,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             incompleteDocuments: !report.attachments?.nationalIdsAdults || !report.attachments?.insurancePrintOut,
             exceptionApproved: false,
           },
-          notes: `[بحث حالة ميداني]: ${report.caseSummary || ''}\n${report.additionalNotesAndRemarks || ''}`.trim(),
+          notes: `[بحث حالة ميداني]: ${report.caseSummary || ''}\n${report.additionalNotesAndRemarks || ''}${
+            report.executiveSummary ? `\n[توصية الذكاء الاصطناعي]: ${report.executiveSummary.justificationText}` : ''
+          }`.trim(),
         };
 
         setCases((prev) => [newCase, ...prev]);
@@ -2074,7 +2109,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           report.basicIncomeSources +
           (report.additionalIncomeSources ? ` - ${report.additionalIncomeSources}` : ''),
         healthObservations: report.medicalConditionDescription,
-        recommendations: report.additionalNotesAndRemarks || 'يوصى بالمراجعة والاعتماد',
+        recommendations: report.executiveSummary
+          ? `${report.executiveSummary.justificationText} - ${report.additionalNotesAndRemarks || ''}`
+          : report.additionalNotesAndRemarks || 'يوصى بالمراجعة والاعتماد',
         trustScore: 95,
         documentsStatus: report.attachments?.nationalIdsAdults ? 'complete' : 'incomplete_trusted',
         assessedScore: 85,

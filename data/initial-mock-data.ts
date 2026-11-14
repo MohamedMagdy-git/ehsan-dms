@@ -132,7 +132,9 @@ export const INITIAL_CASES: BeneficiaryCase[] = [
     },
     notes: '[مختصر وصف الحالة]: الأسرة تسكن في شقة إيجار غير مستقر متأخر عليها شهرين، رب الأسرة عاجز جزئياً ويحتاج دعماً دوائياً ونقدياً لتغطية الفجوة التقديرية (1900 ج.م). المرفقات الثبوتية مكتملة وموثقة.',
     historicalAssistanceTotal: 0,
+    voiceNoteDuration: 18,
     attachments: [
+      { id: 'att-p-voice', title: 'ملاحظات الباحث الصوتية عن الزيارة', category: 'voice_memo', fileName: 'تسجيل_صوتي_للباحث.webm', fileSize: '340 KB', uploadDate: '2026-11-08', durationSeconds: 18 },
       { id: 'att-p1', title: 'بطاقات سارية لكامل البالغين (وش وضهر)', category: 'national_id', fileName: 'national_ids_adults.jpg', fileSize: '1.8 MB', uploadDate: '2026-11-08' },
       { id: 'att-p2', title: 'شهادات ميلاد أفراد الأسرة القصر', category: 'family_records', fileName: 'birth_certificates.pdf', fileSize: '950 KB', uploadDate: '2026-11-08' },
       { id: 'att-p3', title: 'تقارير وفحوصات طبية حديثة للانزلاق الغضروفي', category: 'medical_report', fileName: 'spine_mri_report.pdf', fileSize: '2.1 MB', uploadDate: '2026-11-08' },
@@ -194,7 +196,9 @@ export const INITIAL_CASES: BeneficiaryCase[] = [
     },
     notes: '[مختصر وصف الحالة]: أرملة تعول يتيمين وتسكن في سكن غير لائق، الفجوة المالية 2500 ج.م، توصية فورية باعتماد كفالة أيتام ودعم صحي شهري.',
     historicalAssistanceTotal: 0,
+    voiceNoteDuration: 22,
     attachments: [
+      { id: 'att-fp-voice', title: 'ملاحظات الباحث الصوتية عن الزيارة', category: 'voice_memo', fileName: 'تسجيل_صوتي_للباحث.webm', fileSize: '410 KB', uploadDate: '2026-11-07', durationSeconds: 22 },
       { id: 'att-fp1', title: 'بطاقة الرقم القومي للأم وشهادات ميلاد الأيتام', category: 'national_id', fileName: 'ids_and_birth_certs.jpg', fileSize: '2.4 MB', uploadDate: '2026-11-07' },
       { id: 'att-fp2', title: 'شهادة وفاة الأب الرسمية', category: 'family_records', fileName: 'death_certificate.pdf', fileSize: '1.1 MB', uploadDate: '2026-11-07' },
       { id: 'att-fp3', title: 'روشتات وتحاليل طبية معتمدة للسكر والضغط', category: 'medical_report', fileName: 'prescriptions_medical.pdf', fileSize: '1.5 MB', uploadDate: '2026-11-07' },

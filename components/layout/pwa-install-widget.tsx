@@ -96,56 +96,53 @@ export function PWAInstallWidget({ collapsed = false }: PWAInstallWidgetProps) {
         {/* iOS Instruction Modal */}
         {showIOSModal && (
           <div
-            className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs font-sans text-right"
+            className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm font-sans text-right"
             dir="rtl"
             onClick={() => setShowIOSModal(false)}
           >
             <div
-              className="bg-white text-slate-900 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150"
+              className="bg-white text-slate-900 rounded-2xl max-w-sm w-full overflow-hidden shadow-xl border border-slate-200 animate-in zoom-in-95 duration-150"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-800 flex items-center justify-center font-bold">
-                    <HandHeart size={20} className="text-[#005756]" />
-                  </div>
-                  <h3 className="font-bold text-sm text-slate-900">تثبيت تطبيق إحسان</h3>
+              <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-bold text-lg text-slate-800">تثبيت تطبيق إحسان</h3>
+                  <p className="text-xs text-slate-500 mt-1">للتشغيل السريع على جهازك دون اتصال</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowIOSModal(false)}
-                  className="text-slate-400 hover:text-slate-700 p-1 rounded-lg"
+                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+                  aria-label="إغلاق"
                 >
-                  <X size={18} />
+                  <X size={20} />
                 </button>
               </div>
 
-              <p className="text-xs text-slate-600 leading-relaxed">
-                لتثبيت التطبيق على جهازك والاستمتاع بتجربة أسرع بدون اتصال:
-              </p>
-
-              <div className="space-y-2.5 text-xs">
-                <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                  <div className="w-7 h-7 rounded-lg bg-teal-100 text-teal-800 flex items-center justify-center shrink-0">
+              <div className="p-6 space-y-2.5 text-xs">
+                <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-400 flex items-center justify-center shrink-0">
                     <Share2 size={15} />
                   </div>
-                  <span>1. اضغط على زر المشاركة (Share) في المتصفح</span>
+                  <span className="text-slate-700">1. اضغط على زر المشاركة (Share) في المتصفح</span>
                 </div>
-                <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                  <div className="w-7 h-7 rounded-lg bg-teal-100 text-teal-800 flex items-center justify-center shrink-0">
+                <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-400 flex items-center justify-center shrink-0">
                     <PlusSquare size={15} />
                   </div>
-                  <span>2. اختر «إضافة إلى الشاشة الرئيسية» (Add to Home Screen)</span>
+                  <span className="text-slate-700">2. اختر «إضافة إلى الشاشة الرئيسية» (Add to Home Screen)</span>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setShowIOSModal(false)}
-                className="w-full py-2.5 bg-[#005756] hover:bg-[#004241] text-white font-bold rounded-xl text-xs cursor-pointer transition-colors"
-              >
-                فهمت ذلك
-              </button>
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowIOSModal(false)}
+                  className="w-full py-2.5 bg-[#005756] hover:bg-[#004241] text-white font-bold rounded-xl text-xs cursor-pointer transition-colors"
+                >
+                  فهمت ذلك
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -232,56 +229,53 @@ export function PWAInstallWidget({ collapsed = false }: PWAInstallWidgetProps) {
       {/* Guided Instruction Modal (for iOS Safari or manual installation) */}
       {showIOSModal && (
         <div
-          className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs font-sans text-right"
+          className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm font-sans text-right"
           dir="rtl"
           onClick={() => setShowIOSModal(false)}
         >
           <div
-            className="bg-white text-slate-900 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150"
+            className="bg-white text-slate-900 rounded-2xl max-w-sm w-full overflow-hidden shadow-xl border border-slate-200 animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-800 flex items-center justify-center font-bold">
-                  <HandHeart size={20} className="text-[#005756]" />
-                </div>
-                <h3 className="font-bold text-sm text-slate-900">تثبيت تطبيق إحسان</h3>
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="font-bold text-lg text-slate-800">تثبيت تطبيق إحسان</h3>
+                <p className="text-xs text-slate-500 mt-1">للتشغيل السريع على جهازك دون اتصال</p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowIOSModal(false)}
-                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg"
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+                aria-label="إغلاق"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
-              لتثبيت التطبيق على جهازك والاستمتاع بتجربة أسرع بدون اتصال:
-            </p>
-
-            <div className="space-y-2.5 text-xs">
-              <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                <div className="w-7 h-7 rounded-lg bg-teal-100 text-teal-800 flex items-center justify-center shrink-0">
+            <div className="p-6 space-y-2.5 text-xs">
+              <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-400 flex items-center justify-center shrink-0">
                   <Share2 size={15} />
                 </div>
-                <span>1. اضغط على زر المشاركة (Share) في المتصفح</span>
+                <span className="text-slate-700">1. اضغط على زر المشاركة (Share) في المتصفح</span>
               </div>
-              <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                <div className="w-7 h-7 rounded-lg bg-teal-100 text-teal-800 flex items-center justify-center shrink-0">
+              <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-400 flex items-center justify-center shrink-0">
                   <PlusSquare size={15} />
                 </div>
-                <span>2. اختر «إضافة إلى الشاشة الرئيسية» (Add to Home Screen)</span>
+                <span className="text-slate-700">2. اختر «إضافة إلى الشاشة الرئيسية» (Add to Home Screen)</span>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowIOSModal(false)}
-              className="w-full py-2.5 bg-[#005756] hover:bg-[#004241] text-white font-bold rounded-xl text-xs cursor-pointer transition-colors"
-            >
-              فهمت ذلك
-            </button>
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setShowIOSModal(false)}
+                className="w-full py-2.5 bg-[#005756] hover:bg-[#004241] text-white font-bold rounded-xl text-xs cursor-pointer transition-colors"
+              >
+                فهمت ذلك
+              </button>
+            </div>
           </div>
         </div>
       )}

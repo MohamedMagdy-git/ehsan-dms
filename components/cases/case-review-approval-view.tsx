@@ -3,23 +3,16 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '@/context/app-context';
 import {
-  Clock,
   CheckCircle2,
-  AlertTriangle,
   RotateCcw,
   Search,
-  Filter,
   Eye,
   FileCheck,
   User,
   Calendar,
   Wallet,
   ArrowRight,
-  ShieldCheck,
-  ExternalLink,
   MapPin,
-  Sparkles,
-  Check,
   LayoutGrid,
   List,
   X,
@@ -28,13 +21,14 @@ import {
 import { BeneficiaryCase, PriorityLevel } from '@/types';
 import { CaseReviewApprovalModal } from './case-review-approval-modal';
 import { calculateFieldSurveyCompleteness } from '@/lib/survey-completeness';
+import { ResearcherVoicePlayer } from '@/components/common/researcher-voice-player';
 
-/* Circular Progress Gauge for Survey Completeness (Pinterest Bento Style) */
+/* Circular Progress Gauge for Survey Completeness */
 function CircularProgressGauge({
   percentage,
-  size = 52,
-  strokeWidth = 4.5,
-  colorClass = 'text-teal-600',
+  size = 48,
+  strokeWidth = 4,
+  colorClass = 'text-[#005756]',
 }: {
   percentage: number;
   size?: number;
@@ -54,7 +48,7 @@ function CircularProgressGauge({
           r={radius}
           stroke="currentColor"
           strokeWidth={strokeWidth}
-          className="text-slate-100"
+          className="text-slate-200"
           fill="transparent"
         />
         <circle
@@ -71,7 +65,7 @@ function CircularProgressGauge({
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-mono font-black text-xs text-slate-800 leading-none">
+        <span className="font-mono font-bold text-xs text-slate-800 leading-none tabular-nums">
           {percentage}%
         </span>
       </div>
@@ -130,11 +124,11 @@ export function CaseReviewApprovalView() {
     });
   }, [pendingCases, searchQuery, selectedPriority, selectedResearcher]);
 
-  // Arabic grammar helper for cases count (Egyptian UI copy standard)
+  // Arabic grammar helper for cases count
   const formatArabicCases = (count: number): string => {
-    if (count === 0) return 'لا توجد حالات';
+    if (count === 0) return 'مفيش حالات';
     if (count === 1) return 'حالة واحدة';
-    if (count === 2) return 'حالتان';
+    if (count === 2) return 'حالتين';
     if (count >= 3 && count <= 10) return `${count} حالات`;
     return `${count} حالة`;
   };
@@ -179,134 +173,123 @@ export function CaseReviewApprovalView() {
     };
   }, [pendingCases]);
 
-  const getPriorityBadge = (priority: PriorityLevel) => {
+  const getPriorityMeta = (priority: PriorityLevel) => {
     switch (priority) {
       case 'critical':
-        return { label: 'أولوية حرجة', cls: 'bg-rose-100 text-rose-950 border-rose-300', textCls: 'text-rose-700 font-bold' };
+        return { label: 'أولوية حرجة', textCls: 'text-rose-700 font-semibold' };
       case 'high':
-        return { label: 'أولوية عالية', cls: 'bg-amber-100 text-amber-950 border-amber-300', textCls: 'text-amber-700 font-bold' };
+        return { label: 'أولوية عالية', textCls: 'text-slate-700 font-semibold' };
       case 'medium':
-        return { label: 'أولوية متوسطة', cls: 'bg-teal-100 text-teal-950 border-teal-300', textCls: 'text-teal-700 font-bold' };
+        return { label: 'أولوية متوسطة', textCls: 'text-slate-600 font-medium' };
       case 'low':
-        return { label: 'أولوية منخفضة', cls: 'bg-slate-100 text-slate-800 border-slate-300', textCls: 'text-slate-600 font-medium' };
+        return { label: 'أولوية منخفضة', textCls: 'text-slate-500 font-medium' };
     }
   };
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-200">
-      {/* Top Banner and Metric Cards */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
-              أبحاث بانتظار المراجعة والاعتماد
-            </h2>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
-              {formatArabicCases(pendingCount)}
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            فحص الحالات المبحوثة ميدانياً واعتماد استحقاقها للدعم.
-          </p>
+    <div className="space-y-5">
+      {/* Top Summary & Return Action Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex items-center flex-wrap gap-2 text-xs text-slate-500 tabular-nums">
+          <span className="font-semibold text-slate-800">ملخص المراجعة</span>
+          <span className="text-slate-300" aria-hidden="true">·</span>
+          <span>{formatArabicCases(pendingCount)} بانتظار القرار</span>
+          <span className="text-slate-300" aria-hidden="true">·</span>
+          <span className={needsRevisionCount > 0 ? 'font-semibold text-amber-700' : ''}>
+            راجعة للباحث: {needsRevisionCount}
+          </span>
         </div>
 
         <button
           type="button"
           onClick={() => setActiveSection('cases')}
-          className="px-3.5 py-2 border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+          className="px-3.5 py-2 min-h-[40px] bg-white border border-slate-200/80 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
         >
-          <ArrowRight size={14} />
-          <span>العودة لسجل الحالات الكامل</span>
+          <ArrowRight size={14} className="text-slate-400" />
+          <span>رجوع لسجل الأسر</span>
         </button>
       </div>
 
-      {/* Overview Stat Badges: 5-Card Responsive Grid */}
+      {/* Overview Stat Cards: 5-Card Responsive Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <div className="p-3.5 bg-white rounded-xl border border-slate-200/70 shadow-none">
-          <span className="block text-2xl font-black text-amber-800 font-mono leading-none">
+        <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none">
+          <span className="block text-2xl font-bold text-slate-900 font-mono tabular-nums leading-none">
             {pendingCount}
           </span>
-          <span className="block text-[11px] text-slate-500 font-medium mt-1.5">
-            أبحاث بانتظار المراجعة
+          <span className="block text-xs text-slate-500 font-medium mt-2">
+            أبحاث بانتظار القرار
           </span>
         </div>
 
-        <div className="p-3.5 bg-white rounded-xl border border-slate-200/70 shadow-none">
-          <span className="block text-2xl font-black text-rose-800 font-mono leading-none">
+        <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none">
+          <span
+            className={`block text-2xl font-bold font-mono tabular-nums leading-none ${
+              needsRevisionCount > 0 ? 'text-amber-700' : 'text-slate-900'
+            }`}
+          >
             {needsRevisionCount}
           </span>
-          <span className="block text-[11px] text-slate-500 font-medium mt-1.5">
-            حالات تحتاج استكمال بيانات
+          <span
+            className={`block text-xs font-medium mt-2 ${
+              needsRevisionCount > 0 ? 'text-amber-700' : 'text-slate-500'
+            }`}
+          >
+            راجعة للباحث
           </span>
         </div>
 
-        <div className="p-3.5 bg-white rounded-xl border border-slate-200/70 shadow-none">
-          <span className="block text-2xl font-black text-teal-800 font-mono leading-none">
+        <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none">
+          <span className="block text-2xl font-bold text-slate-900 font-mono tabular-nums leading-none">
             {totalPendingGap.toLocaleString('ar-EG')} ج.م
           </span>
-          <span className="block text-[11px] text-slate-500 font-medium mt-1.5">
-            العجز الشهري (الفجوة المالية)
+          <span className="block text-xs text-slate-500 font-medium mt-2">
+            إجمالي العجز الشهري
           </span>
         </div>
 
-        <div className="p-3.5 bg-white rounded-xl border border-slate-200/70 shadow-none">
-          <div className="flex items-center justify-between">
-            <span className="block text-[11px] text-slate-500 font-medium">اكتمال الثبوتيات</span>
-            <span className="text-[10px] text-emerald-800 font-bold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-              4 مستندات
-            </span>
+        <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-2">
+            <span className="block text-xs text-slate-500 font-medium">اكتمال الأوراق</span>
+            <span className="text-[11px] text-slate-400 font-medium tabular-nums">4 أوراق</span>
           </div>
-          <span className="block text-xl font-black text-emerald-700 font-mono mt-1">
+          <span className="block text-xl font-bold text-slate-900 font-mono tabular-nums mt-1">
             {attachmentCompletionRate}%
           </span>
-          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1.5">
+          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2">
             <div
               style={{ width: `${attachmentCompletionRate}%` }}
-              className="h-full rounded-full bg-emerald-600 transition-all duration-300"
+              className="h-full rounded-full bg-[#005756] transition-all duration-300"
             />
           </div>
         </div>
 
-        {/* Card 5: Dedicated Survey Data Completeness with Progress Bar and Dynamic Badge */}
-        <div className="p-3.5 bg-white rounded-xl border border-slate-200/70 shadow-none flex flex-col justify-between col-span-2 sm:col-span-1">
-          <div className="flex items-center justify-between gap-1">
-            <span className="block text-[11px] text-slate-500 font-medium truncate">اكتمال بيانات البحث</span>
-            <span
-              className={`text-[9px] px-2 py-0.5 rounded-full border whitespace-nowrap font-bold ${
-                overallSurveyCompleteness.percentage === 100
-                  ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
-                  : overallSurveyCompleteness.percentage >= 80
-                  ? 'bg-teal-100 text-teal-900 border-teal-300'
-                  : 'bg-amber-100 text-amber-900 border-amber-300'
-              }`}
-            >
+        {/* Card 5: Survey Completeness */}
+        <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between col-span-2 sm:col-span-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="block text-xs text-slate-500 font-medium truncate">اكتمال الاستمارة</span>
+            <span className="text-[11px] text-slate-500 font-medium whitespace-nowrap">
               {overallSurveyCompleteness.percentage === 100
-                ? 'بحث مكتمل'
+                ? 'مكتملة'
                 : overallSurveyCompleteness.percentage >= 80
-                ? 'شبه مكتمل'
-                : 'بيانات ناقصة'}
+                ? 'قربت تكتمل'
+                : 'ناقصة بيانات'}
             </span>
           </div>
 
           <div className="flex items-baseline justify-between mt-1">
-            <span className="text-xl font-black font-mono text-slate-900">
+            <span className="text-xl font-bold font-mono tabular-nums text-slate-900">
               {overallSurveyCompleteness.percentage}%
             </span>
-            <span className="text-[10px] text-slate-400 font-mono">
+            <span className="text-[11px] text-slate-400 font-mono tabular-nums">
               {overallSurveyCompleteness.completed}/{overallSurveyCompleteness.total} حقل
             </span>
           </div>
 
-          {/* Dynamic Progress Bar */}
-          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden mt-1.5">
+          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2">
             <div
               style={{ width: `${overallSurveyCompleteness.percentage}%` }}
               className={`h-full rounded-full transition-all duration-300 ${
-                overallSurveyCompleteness.percentage === 100
-                  ? 'bg-emerald-600'
-                  : overallSurveyCompleteness.percentage >= 80
-                  ? 'bg-teal-600'
-                  : 'bg-amber-500'
+                overallSurveyCompleteness.percentage === 100 ? 'bg-[#005756]' : 'bg-slate-500'
               }`}
             />
           </div>
@@ -314,7 +297,7 @@ export function CaseReviewApprovalView() {
       </div>
 
       {/* Filter and Search Bar with View Mode Toggle */}
-      <div className="p-3.5 bg-white rounded-xl border border-slate-200/70 shadow-none flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="p-3.5 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           <div className="relative">
             <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -322,8 +305,8 @@ export function CaseReviewApprovalView() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="بحث بالاسم، الكود، أو الباحث..."
-              className="w-full h-10 pr-9 pl-3 py-2 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl focus:border-[#005756] focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-[#005756] transition"
+              placeholder="دوّر بالاسم، الكود، أو الباحث..."
+              className="w-full h-10 pr-9 pl-3 py-2 text-xs font-medium bg-slate-50/70 border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:border-[#005756] focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-[#005756] transition"
             />
           </div>
 
@@ -331,13 +314,13 @@ export function CaseReviewApprovalView() {
             <select
               value={selectedPriority}
               onChange={(e) => setSelectedPriority(e.target.value)}
-              className="w-full h-10 px-3 py-2 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl text-slate-800 pr-3 pl-8 appearance-none focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] cursor-pointer shadow-2xs"
+              className="w-full h-10 px-3 py-2 text-xs font-medium bg-slate-50/70 border border-slate-200 rounded-lg text-slate-800 pr-3 pl-8 appearance-none focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] cursor-pointer"
             >
-              <option value="all">كافة مستويات الأولوية</option>
-              <option value="critical">حرجة</option>
-              <option value="high">عالية</option>
-              <option value="medium">متوسطة</option>
-              <option value="low">منخفضة</option>
+              <option value="all">كل الأولويات</option>
+              <option value="critical">أولوية حرجة</option>
+              <option value="high">أولوية عالية</option>
+              <option value="medium">أولوية متوسطة</option>
+              <option value="low">أولوية منخفضة</option>
             </select>
             <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
@@ -346,9 +329,9 @@ export function CaseReviewApprovalView() {
             <select
               value={selectedResearcher}
               onChange={(e) => setSelectedResearcher(e.target.value)}
-              className="w-full h-10 px-3 py-2 text-sm font-medium bg-slate-50 border border-slate-200 rounded-xl text-slate-800 pr-3 pl-8 appearance-none focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] cursor-pointer shadow-2xs"
+              className="w-full h-10 px-3 py-2 text-xs font-medium bg-slate-50/70 border border-slate-200 rounded-lg text-slate-800 pr-3 pl-8 appearance-none focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] cursor-pointer"
             >
-              <option value="all">كافة الباحثين الميدانيين</option>
+              <option value="all">كل الباحثين</option>
               {researchersList.map((res) => (
                 <option key={res} value={res}>
                   {res}
@@ -359,34 +342,34 @@ export function CaseReviewApprovalView() {
           </div>
         </div>
 
-        {/* View Mode Toggle: Modern Cards vs Classic Table (Only visible on lg+ desktop) */}
-        <div className="hidden lg:flex items-center justify-end gap-1 shrink-0 self-end md:self-center">
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+        {/* View Mode Toggle: Cards vs Table (Only visible on lg+ desktop) */}
+        <div className="hidden lg:flex items-center justify-end gap-1 shrink-0">
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
             <button
               type="button"
               onClick={() => setViewMode('cards')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
                 viewMode === 'cards'
-                  ? 'bg-white text-teal-950 shadow-2xs'
+                  ? 'bg-white text-[#005756] shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
-              title="عرض كروت المراجعة العصرية"
+              title="عرض الكروت"
             >
               <LayoutGrid size={14} />
-              <span>كروت الاعتماد</span>
+              <span>عرض الكروت</span>
             </button>
             <button
               type="button"
               onClick={() => setViewMode('table')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
                 viewMode === 'table'
-                  ? 'bg-white text-teal-950 shadow-2xs'
+                  ? 'bg-white text-[#005756] shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
-              title="عرض الجدول المجدول"
+              title="عرض الجدول"
             >
               <List size={14} />
-              <span>جدول البيانات</span>
+              <span>عرض الجدول</span>
             </button>
           </div>
         </div>
@@ -394,15 +377,13 @@ export function CaseReviewApprovalView() {
 
       {/* Main Content Area */}
       {filteredCases.length === 0 ? (
-        <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
-            <CheckCircle2 size={26} />
-          </div>
-          <h3 className="text-sm font-bold text-slate-800">
-            لا توجد حالات معلقة بانتظار المراجعة والاعتماد حالياً
+        <div className="p-10 text-center bg-white rounded-xl border border-slate-200/80 shadow-none space-y-2.5">
+          <CheckCircle2 size={28} className="mx-auto text-slate-400" />
+          <h3 className="text-sm font-semibold text-slate-800">
+            مفيش أبحاث مستنية مراجعة دلوقتي
           </h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            تم اعتماد جميع أبحاث الحالات الميدانية بنجاح، أو لا توجد نتائج مطابقة لفلتر البحث المحدد أعلاه.
+            كل الحالات اتراجعت واعتمدت، أو مفيش نتايج مطابقة للبحث اللي فوق.
           </p>
         </div>
       ) : (
@@ -410,7 +391,7 @@ export function CaseReviewApprovalView() {
           {/* Cards View: Always active on mobile/tablet (< lg), and active on lg+ when viewMode === 'cards' */}
           <div className={`space-y-4 ${viewMode === 'table' ? 'lg:hidden' : 'block'}`}>
             {filteredCases.map((c) => {
-              const pBadge = getPriorityBadge(c.priority);
+              const pMeta = getPriorityMeta(c.priority);
               const attCount = c.attachments?.length || 0;
               const isAttComplete = attCount >= 4;
               const surveyComp = calculateFieldSurveyCompleteness(c);
@@ -419,43 +400,34 @@ export function CaseReviewApprovalView() {
               return (
                 <div
                   key={c.id}
-                  className="relative bg-white rounded-2xl md:rounded-3xl border border-slate-100 shadow-[0_2px_14px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.07)] hover:-translate-y-0.5 transition-all duration-300 p-4 sm:p-5 md:p-6 xl:p-7 overflow-hidden group"
+                  className="bg-white rounded-xl border border-slate-200/80 shadow-none p-4 sm:p-5 space-y-4"
                 >
-                  {/* Fluid 3-tier responsive grid:
-                      - Mobile (< md): Vertical stacked flow
-                      - Tablet/Compact Laptop (md to lg): 2-row layout (Row 1: Identity & Metrics, Row 2: Full-width Action Dock)
-                      - Desktop (xl+): Full horizontal 3-zone row */}
-                  <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 sm:gap-5 xl:gap-6">
-                    
+                  <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 sm:gap-5">
                     {/* Upper Group: Identity & Metrics */}
-                    <div className="flex-1 flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-5 xl:gap-6">
-                      
+                    <div className="flex-1 flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-5">
                       {/* 1. Identity & Beneficiary Meta */}
-                      <div className="w-full md:w-auto md:max-w-xs lg:max-w-sm xl:max-w-none xl:flex-1 space-y-1.5 sm:space-y-2">
-                        {/* Status dot + Code + Unboxed status text */}
+                      <div className="w-full md:w-auto md:max-w-xs lg:max-w-sm xl:max-w-none xl:flex-1 space-y-1.5">
+                        {/* Code + Priority + Review Status (Unboxed text, semantic color only for critical/returned) */}
                         <div className="flex items-center gap-2 flex-wrap text-xs">
-                          <span className="relative flex h-2 w-2 shrink-0">
-                            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isFullyReady ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                            <span className={`relative inline-flex rounded-full h-2 w-2 ${isFullyReady ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                          </span>
-                          <span className="font-mono text-xs font-bold text-slate-500 tracking-wider">
+                          <span className="font-mono font-semibold text-slate-500 tabular-nums">
                             {c.code}
                           </span>
                           <span className="text-slate-300" aria-hidden="true">·</span>
-                          <span className={pBadge.textCls}>
-                            {pBadge.label}
-                          </span>
+                          <span className={pMeta.textCls}>{pMeta.label}</span>
                           <span className="text-slate-300" aria-hidden="true">·</span>
-                          <span className={c.status === 'needs_revision' ? 'text-rose-600 font-bold' : 'text-amber-600 font-bold'}>
-                            {c.status === 'needs_revision' ? 'بانتظار استكمال البيانات' : 'بانتظار المراجعة'}
+                          <span
+                            className={
+                              c.status === 'needs_revision'
+                                ? 'text-amber-700 font-semibold'
+                                : 'text-slate-500 font-medium'
+                            }
+                          >
+                            {c.status === 'needs_revision' ? 'راجعة للباحث' : 'بانتظار المراجعة'}
                           </span>
                           {isFullyReady && (
                             <>
                               <span className="text-slate-300" aria-hidden="true">·</span>
-                              <span className="text-emerald-700 font-bold inline-flex items-center gap-1">
-                                <CheckCircle2 size={13} className="text-emerald-600" />
-                                <span>جاهز للاعتماد</span>
-                              </span>
+                              <span className="text-[#005756] font-semibold">جاهزة للاعتماد</span>
                             </>
                           )}
                         </div>
@@ -468,35 +440,40 @@ export function CaseReviewApprovalView() {
                                 setAuditCase(c);
                                 setAuditInitialAction('none');
                               }}
-                              className="text-base sm:text-lg xl:text-xl font-black text-slate-900 group-hover:text-teal-900 transition-colors cursor-pointer tracking-tight"
+                              className="text-base sm:text-lg font-bold text-slate-900 hover:text-[#005756] transition-colors cursor-pointer"
                             >
                               {c.primaryName || c.fullName}
                             </h3>
                             {c.secondaryName && (
-                              <span className="text-xs text-slate-400 font-normal">
+                              <span className="text-xs text-slate-500 font-normal">
                                 ({c.secondaryName})
                               </span>
                             )}
                             {c.nationalId && (
-                              <span className="text-[11px] font-mono text-slate-400">
-                                • {c.nationalId}
+                              <span className="text-xs font-mono text-slate-400 tabular-nums">
+                                · {c.nationalId}
                               </span>
                             )}
                           </div>
 
                           {/* Open Linear Meta Row */}
-                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-500 font-medium">
+                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-500">
                             <span className="inline-flex items-center gap-1 text-slate-600">
                               <MapPin size={13} className="text-slate-400 shrink-0" />
                               <span>{c.governorate} · {c.district}</span>
                             </span>
-                            <span className="text-slate-300" aria-hidden="true">•</span>
+                            <span className="text-slate-300" aria-hidden="true">·</span>
                             <span className="inline-flex items-center gap-1 text-slate-600">
                               <User size={13} className="text-slate-400 shrink-0" />
-                              <span>الباحث: <strong className="font-semibold text-slate-700">{c.assignedResearcher || 'غير محدد'}</strong></span>
+                              <span>
+                                الباحث:{' '}
+                                <strong className="font-semibold text-slate-700">
+                                  {c.assignedResearcher || 'مش متحدد'}
+                                </strong>
+                              </span>
                             </span>
-                            <span className="text-slate-300" aria-hidden="true">•</span>
-                            <span className="inline-flex items-center gap-1 font-mono text-slate-500">
+                            <span className="text-slate-300" aria-hidden="true">·</span>
+                            <span className="inline-flex items-center gap-1 font-mono tabular-nums text-slate-500">
                               <Calendar size={13} className="text-slate-400 shrink-0" />
                               <span>{c.lastVisitDate || c.registrationDate}</span>
                             </span>
@@ -504,68 +481,62 @@ export function CaseReviewApprovalView() {
                         </div>
                       </div>
 
-                      {/* 2. Middle Section: Bento Metrics (Stacked / 2-col on mobile, flex on tablet/desktop) */}
-                      <div className="w-full md:w-auto flex flex-col sm:flex-row md:flex-col lg:flex-row items-stretch sm:items-center md:items-stretch lg:items-center gap-2.5 sm:gap-3 xl:gap-3.5 shrink-0">
-                        
-                        {/* Monthly Deficit Bento Box - full width on mobile */}
-                        <div className="w-full sm:w-auto sm:flex-1 md:w-auto px-4 sm:px-4.5 py-3 sm:py-3.5 rounded-2xl bg-emerald-50/50 border border-emerald-100/70 md:min-w-[190px] xl:min-w-[210px] transition-colors group-hover:bg-emerald-50/75">
+                      {/* 2. Unified Soft Slate Metric Blocks */}
+                      <div className="w-full md:w-auto flex flex-col sm:flex-row md:flex-col lg:flex-row items-stretch sm:items-center md:items-stretch lg:items-center gap-2.5 shrink-0">
+                        {/* Monthly Deficit Box (Neutral Slate) */}
+                        <div className="w-full sm:w-auto sm:flex-1 md:w-auto px-4 py-3 rounded-xl bg-slate-50/80 border border-slate-200/70 md:min-w-[185px] xl:min-w-[200px]">
                           <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-bold text-emerald-800 tracking-tight">
-                              العجز الشهري (الفجوة)
+                            <span className="text-xs font-medium text-slate-500">
+                              العجز الشهري
                             </span>
-                            <div className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-lg bg-emerald-100/70 text-emerald-800 flex items-center justify-center shrink-0">
-                              <Wallet size={14} />
-                            </div>
+                            <Wallet size={14} className="text-slate-400 shrink-0" />
                           </div>
                           <div className="flex items-baseline gap-1 mt-1">
-                            <span className="text-xl sm:text-2xl font-black text-emerald-950 font-mono tracking-tight tabular-nums">
+                            <span className="text-lg sm:text-xl font-bold text-slate-900 font-mono tabular-nums">
                               {(c.financials?.netFinancialGap || 0).toLocaleString('ar-EG')}
                             </span>
-                            <span className="text-xs font-black text-emerald-700">ج.م/شهر</span>
+                            <span className="text-xs font-medium text-slate-500">ج.م/شهر</span>
                           </div>
-                          <div className="flex items-center gap-2 text-[10px] text-emerald-700/80 mt-0.5 font-mono">
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5 font-mono tabular-nums">
                             <span>دخل: {(c.financials?.directIncome || 0).toLocaleString('ar-EG')}</span>
-                            <span>·</span>
-                            <span>مصروف: {((c.financials?.basicExpenses || 0) + (c.financials?.medicalExpenses || 0)).toLocaleString('ar-EG')}</span>
+                            <span aria-hidden="true">·</span>
+                            <span>
+                              مصاريف:{' '}
+                              {((c.financials?.basicExpenses || 0) + (c.financials?.medicalExpenses || 0)).toLocaleString('ar-EG')}
+                            </span>
                           </div>
                         </div>
 
                         {/* Dual Mini Indicators on mobile: 2-column grid */}
-                        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2.5 sm:gap-3 shrink-0">
-                          
+                        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2.5 shrink-0">
                           {/* Circular Progress Gauge for Survey Fields */}
-                          <div className="px-3.5 sm:px-4 py-3 sm:py-3.5 rounded-2xl bg-slate-50/70 border border-slate-100 flex items-center gap-2.5 sm:gap-3.5 sm:min-w-[165px] xl:min-w-[185px]">
+                          <div className="px-3.5 py-3 rounded-xl bg-slate-50/80 border border-slate-200/70 flex items-center gap-3 sm:min-w-[165px]">
                             <CircularProgressGauge
                               percentage={surveyComp.percentage}
-                              size={48}
+                              size={44}
                               strokeWidth={4}
-                              colorClass={
-                                surveyComp.percentage === 100
-                                  ? 'text-emerald-600'
-                                  : surveyComp.percentage >= 80
-                                  ? 'text-teal-600'
-                                  : 'text-amber-500'
-                              }
+                              colorClass={surveyComp.percentage === 100 ? 'text-[#005756]' : 'text-slate-500'}
                             />
                             <div className="space-y-0.5">
-                              <span className="text-[10px] sm:text-[11px] font-bold text-slate-700 block">اكتمال البحث</span>
-                              <span className="text-xs sm:text-sm font-mono font-bold text-slate-800 block tabular-nums">
-                                {surveyComp.completedFields}/{surveyComp.totalFields} <span className="text-[9px] sm:text-[10px] font-medium text-slate-500 font-sans">حقل</span>
+                              <span className="text-[11px] font-medium text-slate-500 block">
+                                اكتمال البحث
                               </span>
-                              <span className={`text-[9px] sm:text-[10px] font-bold ${
-                                surveyComp.percentage === 100 ? 'text-emerald-700' : surveyComp.percentage >= 80 ? 'text-teal-700' : 'text-amber-700'
-                              }`}>
+                              <span className="text-xs sm:text-sm font-mono font-bold text-slate-800 block tabular-nums">
+                                {surveyComp.completedFields}/{surveyComp.totalFields}{' '}
+                                <span className="text-[10px] font-medium text-slate-500 font-sans">حقل</span>
+                              </span>
+                              <span className="text-[11px] font-medium text-slate-500 block">
                                 {surveyComp.statusBadge.label}
                               </span>
                             </div>
                           </div>
 
-                          {/* Attachments Bento Box */}
-                          <div className="px-3.5 sm:px-4 py-3 sm:py-3.5 rounded-2xl bg-slate-50/70 border border-slate-100 flex flex-col justify-center gap-1.5 sm:min-w-[125px] xl:min-w-[135px]">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="font-bold text-slate-700 flex items-center gap-1 text-[11px] sm:text-xs">
-                                <FileCheck size={13} className={isAttComplete ? 'text-emerald-600' : 'text-amber-600'} />
-                                <span>المرفقات</span>
+                          {/* Attachments Box */}
+                          <div className="px-3.5 py-3 rounded-xl bg-slate-50/80 border border-slate-200/70 flex flex-col justify-center gap-1.5 sm:min-w-[130px]">
+                            <div className="flex items-center justify-between text-xs gap-2">
+                              <span className="font-medium text-slate-600 flex items-center gap-1">
+                                <FileCheck size={13} className="text-slate-400 shrink-0" />
+                                <span>الأوراق</span>
                               </span>
                               <span className="font-mono font-bold text-slate-800 tabular-nums text-xs">
                                 {attCount}/4
@@ -574,32 +545,30 @@ export function CaseReviewApprovalView() {
                             <div className="w-full h-1.5 bg-slate-200/80 rounded-full overflow-hidden">
                               <div
                                 style={{ width: `${Math.min(100, (attCount / 4) * 100)}%` }}
-                                className={`h-full rounded-full transition-all duration-500 ${isAttComplete ? 'bg-emerald-600' : 'bg-amber-500'}`}
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  isAttComplete ? 'bg-[#005756]' : 'bg-slate-500'
+                                }`}
                               />
                             </div>
-                            <span className="text-[9px] sm:text-[10px] font-semibold text-slate-500">
-                              {isAttComplete ? 'ثبوتيات مكتملة ✓' : 'ناقص مستندات'}
+                            <span className="text-[11px] font-medium text-slate-500">
+                              {isAttComplete ? 'الأوراق كاملة' : 'ناقص ورق'}
                             </span>
                           </div>
-
                         </div>
                       </div>
                     </div>
 
-                    {/* 3. Decision Action Dock:
-                        - On mobile (< md): Full-width side-by-side flex row (height >= 44px)
-                        - On tablet/compact laptop (md to lg): Full-width bottom row aligned cleanly
-                        - On desktop (xl+): Vertical column on the left */}
-                    <div className="w-full xl:w-[220px] flex items-center gap-2.5 pt-3.5 md:pt-4 xl:pt-0 border-t md:border-t xl:border-t-0 border-slate-100 justify-end xl:flex-col xl:items-stretch xl:justify-center shrink-0">
+                    {/* 3. Decision Action Dock */}
+                    <div className="w-full xl:w-[205px] flex items-center gap-2 pt-3.5 md:pt-4 xl:pt-0 border-t xl:border-t-0 border-slate-100 justify-end xl:flex-col xl:items-stretch xl:justify-center shrink-0">
                       {isFullyReady ? (
                         <>
                           <button
                             type="button"
                             onClick={() => approveCaseReview(c.id)}
-                            className="flex-1 xl:flex-initial min-h-[44px] py-2.5 sm:py-3 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl sm:rounded-2xl font-bold text-xs shadow-md ring-2 ring-emerald-500/25 flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-98"
+                            className="flex-1 xl:flex-initial min-h-[42px] py-2.5 px-4 bg-[#005756] hover:bg-[#004241] text-white rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
                           >
-                            <CheckCircle2 size={16} />
-                            <span>اعتماد رسمي للصرف</span>
+                            <CheckCircle2 size={15} />
+                            <span>اعتماد للصرف</span>
                           </button>
 
                           <button
@@ -608,11 +577,11 @@ export function CaseReviewApprovalView() {
                               setAuditCase(c);
                               setAuditInitialAction('none');
                             }}
-                            className="flex-1 sm:flex-initial xl:flex-initial min-h-[44px] py-2.5 px-4 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl sm:rounded-2xl font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                            title="فحص التفاصيل والمستندات"
+                            className="flex-1 xl:flex-initial min-h-[42px] py-2.5 px-4 bg-white hover:bg-slate-50 border border-slate-200/80 text-slate-700 rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+                            title="عرض التفاصيل والأوراق"
                           >
-                            <Eye size={14} />
-                            <span>فحص التقرير</span>
+                            <Eye size={14} className="text-slate-400" />
+                            <span>عرض التقرير</span>
                           </button>
                         </>
                       ) : (
@@ -623,7 +592,7 @@ export function CaseReviewApprovalView() {
                               setAuditCase(c);
                               setAuditInitialAction('none');
                             }}
-                            className="flex-1 xl:flex-initial min-h-[44px] py-2.5 sm:py-3 px-4 bg-teal-800 hover:bg-teal-900 text-white rounded-xl sm:rounded-2xl font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-98"
+                            className="flex-1 xl:flex-initial min-h-[42px] py-2.5 px-4 bg-[#005756] hover:bg-[#004241] text-white rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
                           >
                             <Eye size={15} />
                             <span>فحص واعتماد</span>
@@ -635,16 +604,40 @@ export function CaseReviewApprovalView() {
                               setAuditCase(c);
                               setAuditInitialAction('return');
                             }}
-                            className="flex-1 xl:flex-initial min-h-[44px] py-2.5 px-3 sm:px-4 bg-white hover:bg-amber-50/70 border border-amber-300 text-amber-900 rounded-xl sm:rounded-2xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                            className="flex-1 xl:flex-initial min-h-[42px] py-2.5 px-3.5 bg-white hover:bg-slate-50 border border-slate-200/80 text-slate-700 rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
                             title="إرجاع الحالة للباحث للاستكمال"
                           >
-                            <RotateCcw size={14} className="text-amber-700 shrink-0" />
-                            <span className="truncate">إرجاع للباحث للاستكمال</span>
+                            <RotateCcw size={14} className="text-slate-400 shrink-0" />
+                            <span>إرجاع للباحث</span>
                           </button>
                         </>
                       )}
                     </div>
+                  </div>
 
+                  {/* Embedded Quiet Neutral Researcher Voice Player */}
+                  <div className="pt-3 border-t border-slate-100">
+                    <ResearcherVoicePlayer
+                      audioUrl={
+                        c.voiceNoteUrl ||
+                        c.attachments?.find(
+                          (a) =>
+                            a.category === 'voice_memo' ||
+                            a.fileName.endsWith('.webm') ||
+                            a.fileName.endsWith('.mp3') ||
+                            a.fileName.endsWith('.wav')
+                        )?.url ||
+                        null
+                      }
+                      durationSeconds={
+                        c.voiceNoteDuration ||
+                        c.attachments?.find((a) => a.category === 'voice_memo')?.durationSeconds ||
+                        18
+                      }
+                      researcherName={c.assignedResearcher}
+                      fileName="تسجيل_صوتي_للباحث.webm"
+                      transcriptHint={c.notes}
+                    />
                   </div>
                 </div>
               );
@@ -653,38 +646,38 @@ export function CaseReviewApprovalView() {
 
           {/* Classic Table Container: ONLY on lg+ desktop and only when viewMode === 'table' */}
           {viewMode === 'table' && (
-            <div className="hidden lg:block bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+            <div className="hidden lg:block bg-white rounded-xl border border-slate-200/80 shadow-none overflow-hidden">
               <div className="overflow-x-auto w-full">
                 <table className="w-full text-right text-xs min-w-[950px]">
                   <thead>
-                    <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 text-[11px] whitespace-nowrap">
-                      <th className="py-3 px-3.5 font-bold">كود الحالة</th>
-                      <th className="py-3 px-3 font-bold">اسم المستفيد</th>
-                      <th className="py-3 px-3 font-bold">الباحث المسؤول</th>
-                      <th className="py-3 px-3 font-bold">تاريخ الزيارة</th>
-                      <th className="py-3 px-3 font-bold">الأولوية</th>
-                      <th className="py-3 px-3 font-bold">المرفقات</th>
-                      <th className="py-3 px-3 font-bold">الفجوة المالية</th>
-                      <th className="py-3 px-3 font-bold text-center">الإجراءات</th>
+                    <tr className="bg-slate-50/80 text-slate-500 border-b border-slate-200/80 text-[11px] whitespace-nowrap">
+                      <th className="py-3 px-3.5 font-semibold">كود الحالة</th>
+                      <th className="py-3 px-3 font-semibold">اسم المستفيد</th>
+                      <th className="py-3 px-3 font-semibold">الباحث المسؤول</th>
+                      <th className="py-3 px-3 font-semibold">تاريخ النزول</th>
+                      <th className="py-3 px-3 font-semibold">الأولوية</th>
+                      <th className="py-3 px-3 font-semibold">الأوراق</th>
+                      <th className="py-3 px-3 font-semibold">العجز الشهري</th>
+                      <th className="py-3 px-3 font-semibold text-center">الإجراءات</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
                     {filteredCases.map((c) => {
-                      const pBadge = getPriorityBadge(c.priority);
+                      const pMeta = getPriorityMeta(c.priority);
                       const attCount = c.attachments?.length || 0;
                       const isAttComplete = attCount >= 4;
                       const surveyComp = calculateFieldSurveyCompleteness(c);
 
                       return (
-                        <tr key={c.id} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
-                          <td className="py-3 px-3.5 font-mono font-bold text-teal-800">
+                        <tr key={c.id} className="hover:bg-slate-50/70 transition-colors whitespace-nowrap">
+                          <td className="py-3 px-3.5 font-mono font-semibold text-slate-600 tabular-nums">
                             {c.code}
                           </td>
 
                           <td className="py-3 px-3">
                             <div className="space-y-1">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="font-bold text-slate-900 block">
+                                <span className="font-bold text-slate-900">
                                   {c.primaryName || c.fullName}
                                 </span>
                                 {c.secondaryName && (
@@ -692,18 +685,26 @@ export function CaseReviewApprovalView() {
                                     ({c.secondaryName})
                                   </span>
                                 )}
+                                {c.status === 'needs_revision' && (
+                                  <>
+                                    <span className="text-slate-300" aria-hidden="true">·</span>
+                                    <span className="text-[11px] text-amber-700 font-semibold">
+                                      راجعة للباحث
+                                    </span>
+                                  </>
+                                )}
                               </div>
-                              <span className="text-[10px] text-slate-400 block">
-                                {c.governorate} - {c.district}
+                              <span className="text-[11px] text-slate-400 block">
+                                {c.governorate} · {c.district}
                               </span>
 
                               {/* Mini Survey Completeness Progress Indicator */}
-                              <div className="pt-1 space-y-1 max-w-[210px]">
-                                <div className="flex items-center justify-between text-[10px]">
-                                  <span className="font-semibold text-slate-700">
-                                    اكتمال البحث: {surveyComp.completedFields}/22 حقل ({surveyComp.percentage}%)
+                              <div className="pt-0.5 space-y-1 max-w-[210px]">
+                                <div className="flex items-center justify-between text-[11px] text-slate-500 tabular-nums">
+                                  <span>
+                                    الاستمارة: {surveyComp.completedFields}/22 ({surveyComp.percentage}%)
                                   </span>
-                                  <span className={`text-[9px] px-1.5 py-0.2 rounded-full border ${surveyComp.statusBadge.badgeClass}`}>
+                                  <span className={surveyComp.statusBadge.badgeClass}>
                                     {surveyComp.statusBadge.label}
                                   </span>
                                 </div>
@@ -718,35 +719,27 @@ export function CaseReviewApprovalView() {
                           </td>
 
                           <td className="py-3 px-3 text-slate-700">
-                            {c.assignedResearcher || 'غير محدد'}
+                            {c.assignedResearcher || 'مش متحدد'}
                           </td>
 
-                          <td className="py-3 px-3 font-mono text-slate-600">
+                          <td className="py-3 px-3 font-mono text-slate-600 tabular-nums">
                             {c.lastVisitDate || c.registrationDate}
                           </td>
 
                           <td className="py-3 px-3">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${pBadge.cls}`}>
-                              {pBadge.label}
-                            </span>
+                            <span className={pMeta.textCls}>{pMeta.label}</span>
                           </td>
 
                           <td className="py-3 px-3">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${
-                                isAttComplete
-                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                  : 'bg-amber-50 text-amber-800 border-amber-200'
-                              }`}
-                            >
-                              <FileCheck size={11} />
+                            <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 font-mono tabular-nums">
+                              <FileCheck size={13} className="text-slate-400" />
                               <span>
-                                {attCount}/4 مستندات ({Math.round((Math.min(attCount, 4) / 4) * 100)}%)
+                                {attCount}/4 ({Math.round((Math.min(attCount, 4) / 4) * 100)}%)
                               </span>
                             </span>
                           </td>
 
-                          <td className="py-3 px-3 font-mono font-bold text-teal-900">
+                          <td className="py-3 px-3 font-mono font-bold text-slate-900 tabular-nums">
                             {(c.financials?.netFinancialGap || 0).toLocaleString('ar-EG')} ج.م
                           </td>
 
@@ -757,11 +750,11 @@ export function CaseReviewApprovalView() {
                                   <button
                                     type="button"
                                     onClick={() => approveCaseReview(c.id)}
-                                    className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-black text-[11px] shadow-xs ring-2 ring-emerald-500/20 flex items-center gap-1 transition-all cursor-pointer active:scale-98"
-                                    title="اعتماد رسمي للصرف فوراً"
+                                    className="px-3 py-1.5 bg-[#005756] hover:bg-[#004241] text-white rounded-lg font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                                    title="اعتماد للصرف فوراً"
                                   >
-                                    <CheckCircle2 size={13} className="text-emerald-200" />
-                                    <span>اعتماد رسمي للصرف</span>
+                                    <CheckCircle2 size={13} />
+                                    <span>اعتماد للصرف</span>
                                   </button>
                                   <button
                                     type="button"
@@ -769,11 +762,11 @@ export function CaseReviewApprovalView() {
                                       setAuditCase(c);
                                       setAuditInitialAction('none');
                                     }}
-                                    className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-[11px] transition-colors cursor-pointer"
-                                    title="فحص التفاصيل"
+                                    className="px-2.5 py-1.5 bg-white border border-slate-200/80 hover:bg-slate-50 text-slate-700 rounded-lg font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                                    title="عرض التقرير"
                                   >
-                                    <Eye size={12} />
-                                    <span>فحص</span>
+                                    <Eye size={12} className="text-slate-400" />
+                                    <span>عرض</span>
                                   </button>
                                 </>
                               ) : (
@@ -782,25 +775,25 @@ export function CaseReviewApprovalView() {
                                     type="button"
                                     onClick={() => {
                                       setAuditCase(c);
-                                      setAuditInitialAction('return');
+                                      setAuditInitialAction('none');
                                     }}
-                                    className="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white rounded-xl font-black text-[11px] shadow-xs ring-2 ring-amber-400/40 flex items-center gap-1 transition-all cursor-pointer active:scale-98"
-                                    title="إرجاع للباحث للاستكمال"
+                                    className="px-3 py-1.5 bg-[#005756] hover:bg-[#004241] text-white rounded-lg font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                                    title="فحص واعتماد"
                                   >
-                                    <RotateCcw size={13} className="text-amber-100" />
-                                    <span>إرجاع للباحث للاستكمال</span>
+                                    <Eye size={12} />
+                                    <span>فحص واعتماد</span>
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => {
                                       setAuditCase(c);
-                                      setAuditInitialAction('none');
+                                      setAuditInitialAction('return');
                                     }}
-                                    className="px-2.5 py-1.5 bg-teal-800 hover:bg-teal-900 text-white rounded-xl font-bold text-[11px] transition-colors cursor-pointer"
-                                    title="فحص تقرير البحث"
+                                    className="px-2.5 py-1.5 bg-white border border-slate-200/80 hover:bg-slate-50 text-slate-700 rounded-lg font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                                    title="إرجاع للباحث"
                                   >
-                                    <Eye size={12} />
-                                    <span>فحص</span>
+                                    <RotateCcw size={12} className="text-slate-400" />
+                                    <span>إرجاع للباحث</span>
                                   </button>
                                 </>
                               )}
@@ -817,20 +810,18 @@ export function CaseReviewApprovalView() {
         </>
       )}
 
-      {/* Success Toast Notification */}
+      {/* Calm Toast Notification */}
       {toastMessage && (
         <div
-          className="fixed top-6 left-1/2 -translate-x-1/2 z-90 flex items-center gap-3 bg-slate-900/95 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-amber-500/40 backdrop-blur-md animate-in fade-in slide-in-from-top-4 duration-200"
+          className="fixed top-6 left-1/2 -translate-x-1/2 z-90 flex items-center gap-3 bg-white text-slate-800 px-4 py-3 rounded-xl shadow-lg border border-slate-200/80 animate-in fade-in slide-in-from-top-4 duration-200"
           dir="rtl"
         >
-          <div className="w-7 h-7 rounded-full bg-amber-500/20 border border-amber-400 flex items-center justify-center shrink-0">
-            <CheckCircle2 size={16} className="text-amber-400" />
-          </div>
-          <span className="text-xs sm:text-sm font-bold text-amber-50">{toastMessage}</span>
+          <CheckCircle2 size={18} className="text-[#005756] shrink-0" />
+          <span className="text-xs sm:text-sm font-semibold text-slate-800">{toastMessage}</span>
           <button
             type="button"
             onClick={() => setToastMessage(null)}
-            className="text-slate-400 hover:text-white mr-1 p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-slate-700 mr-1 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
             aria-label="إغلاق التنبيه"
           >
             <X size={14} />

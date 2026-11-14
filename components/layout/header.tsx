@@ -22,12 +22,16 @@ interface HeaderProps {
   onOpenMobile: () => void;
   onOpenNewCase: () => void;
   onOpenNewDonation: () => void;
+  title?: string;
+  subtitle?: string;
 }
 
 export function Header({
   onOpenMobile,
   onOpenNewCase,
   onOpenNewDonation,
+  title,
+  subtitle,
 }: HeaderProps) {
   const {
     activeSection,
@@ -57,6 +61,9 @@ export function Header({
   }, []);
 
   const sectionMeta = getSectionMeta(activeSection);
+  const desktopTitle = title || sectionMeta.headerTitle;
+  const desktopSubtitle = subtitle || sectionMeta.headerDescription;
+  const mobileTitle = sectionMeta.mobileTitle || desktopTitle;
 
   const getRoleBadgeStyle = (role: AppUserRole) => {
     switch (role) {
@@ -89,8 +96,8 @@ export function Header({
   };
 
   return (
-    <header className="h-[calc(3.75rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] backdrop-blur-md bg-white/90 border-b border-slate-200/70 px-3 sm:px-4 lg:px-6 flex items-center justify-between gap-2.5 sm:gap-4 sticky top-0 z-30 shadow-xs shadow-slate-900/[0.03] transition-colors w-full">
-      {/* Zone 1: Mobile toggle & Breadcrumb */}
+    <header className="h-[calc(3.75rem+env(safe-area-inset-top,0px))] md:h-16 pt-[env(safe-area-inset-top,0px)] md:pt-0 md:py-0 backdrop-blur-md bg-white/90 border-b border-slate-200/70 px-3 sm:px-4 lg:px-8 flex items-center justify-between gap-2.5 sm:gap-4 sticky top-0 z-30 shadow-xs shadow-slate-900/[0.03] transition-colors w-full">
+      {/* Zone 1: Mobile toggle & Page Header */}
       <div className="flex items-center gap-2 sm:gap-3 shrink min-w-0">
         <button
           onClick={onOpenMobile}
@@ -99,33 +106,37 @@ export function Header({
         >
           <Menu size={22} />
         </button>
-        <div className="min-w-0 py-1">
-          <div className="hidden xs:flex items-center gap-1.5 text-[11px] text-slate-500 font-medium truncate">
-            <span>منظومة إحسان</span>
-            <span aria-hidden="true" className="text-slate-300">/</span>
-            <span className="text-[#005756] font-semibold truncate">
-              {sectionMeta.headerTitle}
-            </span>
-          </div>
-          <h2 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-tight truncate">
-            {sectionMeta.headerTitle}
+
+        {/* Mobile Header Title (Untouched behavior & classes) */}
+        <div className="block md:hidden min-w-0 py-1">
+          <h2 className="text-sm font-bold text-slate-900 tracking-tight leading-tight truncate">
+            {mobileTitle}
           </h2>
-          <p className="hidden md:block text-[11px] text-slate-500 truncate max-w-xl leading-tight mt-0.5">
-            {sectionMeta.headerDescription}
-          </p>
+        </div>
+
+        {/* Desktop Header Title & Subtitle (Vertically centered in 64px bar matching sidebar) */}
+        <div className="hidden md:flex md:flex-col md:justify-center min-w-0">
+          <h2 className="text-base lg:text-lg font-bold text-slate-800 tracking-tight leading-tight truncate">
+            {desktopTitle}
+          </h2>
+          {desktopSubtitle && (
+            <p className="text-xs text-slate-500 truncate max-w-2xl leading-tight mt-0.5">
+              {desktopSubtitle}
+            </p>
+          )}
         </div>
       </div>
 
       {/* Zone 2: Operational Controls (Network Status & User Profile) */}
-      <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {/* Live Network & Offline Sync Status */}
         <NetworkStatusBadge onTriggerSync={triggerSync} isSyncing={isSyncing} />
 
         {/* Simulated Active User Profile Dropdown */}
-        <div className="relative" ref={dropdownRef}>
+        <div className="relative hidden sm:block" ref={dropdownRef}>
           <button
             onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-            className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl border border-slate-200/70 hover:border-slate-300 hover:bg-slate-50/80 transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] shadow-2xs text-right focus:outline-hidden focus:ring-2 focus:ring-teal-700/20 cursor-pointer"
+            className="hidden sm:flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl border border-slate-200/70 hover:border-slate-300 hover:bg-slate-50/80 transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] shadow-2xs text-right focus:outline-hidden focus:ring-2 focus:ring-teal-700/20 cursor-pointer"
             title="انقر لتبديل حساب المستخدم ومعاينة الأدوار"
             aria-expanded={isProfileMenuOpen}
           >

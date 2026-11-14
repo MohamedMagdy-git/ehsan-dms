@@ -117,20 +117,22 @@ export function NewDonationModal({ isOpen, onClose }: NewDonationModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-4">
           <div>
-            <h3 className="font-bold text-slate-900 text-base">
+            <h3 className="font-bold text-slate-800 text-lg">
               {promptFastTrack ? 'تأكيد قيد التبرع وإصدار إذن الصرف' : 'تسجيل تبرع ومساهمة جديدة'}
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 mt-1">
               {promptFastTrack ? 'متابعة الدورة المستندية لتسليم المساعدة الميدانية' : 'إثبات المبالغ المستلمة بالسند الدفتري وتحديد قيود الصرف'}
             </p>
           </div>
           <button
+            type="button"
             onClick={handleClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+            aria-label="إغلاق"
           >
             <X size={20} />
           </button>
@@ -138,31 +140,31 @@ export function NewDonationModal({ isOpen, onClose }: NewDonationModalProps) {
 
         {promptFastTrack ? (
           <div className="p-6 space-y-5 text-center">
-            <div className="w-14 h-14 bg-teal-100 text-teal-800 rounded-full flex items-center justify-center mx-auto shadow-inner">
-              <Zap className="w-7 h-7 fill-current" />
+            <div className="w-12 h-12 bg-slate-50 border border-slate-200 text-[#005756] rounded-full flex items-center justify-center mx-auto">
+              <Zap className="w-6 h-6" />
             </div>
 
             <div className="space-y-2">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-900 rounded-full text-xs font-bold">
-                <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-50 border border-slate-200 text-[#005756] rounded-full text-xs font-bold">
+                <CheckCircle2 className="w-4 h-4 text-[#005756]" />
                 <span>تم قيد وتوثيق التبرع في السجل المالي بنجاح</span>
               </div>
-              <h3 className="text-base font-bold text-slate-900 mt-2">
+              <h3 className="text-base font-bold text-slate-800 mt-2">
                 هل ترغب في إصدار إذن صرف فوري للحالة وتعيين الباحث لتسليمه الآن؟
               </h3>
               <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
-                التبرع مقيد بالاسم لصالح المستحق: <strong className="text-teal-950 font-bold">{promptFastTrack.caseName}</strong> بقيمة <strong className="text-emerald-800 font-mono font-bold">{promptFastTrack.amount.toLocaleString('ar-EG')} ج.م</strong> من المتبرع <span className="font-semibold">{promptFastTrack.donorName}</span>
+                التبرع مقيد بالاسم لصالح المستحق: <strong className="text-slate-900 font-bold">{promptFastTrack.caseName}</strong> بقيمة <strong className="text-[#005756] font-mono font-bold">{promptFastTrack.amount.toLocaleString('ar-EG')} ج.م</strong> من المتبرع <span className="font-semibold">{promptFastTrack.donorName}</span>
                 {promptFastTrack.manualReceiptNo ? ` بموجب السند الدفتري رقم (${promptFastTrack.manualReceiptNo})` : ''}.
               </p>
             </div>
 
-            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs text-right space-y-1">
-              <div className="font-bold flex items-center gap-1.5">
-                <Zap className="w-4 h-4 text-amber-700 fill-current" />
+            <div className="px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-slate-600 text-xs text-right space-y-1">
+              <div className="font-bold text-slate-700 flex items-center gap-1.5">
+                <Zap className="w-4 h-4 text-slate-400" />
                 <span>المسار السريع للتسليم الميداني:</span>
               </div>
-              <p className="text-amber-800 font-normal leading-relaxed">
-                سيتم نقلك لشاشة الصرف الفوري فوراً مع تعبئة بيانات الحالة وتجهيز إذن الصرف المعتمد لطباعته وتكليف الباحث الميداني بالتسليم.
+              <p className="text-slate-500 font-normal leading-relaxed">
+                سيتم نقلك لشاشة الصرف الفوري مع تعبئة بيانات الحالة وتجهيز إذن الصرف لطباعته وتكليف الباحث الميداني بالتسليم.
               </p>
             </div>
 
@@ -179,9 +181,9 @@ export function NewDonationModal({ isOpen, onClose }: NewDonationModalProps) {
                   setActiveSection('fast-track');
                   handleClose();
                 }}
-                className="w-full sm:w-auto px-5 py-2.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 bg-[#005756] hover:bg-[#004342] text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Zap className="w-4 h-4 fill-current" />
+                <Zap className="w-4 h-4" />
                 <span>نعم، الانتقال لإصدار إذن الصرف فوراً</span>
               </button>
 

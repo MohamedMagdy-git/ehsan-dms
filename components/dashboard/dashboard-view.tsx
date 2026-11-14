@@ -926,48 +926,43 @@ export function DashboardView() {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
           onClick={() => setShowDonationBreakdownModal(false)}
         >
           <div
-            className="bg-white/95 backdrop-blur-xl rounded-2xl max-w-2xl w-full border border-slate-200/60 ring-1 ring-black/[0.04] shadow-2xl shadow-slate-950/15 p-6 space-y-5 max-h-[90vh] overflow-y-auto text-right"
+            className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-xl overflow-hidden flex flex-col max-h-[90vh] text-right"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100/80">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100/80 flex items-center justify-center text-[#005756]">
-                  <Coins size={20} />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 tracking-tight">
-                    تفصيل مصادر وأرصدة التبرعات بالخزينة
-                  </h3>
-                  <p className="text-xs text-slate-500 tabular-nums" suppressHydrationWarning>
-                    إجمالي التبرعات المحصلة والمودعة: {metrics.receivedDonationsTotal.toLocaleString('en-US')} ج.م
-                  </p>
-                </div>
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-4 shrink-0">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">
+                  تفصيل مصادر وأرصدة التبرعات بالخزينة
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 tabular-nums" suppressHydrationWarning>
+                  إجمالي التبرعات المحصلة والمودعة: {metrics.receivedDonationsTotal.toLocaleString('en-US')} ج.م
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowDonationBreakdownModal(false)}
-                className="w-8 h-8 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100/80 flex items-center justify-center transition-all duration-200 active:scale-[0.95] cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
                 aria-label="إغلاق"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
-            <div className="space-y-4 text-xs text-slate-700 leading-relaxed">
+            <div className="p-6 space-y-4 overflow-y-auto text-xs text-slate-700 leading-relaxed">
               {/* Category 1: Unrestricted */}
-              <div className="p-4 rounded-xl bg-teal-50/50 border border-teal-200 space-y-2.5">
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Unlock size={16} className="text-[#005756]" />
-                    <span className="font-bold text-slate-900 text-sm">
+                    <Unlock size={16} className="text-slate-400" />
+                    <span className="font-bold text-slate-800 text-sm">
                       1. الصندوق العام المتاح (غير المقيد)
                     </span>
                   </div>
-                  <div className="bg-white px-2.5 py-1 rounded-lg border border-teal-200">
+                  <div className="bg-white px-2.5 py-1 rounded-lg border border-slate-200">
                     <MoneyDisplay
                       amount={metrics.unrestrictedDonationsBalance}
                       size="sm"
@@ -976,9 +971,9 @@ export function DashboardView() {
                   </div>
                 </div>
                 <p className="text-slate-600 text-xs">
-                  <strong>التعريف والغاية:</strong> تبرعات عامة تمنح إدارة الصندوق مرونة الصرف الكاملة وفق جدول أولويات الفقر والاحتياج دون تقييد (سداد إيجارات، مواد غذائية، ديون غارمين، إعانات معيشية دورية).
+                  <strong>التوضيح:</strong> تبرعات عامة تتيح الصرف المرن حسب أولويات الاحتياج (سداد إيجارات، مواد غذائية، ديون غارمين، وإعانات شهرية).
                 </p>
-                <div className="bg-white/80 rounded-lg p-2.5 border border-teal-100 space-y-1.5 text-[11px]">
+                <div className="bg-white rounded-lg p-2.5 border border-slate-200/80 space-y-1.5 text-[11px]">
                   <div className="flex justify-between text-slate-700">
                     <span>• م. أحمد حسام الدين (تحويل بنكي شهري)</span>
                     <span className="font-mono font-bold">65,000 ج.م</span>
@@ -991,15 +986,15 @@ export function DashboardView() {
               </div>
 
               {/* Category 2: Restricted */}
-              <div className="p-4 rounded-xl bg-indigo-50/50 border border-indigo-200 space-y-2.5">
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Lock size={16} className="text-indigo-700" />
-                    <span className="font-bold text-slate-900 text-sm">
+                    <Lock size={16} className="text-slate-400" />
+                    <span className="font-bold text-slate-800 text-sm">
                       2. التبرعات المشروطة بأغراض محددة (المقيدة)
                     </span>
                   </div>
-                  <div className="bg-white px-2.5 py-1 rounded-lg border border-indigo-200">
+                  <div className="bg-white px-2.5 py-1 rounded-lg border border-slate-200">
                     <MoneyDisplay
                       amount={metrics.restrictedDonationsBalance}
                       size="sm"
@@ -1008,38 +1003,38 @@ export function DashboardView() {
                   </div>
                 </div>
                 <p className="text-slate-600 text-xs">
-                  <strong>الضابط الشرعي والإداري:</strong> أموال ألزم المتبرعون صرفها في مصارف وأوجه محددة حصراً، ويحظر توجيهها لغير ذلك التزاماً بالأمانة:
+                  <strong>ضابط الصرف:</strong> مبالغ حدد المتبرعون أوجه صرفها، ويقتصر استخدامها على هذه البنود فقط:
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                  <div className="p-2.5 bg-white rounded-lg border border-indigo-100 space-y-1">
-                    <div className="flex justify-between font-bold text-indigo-900">
+                  <div className="p-2.5 bg-white rounded-lg border border-slate-200/80 space-y-1">
+                    <div className="flex justify-between font-bold text-slate-800">
                       <span>رعاية طبية وعمليات</span>
-                      <span className="font-mono">25,000 ج.م</span>
+                      <span className="font-mono text-[#005756]">25,000 ج.م</span>
                     </div>
                     <p className="text-slate-500 text-[10px]">د. منى الشريف: جلسات غسيل كلوي وأدوية أمراض مزمنة</p>
                   </div>
 
-                  <div className="p-2.5 bg-white rounded-lg border border-indigo-100 space-y-1">
-                    <div className="flex justify-between font-bold text-indigo-900">
+                  <div className="p-2.5 bg-white rounded-lg border border-slate-200/80 space-y-1">
+                    <div className="flex justify-between font-bold text-slate-800">
                       <span>كفالة أيتام وتعليم</span>
-                      <span className="font-mono">20,000 ج.م</span>
+                      <span className="font-mono text-[#005756]">20,000 ج.م</span>
                     </div>
                     <p className="text-slate-500 text-[10px]">فاعل خير (الإسكندرية): نفقات معيشة وكتب ومصاريف دراسية</p>
                   </div>
 
-                  <div className="p-2.5 bg-white rounded-lg border border-indigo-100 space-y-1">
-                    <div className="flex justify-between font-bold text-indigo-900">
+                  <div className="p-2.5 bg-white rounded-lg border border-slate-200/80 space-y-1">
+                    <div className="flex justify-between font-bold text-slate-800">
                       <span>كفالة حالة خاصة بالاسم</span>
-                      <span className="font-mono">15,000 ج.م</span>
+                      <span className="font-mono text-[#005756]">15,000 ج.م</span>
                     </div>
                     <p className="text-slate-500 text-[10px]">م. هشام عبد المنعم: للحالة EHS-105 (أحمد رجب - ضمور عضلات)</p>
                   </div>
 
-                  <div className="p-2.5 bg-white rounded-lg border border-indigo-100 space-y-1">
-                    <div className="flex justify-between font-bold text-indigo-900">
+                  <div className="p-2.5 bg-white rounded-lg border border-slate-200/80 space-y-1">
+                    <div className="flex justify-between font-bold text-slate-800">
                       <span>ترميم وسقف منازل</span>
-                      <span className="font-mono">15,000 ج.م</span>
+                      <span className="font-mono text-[#005756]">15,000 ج.م</span>
                     </div>
                     <p className="text-slate-500 text-[10px]">د. سارة الديب: عزل أمطار وترميم أسقف قبل فصل الشتاء</p>
                   </div>
@@ -1047,9 +1042,9 @@ export function DashboardView() {
               </div>
 
               {/* Category 3: Pledged */}
-              <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200 flex items-center justify-between text-xs text-amber-900">
+              <div className="px-3.5 py-2.5 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between text-xs text-slate-600">
                 <div className="flex items-center gap-2">
-                  <Clock size={15} className="text-amber-700 shrink-0" />
+                  <Clock size={15} className="text-slate-400 shrink-0" />
                   <span>تعهدات تحت التحصيل (أ. طارق عبد الحميد - تحويل بنكي مرتقب):</span>
                 </div>
                 <MoneyDisplay
@@ -1060,23 +1055,23 @@ export function DashboardView() {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowDonationBreakdownModal(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 rounded-xl hover:bg-slate-200/70 transition-colors cursor-pointer"
+              >
+                إغلاق
+              </button>
               <button
                 type="button"
                 onClick={() => {
                   setShowDonationBreakdownModal(false);
                   setActiveSection('donations');
                 }}
-                className="px-4 py-2 text-xs font-semibold bg-[#005756] text-white rounded-xl hover:bg-[#004342] transition-colors cursor-pointer"
+                className="px-5 py-2 text-xs font-bold bg-[#005756] text-white rounded-xl hover:bg-[#004342] transition-colors cursor-pointer"
               >
                 فتح سجل التبرعات الكامل
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowDonationBreakdownModal(false)}
-                className="px-4 py-2 text-xs font-semibold bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors cursor-pointer"
-              >
-                إغلاق
               </button>
             </div>
           </div>
@@ -1088,177 +1083,171 @@ export function DashboardView() {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
           onClick={() => setShowFamiliesStatusModal(false)}
         >
           <div
-            className="bg-white/95 backdrop-blur-xl rounded-2xl max-w-3xl w-full border border-slate-200/60 ring-1 ring-black/[0.04] shadow-2xl shadow-slate-950/15 p-6 space-y-5 max-h-[90vh] overflow-y-auto text-right"
+            className="bg-white rounded-2xl max-w-3xl w-full border border-slate-200 shadow-xl overflow-hidden flex flex-col max-h-[90vh] text-right"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100/80">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100/80 flex items-center justify-center text-[#005756]">
-                  <Users size={20} />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 tracking-tight">
-                    خريطة وتوزيع الأسر المسجلة في الجمعية (إجمالي 12 أسرة)
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    إيضاح كامل لأسس الصرف والاستبعاد والاستثناء لدورة أكتوبر 2026
-                  </p>
-                </div>
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-4 shrink-0">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">
+                  توزيع الأسر المسجلة في الجمعية (إجمالي 12 أسرة)
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  توضيح حالات الصرف والاستبعاد والاستثناء لدورة أكتوبر 2026
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowFamiliesStatusModal(false)}
-                className="w-8 h-8 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100/80 flex items-center justify-center transition-all duration-200 active:scale-[0.95] cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
                 aria-label="إغلاق"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
-            {/* Clarification Alert Box */}
-            <div className="p-3.5 bg-teal-50/80 border border-teal-200 rounded-xl text-xs text-teal-950 space-y-1.5 leading-relaxed">
-              <div className="flex items-center gap-1.5 font-bold text-teal-900">
-                <Check size={16} className="text-teal-700" />
-                <span>إيضاح هام: لماذا تضم دورة الصرف 9 أسر مستفيدة؟ وما معنى تغطية 100%؟</span>
-              </div>
-              <p className="text-slate-700 text-[11.5px]">
-                تضم الجمعية <strong>12 أسرة مسجلة</strong> في قواعد البيانات. محرك التوزيع اعتمد الصرف لـ <strong>9 أسر مستحقة</strong> (8 أسر استحقاق أساسي نشط + أسرة واحدة اعتمدت كاستثناء إنساني عاجل نظراً لخطورة المرض وتداعي السكن).
-              </p>
-              <p className="text-slate-700 text-[11.5px]" suppressHydrationWarning>
-                <strong>نسبة 100%:</strong> تعني أن جميع الأسر الـ 9 المستحقة للصرف هذا الشهر تم توفير كامل مبالغ المساعدة المعتمدة لها ({metrics.approvedAssistanceTotal.toLocaleString('en-US')} ج.م) دون أي عجز تمويلي، بينما الحالات الـ 3 المتبقية غير مشمولة لأسباب موثقة أدناه.
-              </p>
-            </div>
-
-            {/* Category 1: Funded Cases (9 Families) */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-slate-900 text-xs flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
-                  <span>المجموعة الأولى: 9 أسر مشمولة بالصرف هذا الشهر (تغطية كاملة)</span>
-                </h4>
-                <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-1">
-                  <span>المعتمد:</span>
-                  <MoneyDisplay amount={metrics.approvedAssistanceTotal} size="xs" variant="approved" />
-                </span>
+            <div className="p-6 space-y-5 overflow-y-auto text-xs text-slate-700">
+              {/* Neutral Clarification Note */}
+              <div className="px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-[11px] text-slate-600 space-y-1 leading-relaxed">
+                <p className="font-semibold text-slate-700 flex items-center gap-1.5">
+                  <Check size={14} className="text-slate-400 shrink-0" />
+                  <span>لماذا تضم دورة الصرف 9 أسر مستفيدة بتغطية 100%؟</span>
+                </p>
+                <p suppressHydrationWarning>
+                  من بين 12 أسرة مسجلة، تشمل الدورة 9 أسر مستحقة (8 استحقاق أساسي + حالة استثناء عاجل) تم توفير كامل مبالغها ({metrics.approvedAssistanceTotal.toLocaleString('en-US')} ج.م)، بينما الحالات الـ 3 الأخرى مستبعدة أو تحت الاستكمال للأسباب الموضحة أدناه.
+                </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                {cases
-                  .filter((c) => c.status === 'active_eligible' || (c.status === 'pending_exception' && c.vulnerability.exceptionApproved))
-                  .map((c) => (
-                    <div
-                      key={c.id}
-                      onClick={() => {
-                        setShowFamiliesStatusModal(false);
-                        setSelectedCaseId(c.id);
-                      }}
-                      className="p-2.5 bg-slate-50 hover:bg-teal-50/50 rounded-xl border border-slate-200 hover:border-teal-400 transition-all cursor-pointer space-y-1"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900 text-[11px] truncate">{c.fullName}</span>
-                        <span className="text-[10px] font-mono text-slate-500">{c.code}</span>
+              {/* Category 1: Funded Cases (9 Families) */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-slate-700 text-xs flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#005756] inline-block"></span>
+                    <span>المجموعة الأولى: 9 أسر مشمولة بالصرف هذا الشهر (تغطية كاملة)</span>
+                  </h4>
+                  <span className="text-[11px] font-bold text-slate-700 bg-slate-50 px-2.5 py-0.5 rounded-md border border-slate-200 inline-flex items-center gap-1">
+                    <span>المعتمد:</span>
+                    <MoneyDisplay amount={metrics.approvedAssistanceTotal} size="xs" variant="approved" />
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                  {cases
+                    .filter((c) => c.status === 'active_eligible' || (c.status === 'pending_exception' && c.vulnerability.exceptionApproved))
+                    .map((c) => (
+                      <div
+                        key={c.id}
+                        onClick={() => {
+                          setShowFamiliesStatusModal(false);
+                          setSelectedCaseId(c.id);
+                        }}
+                        className="p-2.5 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 hover:border-[#005756]/40 transition-all cursor-pointer space-y-1"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-800 text-[11px] truncate">{c.fullName}</span>
+                          <span className="text-[10px] font-mono text-slate-500">{c.code}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-slate-500">
+                          <span>{c.district}</span>
+                          {c.vulnerability.exceptionApproved ? (
+                            <span className="text-[#005756] font-semibold bg-teal-50 px-1.5 py-0.5 rounded">استثناء معتمد</span>
+                          ) : (
+                            <span className="text-slate-600 font-medium">استحقاق نشط</span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between text-[10px] text-slate-500">
-                        <span>{c.district}</span>
-                        {c.vulnerability.exceptionApproved ? (
-                          <span className="text-teal-700 font-bold bg-teal-100/70 px-1 rounded">استثناء معتمد</span>
-                        ) : (
-                          <span className="text-emerald-700 font-medium">استحقاق نشط</span>
-                        )}
+                    ))}
+                </div>
+              </div>
+
+              {/* Category 2: Excluded / Ineligible / Under Investigation (3 Families) */}
+              <div className="space-y-3 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-slate-700 text-xs flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-slate-400 inline-block"></span>
+                    <span>المجموعة الثانية: 3 أسر غير مشمولة بالصرف لدورة أكتوبر</span>
+                  </h4>
+                  <span className="text-[11px] text-slate-500">مراجعة إدارية</span>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  {/* Case 1: Temporarily excluded this month */}
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-800">
+                          محمود عبد العليم سلامة <span className="font-mono text-xs font-normal text-slate-500">(EHS-109)</span>
+                        </span>
+                        <span className="text-[10px] bg-white border border-slate-200 text-slate-700 font-semibold px-2 py-0.5 rounded-md">
+                          استبعاد مؤقت (أكتوبر فقط)
+                        </span>
                       </div>
+                      <span className="text-[11px] text-slate-500 font-medium">فيصل (العشرين)</span>
                     </div>
-                  ))}
-              </div>
-            </div>
-
-            {/* Category 2: Excluded / Ineligible / Under Investigation (3 Families) */}
-            <div className="space-y-3 pt-2 border-t border-slate-100">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-slate-900 text-xs flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
-                  <span>المجموعة الثانية: 3 أسر غير مشمولة بالصرف لدورة أكتوبر (أسباب موثقة)</span>
-                </h4>
-                <span className="text-[11px] text-slate-500">محددة ومراجعة إدارياً</span>
-              </div>
-
-              <div className="space-y-2 text-xs">
-                {/* Case 1: Temporarily excluded this month */}
-                <div className="p-3 bg-sky-50/60 rounded-xl border border-sky-200 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900">
-                        محمود عبد العليم سلامة <span className="font-mono text-xs font-normal text-slate-500">(EHS-109)</span>
-                      </span>
-                      <span className="text-[10px] bg-sky-100 text-sky-800 font-semibold px-2 py-0.5 rounded-md">
-                        استبعاد مؤقت (شهر أكتوبر فقط)
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-slate-500 font-medium">فيصل (العشرين)</span>
+                    <p className="text-slate-600 text-[11.5px] leading-relaxed">
+                      <strong>السبب:</strong> استلمت الأسرة منحة طارئة مباشرة من فاعل خير بقيمة 5,000 ج.م ومواد غذائية تكفيها لشهرين، فتم تأجيل الصرف مؤقتاً لتوجيه الدعم لحالات أشد احتياجاً.
+                    </p>
                   </div>
-                  <p className="text-slate-600 text-[11.5px] leading-relaxed">
-                    <strong>السبب الموثق:</strong> استلمت الأسرة منحة طارئة مباشرة من فاعل خير بقيمة 5,000 ج.م ومواد غذائية تكفيها لشهرين، فأصبحت فجوة احتياجها صفر هذا الشهر. تم تأجيل الصرف مؤقتاً لتوجيه الدعم لحالات أشد فقراً.
-                  </p>
-                </div>
 
-                {/* Case 2: Under Field Review */}
-                <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900">
-                        صابر جاد المولى مهران <span className="font-mono text-xs font-normal text-slate-500">(EHS-110)</span>
-                      </span>
-                      <span className="text-[10px] bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded-md">
-                        تحت البحث الميداني وتجهيز الأوراق
-                      </span>
+                  {/* Case 2: Under Field Review */}
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-800">
+                          صابر جاد المولى مهران <span className="font-mono text-xs font-normal text-slate-500">(EHS-110)</span>
+                        </span>
+                        <span className="text-[10px] bg-white border border-slate-200 text-slate-700 font-semibold px-2 py-0.5 rounded-md">
+                          تحت البحث الميداني وتجهيز الأوراق
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 font-medium">المرج الشرقية</span>
                     </div>
-                    <span className="text-[11px] text-slate-500 font-medium">المرج الشرقية</span>
+                    <p className="text-slate-600 text-[11.5px] leading-relaxed">
+                      <strong>السبب:</strong> الأوراق غير مكتملة، وبانتظار استكمال تقرير البحث الميداني لـ أ. هبة الشامي للتأكد من الدخل الفعلي قبل إدراجها بالصرف.
+                    </p>
                   </div>
-                  <p className="text-slate-600 text-[11.5px] leading-relaxed">
-                    <strong>السبب الموثق:</strong> الأوراق الثبوتية غير مكتملة، وبانتظار استكمال تقرير البحث الميداني المفصل لـ أ. هبة الشامي للتحقق من دخل الإعالة الفعلي وتحديد درجة الاستحقاق قبل إدراجها بالصرف.
-                  </p>
-                </div>
 
-                {/* Case 3: Closed */}
-                <div className="p-3 bg-slate-100/70 rounded-xl border border-slate-200 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900">
-                        كمال حامد عثمان الصعيدي <span className="font-mono text-xs font-normal text-slate-500">(EHS-112)</span>
-                      </span>
-                      <span className="text-[10px] bg-slate-200 text-slate-800 font-semibold px-2 py-0.5 rounded-md">
-                        ملف مغلق (زال الاستحقاق نهائياً)
-                      </span>
+                  {/* Case 3: Closed */}
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-800">
+                          كمال حامد عثمان الصعيدي <span className="font-mono text-xs font-normal text-slate-500">(EHS-112)</span>
+                        </span>
+                        <span className="text-[10px] bg-white border border-slate-200 text-slate-600 font-semibold px-2 py-0.5 rounded-md">
+                          ملف مغلق
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 font-medium">الجمالية</span>
                     </div>
-                    <span className="text-[11px] text-slate-500 font-medium">الجمالية</span>
+                    <p className="text-slate-600 text-[11.5px] leading-relaxed">
+                      <strong>السبب:</strong> تم إغلاق الملف بعد تخرج الابن وتعيينه بوظيفة محاسب براتب مستقر (7,500 ج.م)، وأصبح دخل الأسرة كافياً.
+                    </p>
                   </div>
-                  <p className="text-slate-600 text-[11.5px] leading-relaxed">
-                    <strong>السبب الموثق:</strong> تم إغلاق الملف رسمياً لزوال الاستحقاق بعد تخرج الابن وتعيينه بوظيفة محاسب براتب مستقر (7,500 ج.م)، وأصبح دخل الأسرة كافياً ومستقلاً ولا تحتاج إلى معونات.
-                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowFamiliesStatusModal(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 rounded-xl hover:bg-slate-200/70 transition-colors cursor-pointer"
+              >
+                إغلاق
+              </button>
               <button
                 type="button"
                 onClick={() => {
                   setShowFamiliesStatusModal(false);
                   setActiveSection('cases');
                 }}
-                className="px-4 py-2 text-xs font-semibold bg-[#005756] text-white rounded-xl hover:bg-[#004342] transition-colors cursor-pointer"
+                className="px-5 py-2 text-xs font-bold bg-[#005756] text-white rounded-xl hover:bg-[#004342] transition-colors cursor-pointer"
               >
                 فتح قاعدة بيانات الحالات
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowFamiliesStatusModal(false)}
-                className="px-4 py-2 text-xs font-semibold bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors cursor-pointer"
-              >
-                إغلاق
               </button>
             </div>
           </div>

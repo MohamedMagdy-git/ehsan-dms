@@ -130,43 +130,43 @@ export function CustodyPrintModal({
       />
 
       {/* Screen-Only Control Toolbar */}
-      <div className="no-print w-full max-w-6xl bg-white rounded-2xl shadow-2xl border border-slate-200 p-3.5 mb-3 flex flex-col gap-2.5 sticky top-2 z-60">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-2.5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center shrink-0">
-              <Printer size={20} />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span>منظومة الطباعة الميدانية المعتمدة (A4 Print / PDF)</span>
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
-                  معايير حوكمة
-                </span>
-              </h2>
-              <p className="text-xs text-slate-500">
-                نماذج جاهزة للطباعة الورقية المباشرة أو التصدير لملف PDF بأبعاد A4 قياسية
-              </p>
-            </div>
+      <div className="no-print w-full max-w-6xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden mb-3 flex flex-col sticky top-2 z-60">
+        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <span>طباعة كشوف الصرف والتسليم (A4)</span>
+              <span className="text-[11px] bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-semibold">
+                نماذج معتمدة
+              </span>
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">
+              نماذج جاهزة للطباعة الورقية أو التصدير لملف PDF بمقاس A4
+            </p>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
+              type="button"
               onClick={() => window.print()}
-              className="px-4 py-2 bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold rounded-xl shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-4 py-2 bg-[#005756] hover:bg-[#004342] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Printer size={15} />
               <span>طباعة النموذج المختار (Ctrl + P)</span>
             </button>
             <button
+              type="button"
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
               title="إغلاق النافذة"
+              aria-label="إغلاق"
             >
               <X size={20} />
             </button>
           </div>
         </div>
+
+        <div className="p-3.5 space-y-2.5">
 
         {/* Tab Switcher & Filter Controls */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
@@ -203,7 +203,7 @@ export function CustodyPrintModal({
           <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
             <span className="text-xs text-slate-500 font-medium shrink-0">الباحث:</span>
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 flex-1 sm:flex-initial">
-              <User size={13} className="text-teal-700 shrink-0" />
+              <User size={13} className="text-slate-400 shrink-0" />
               <select
                 value={selectedResearcher}
                 onChange={(e) => setSelectedResearcher(e.target.value)}
@@ -222,7 +222,7 @@ export function CustodyPrintModal({
 
         {/* Informational Notice */}
         <div className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-xl p-2 text-[11px] text-slate-600">
-          <Info size={14} className="text-teal-700 shrink-0 mt-0.5" />
+          <Info size={14} className="text-slate-400 shrink-0 mt-0.5" />
           <div className="leading-relaxed">
             {activeTab === 'ledger' ? (
               <span>
@@ -234,6 +234,7 @@ export function CustodyPrintModal({
               </span>
             )}
           </div>
+        </div>
         </div>
       </div>
 

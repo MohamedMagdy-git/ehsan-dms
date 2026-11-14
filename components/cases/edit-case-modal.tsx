@@ -10,7 +10,6 @@ import {
   Trash2,
   DollarSign,
   Heart,
-  Home,
   Save,
 } from 'lucide-react';
 import { BeneficiaryCase, HousingCondition, WorkCapacity, FoodInsecurityLevel, HouseholdMember, CaseStatus } from '@/types';
@@ -196,21 +195,22 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
         <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-slate-900">
-                تحديث بيانات الحالة: {caseItem.primaryName || caseItem.fullName}
+              <h2 className="text-lg font-bold text-slate-800">
+                تعديل بيانات الحالة: {caseItem.primaryName || caseItem.fullName}
                 {caseItem.secondaryName ? ` (${caseItem.secondaryName})` : ''}
               </h2>
-              <span className="font-mono text-xs font-bold text-teal-800 bg-teal-100 px-2 py-0.5 rounded">
+              <span className="font-mono text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-md">
                 {caseItem.code}
               </span>
             </div>
-            <p className="text-xs text-slate-500">
-              تعديل تفاصيل الهوية، مصادر الدخل، مصاريف العلاج، وأفراد الأسرة
+            <p className="text-xs text-slate-500 mt-1">
+              تحديث البيانات الشخصية، مصادر الدخل، مصاريف العلاج، وأفراد الأسرة
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
           >
             <X size={20} />
           </button>
@@ -226,31 +226,31 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
           {/* Identity */}
           <div className="space-y-3">
-            <h3 className="font-bold text-slate-900 pb-1 border-b border-slate-100 flex items-center gap-1.5">
-              <User size={15} className="text-teal-700" />
-              <span>البيانات الأساسية والحالة التشغيلية</span>
+            <h3 className="font-bold text-slate-700 pb-1.5 border-b border-slate-100 flex items-center gap-1.5">
+              <User size={15} className="text-slate-400" />
+              <span>البيانات الأساسية وحالة الملف</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-slate-700 font-semibold">الاسم الأساسي لرب الأسرة / المعيل *</label>
+                <label className="text-slate-700 font-semibold">الاسم رباعي *</label>
                 <input
                   type="text"
                   required
                   value={primaryName}
                   onChange={(e) => setPrimaryName(e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg text-xs"
+                  className="w-full p-2 border border-slate-200 rounded-lg text-xs focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-700 font-semibold">الاسم الثانوي أو الشهرة (اختياري)</label>
+                <label className="text-slate-700 font-semibold">اسم الشهرة (اختياري)</label>
                 <input
                   type="text"
                   value={secondaryName}
                   onChange={(e) => setSecondaryName(e.target.value)}
-                  placeholder="مثال: أم أحمد / الشهرة"
-                  className="w-full p-2 border border-slate-200 rounded-lg text-xs"
+                  placeholder="مثال: أم أحمد"
+                  className="w-full p-2 border border-slate-200 rounded-lg text-xs focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
                 />
               </div>
             </div>
@@ -325,19 +325,19 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
 
           {/* Financials */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 flex items-center gap-1.5">
-                <DollarSign size={15} className="text-teal-700" />
-                <span>البيانات المالية الواقعية (بالجنيه المصري)</span>
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+              <h3 className="font-bold text-slate-700 flex items-center gap-1.5">
+                <DollarSign size={15} className="text-slate-400" />
+                <span>الدخل والمصاريف الشهرية (بالجنيه)</span>
               </h3>
-              <div className="text-teal-900 font-mono font-bold bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
-                الفجوة المعاد احتسابها: {calculatedGap.toLocaleString('ar-EG')} ج.م
+              <div className="text-teal-800 font-mono font-bold bg-teal-50 px-2.5 py-0.5 rounded-md border border-teal-200">
+                العجز الشهري: {calculatedGap.toLocaleString('ar-EG')} ج.م
               </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <div className="space-y-1">
-                <label className="text-slate-700 font-semibold">دخل رسمي مثبت</label>
+                <label className="text-slate-700 font-semibold">دخل ثابت</label>
                 <AmountInput
                   min={0}
                   value={directIncome}
@@ -346,7 +346,7 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-700 font-semibold">دخل غير مباشر (يوميات)</label>
+                <label className="text-slate-700 font-semibold">شغل يومية</label>
                 <AmountInput
                   min={0}
                   value={indirectIncome}
@@ -355,7 +355,7 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-700 font-semibold">مصاريف معيشة وإيجار</label>
+                <label className="text-slate-700 font-semibold">معيشة وإيجار</label>
                 <AmountInput
                   min={0}
                   value={basicExpenses}
@@ -364,7 +364,7 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-700 font-semibold">مصاريف علاج وأدوية</label>
+                <label className="text-slate-700 font-semibold">علاج وأدوية</label>
                 <AmountInput
                   min={0}
                   value={medicalExpenses}
@@ -373,7 +373,7 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-700 font-semibold">مساعدات خارجية</label>
+                <label className="text-slate-700 font-semibold">مساعدات أخرى</label>
                 <AmountInput
                   min={0}
                   value={externalAid}
@@ -385,9 +385,9 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
 
           {/* Vulnerability */}
           <div className="space-y-3">
-            <h3 className="font-bold text-slate-900 pb-1 border-b border-slate-100 flex items-center gap-1.5">
-              <Heart size={15} className="text-rose-600" />
-              <span>محاور الهشاشة والاحتياج</span>
+            <h3 className="font-bold text-slate-700 pb-1.5 border-b border-slate-100 flex items-center gap-1.5">
+              <Heart size={15} className="text-slate-400" />
+              <span>الحالة الصحية والسكن</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -407,7 +407,7 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
                     value={chronicIllnessDetails}
                     onChange={(e) => setChronicIllnessDetails(e.target.value)}
                     placeholder="تفاصيل المرض..."
-                    className="w-full p-1.5 border border-slate-200 rounded-md text-xs bg-white"
+                    className="w-full p-1.5 border border-slate-200 rounded-md text-xs bg-white focus:border-[#005756] focus:outline-hidden"
                   />
                 )}
               </div>
@@ -441,10 +441,10 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
                 <select
                   value={housingCondition}
                   onChange={(e) => setHousingCondition(e.target.value as HousingCondition)}
-                  className="w-full p-2 border border-slate-200 rounded-lg text-xs"
+                  className="w-full p-2 border border-slate-200 rounded-lg text-xs focus:border-[#005756] focus:outline-hidden"
                 >
-                  <option value="dilapidated_urgent">سكن آيل للسقوط / خطورة شديدة</option>
-                  <option value="rent_unstable">إيجار غير مستقر مهدد بالإخلاء</option>
+                  <option value="dilapidated_urgent">سكن غير آمن / آيل للسقوط</option>
+                  <option value="rent_unstable">إيجار غير مستقر وعليهم متأخرات</option>
                   <option value="rent_stable">إيجار قديم أو مستقر</option>
                   <option value="owned">ملك</option>
                 </select>
@@ -453,7 +453,7 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-slate-700 font-semibold">
-                    نسبة ثقة الباحث: <strong className="font-mono text-teal-800">{confidenceScore}%</strong>
+                    تقييم الباحث للوضع: <strong className="font-mono text-teal-800">{confidenceScore}%</strong>
                   </label>
                 </div>
                 <input
@@ -466,14 +466,14 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
                   className="w-full accent-teal-700"
                 />
 
-                <label className="flex items-center gap-2 cursor-pointer text-slate-800 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer text-slate-700 pt-1">
                   <input
                     type="checkbox"
                     checked={incompleteDocuments}
                     onChange={(e) => setIncompleteDocuments(e.target.checked)}
                     className="rounded-sm border-slate-300 text-teal-700"
                   />
-                  <span className="font-semibold text-amber-800">أوراق رسمية غير مكتملة</span>
+                  <span className="font-semibold">أوراق الحالة ناقصة</span>
                 </label>
               </div>
             </div>
@@ -481,12 +481,12 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
 
           {/* Members Table */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900">أفراد الأسرة المعالون ({members.length})</h3>
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+              <h3 className="font-bold text-slate-700">أفراد الأسرة ({members.length})</h3>
               <button
                 type="button"
                 onClick={handleAddMember}
-                className="text-xs text-teal-800 font-semibold flex items-center gap-1 hover:underline"
+                className="text-xs text-teal-800 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
               >
                 <Plus size={14} />
                 <span>إضافة فرد</span>

@@ -7,9 +7,7 @@ import {
   User,
   Phone,
   MapPin,
-  Clock,
   ShieldAlert,
-  ClipboardList,
   HeartHandshake,
   CheckCircle2,
 } from 'lucide-react';
@@ -40,12 +38,12 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
   if (!isOpen) return null;
 
   const NEED_CATEGORIES = [
-    { id: 'financial_aid', label: 'مساعدة مالية دورية (كفاف ومعيشة)' },
-    { id: 'medical', label: 'رعاية صحية ودواء / مرض مزمن' },
-    { id: 'orphan', label: 'كفالة أيتام وأسرة فاقدة العائل' },
-    { id: 'debts', label: 'سداد ديون / تفريج كرب غارمين' },
-    { id: 'housing', label: 'تحسين مسكن / تسقيف وإيواء' },
-    { id: 'food', label: 'مساعدات غذائية وإطعام عاجل' },
+    { id: 'financial_aid', label: 'مساعدة مالية شهرية (معيشة)' },
+    { id: 'medical', label: 'علاج وأدوية / مرض مزمن' },
+    { id: 'orphan', label: 'كفالة أيتام' },
+    { id: 'debts', label: 'سداد ديون / غارمين' },
+    { id: 'housing', label: 'ترميم سكن أو تسقيف' },
+    { id: 'food', label: 'مساعدات غذائية وإطعام' },
   ];
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -53,15 +51,15 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
     setErrorMessage('');
 
     if (!primaryName.trim()) {
-      setErrorMessage('يرجى إدخال اسم المستفيد الأساسي (الرباعي)');
+      setErrorMessage('من فضلك اكتب اسم المستفيد رباعي');
       return;
     }
     if (!nationalId.trim() || nationalId.trim().length !== 14) {
-      setErrorMessage('الرقم القومي يجب أن يتكون من 14 رقماً بالضبط');
+      setErrorMessage('الرقم القومي لازم يكون 14 رقم بالظبط');
       return;
     }
     if (!phone.trim()) {
-      setErrorMessage('يرجى إدخال رقم الهاتف للتواصل وتنسيق الزيارة الميدانية');
+      setErrorMessage('من فضلك اكتب رقم الموبايل عشان الباحث يتواصل مع الحالة');
       return;
     }
 
@@ -80,7 +78,7 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
       address: address.trim() || 'العنوان بانتظار المعاينة الميدانية',
       assignedResearcher,
       registrationDate: today,
-      status: 'pending_field_research', // قيد الانتظار · بانتظار الزيارة الميدانية
+      status: 'pending_field_research',
       priority: 'high',
       lastAssessmentDate: today,
       lastVisitDate: '',
@@ -108,7 +106,7 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
       vulnerability: {
         hasChronicIllness: initialNeedType === 'medical',
         chronicIllnessDetails:
-          initialNeedType === 'medical' ? 'تم الرصد المبدئي لمشكلة صحية' : undefined,
+          initialNeedType === 'medical' ? 'تم تسجيل شكوى صحية مبدئية' : undefined,
         isOrphanHousehold: initialNeedType === 'orphan',
         orphanCount: initialNeedType === 'orphan' ? 1 : 0,
         dependentsCount: 1,
@@ -119,12 +117,12 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
         incompleteDocuments: true,
         exceptionApproved: false,
       },
-      notes: `[قيد طلب جديد - نوع الاحتياج: ${initialNeedLabel}]\n${intakeNotes.trim()}`,
+      notes: `[طلب جديد - الاحتياج: ${initialNeedLabel}]\n${intakeNotes.trim()}`,
       attachments: [],
     });
 
     if (!result.success) {
-      setErrorMessage(result.error || 'حدث خطأ أثناء قيد الطلب');
+      setErrorMessage(result.error || 'حصلت مشكلة أثناء حفظ الطلب');
       return;
     }
 
@@ -136,26 +134,22 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 text-right">
-        {/* Modal Header */}
-        <div className="px-6 py-4 bg-gradient-to-r from-[#004241] to-[#005756] text-white flex items-center justify-between shrink-0 shadow-sm">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
-              <ClipboardList size={20} className="text-teal-200" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold">استقبال حالة جديدة (مكتب الاستقبال)</h2>
-              <p className="text-[11px] text-teal-100/90 mt-0.5">
-                إدخال البيانات المبدئية وإدراج الحالة في قائمة الانتظار بانتظار الزيارة الميدانية
-              </p>
-            </div>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 text-right">
+        {/* Clean Light Header */}
+        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+          <div>
+            <h2 className="text-lg font-bold text-slate-800">تسجيل حالة جديدة</h2>
+            <p className="text-xs text-slate-500 mt-1">
+              تسجيل بيانات الحالة الأولية لتحديد موعد الزيارة والبحث الميداني
+            </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
             title="إغلاق"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
@@ -168,59 +162,51 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
             </div>
           )}
 
-          {/* Operational Status Info Banner */}
-          <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-950 flex items-start gap-2.5">
-            <Clock size={18} className="text-amber-700 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <span className="font-bold block text-amber-900">
-                الحالة التشغيلية التلقائية: قائمة الانتظار · تحتاج بحث ميداني
-              </span>
-              <p className="text-[11px] text-amber-800/90 leading-relaxed">
-                <strong>الحماية المالية:</strong> تظل الحالة معزولة تماماً عن جداول التخصيص والصرف الشهري، ولا يُعتمد صرف أي مبالغ لها حتى يتم فحصها وتوثيقها ميدانياً عبر استمارة الزيارة الميدانية.
-              </p>
-            </div>
-          </div>
+          {/* Plain Neutral Operational Note */}
+          <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2.5 leading-relaxed">
+            الحالة بتدخل قائمة الانتظار مبدئياً، ومش بتدخل جداول الصرف إلا بعد ما الباحث يعمل الزيارة الميدانية ويتأكد من البيانات.
+          </p>
 
           {/* 1. Identity & Contact */}
-          <div className="p-4 bg-slate-50/70 border border-slate-200 rounded-xl space-y-3">
-            <span className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
-              <User size={14} className="text-teal-700" />
-              <span>البيانات التعريفية والاتصال</span>
+          <div className="p-4 bg-slate-50/60 border border-slate-200 rounded-xl space-y-3">
+            <span className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
+              <User size={15} className="text-slate-400" />
+              <span>البيانات الشخصية والتواصل</span>
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="font-bold text-slate-800">
-                  الاسم الأساسي لرب الأسرة <span className="text-rose-600">*</span>
+                <label className="font-semibold text-slate-700">
+                  الاسم رباعي <span className="text-rose-600">*</span>
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="الاسم الرباعي الرسمي..."
+                  placeholder="الاسم الرباعي من البطاقة..."
                   value={primaryName}
                   onChange={(e) => setPrimaryName(e.target.value)}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-teal-600 focus:outline-hidden"
+                  className="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
                 />
               </div>
 
               <div className="space-y-1">
                 <label className="font-semibold text-slate-700">
-                  اسم الشهرة / اللقب <span className="text-slate-400 font-normal">(اختياري)</span>
+                  اسم الشهرة <span className="text-slate-400 font-normal">(اختياري)</span>
                 </label>
                 <input
                   type="text"
                   placeholder="مثال: أبو عمر، أم زياد..."
                   value={secondaryName}
                   onChange={(e) => setSecondaryName(e.target.value)}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-teal-600 focus:outline-hidden"
+                  className="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="font-bold text-slate-800">
-                  الرقم القومي (14 رقماً) <span className="text-rose-600">*</span>
+                <label className="font-semibold text-slate-700">
+                  الرقم القومي (14 رقم) <span className="text-rose-600">*</span>
                 </label>
                 <input
                   type="text"
@@ -229,13 +215,13 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
                   placeholder="2950101..."
                   value={nationalId}
                   onChange={(e) => setNationalId(e.target.value.replace(/\D/g, ''))}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg font-mono text-xs bg-white focus:ring-2 focus:ring-teal-600 focus:outline-hidden"
+                  className="w-full p-2.5 border border-slate-200 rounded-lg font-mono text-xs bg-white focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-800">
-                  رقم الهاتف للتواصل الميداني <span className="text-rose-600">*</span>
+                <label className="font-semibold text-slate-700">
+                  رقم الموبايل للتواصل <span className="text-rose-600">*</span>
                 </label>
                 <div className="relative">
                   <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -245,7 +231,7 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
                     placeholder="01012345678"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-lg font-mono text-xs bg-white focus:ring-2 focus:ring-teal-600 focus:outline-hidden"
+                    className="w-full p-2.5 border border-slate-200 rounded-lg font-mono text-xs bg-white focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
                   />
                 </div>
               </div>
@@ -253,19 +239,19 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
           </div>
 
           {/* 2. Location & Address */}
-          <div className="p-4 bg-slate-50/70 border border-slate-200 rounded-xl space-y-3">
-            <span className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
-              <MapPin size={14} className="text-rose-600" />
-              <span>بيانات الموقع والعنوان للزيارة</span>
+          <div className="p-4 bg-slate-50/60 border border-slate-200 rounded-xl space-y-3">
+            <span className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
+              <MapPin size={15} className="text-slate-400" />
+              <span>العنوان ومكان الزيارة</span>
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="font-bold text-slate-800">المحافظة</label>
+                <label className="font-semibold text-slate-700">المحافظة</label>
                 <select
                   value={governorate}
                   onChange={(e) => setGovernorate(e.target.value)}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-teal-600 focus:outline-hidden"
+                  className="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
                 >
                   <option value="القاهرة">القاهرة</option>
                   <option value="الجيزة">الجيزة</option>
@@ -279,43 +265,43 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-800">الحي / المركز / القرية</label>
+                <label className="font-semibold text-slate-700">المنطقة / المركز / القرية</label>
                 <input
                   type="text"
-                  placeholder="مثال: منشأة ناصر، بولاق الدكرور، شبرا الخيمة..."
+                  placeholder="مثال: منشأة ناصر، بولاق الدكرور..."
                   value={district}
                   onChange={(e) => setDistrict(e.target.value)}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-teal-600 focus:outline-hidden"
+                  className="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
                 />
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="font-bold text-slate-800">العنوان التفصيلي وعلامة مميزة للوصول</label>
+              <label className="font-semibold text-slate-700">العنوان بالتفصيل وعلامة مميزة</label>
               <input
                 type="text"
-                placeholder="اسم الشارع، رقم العقار، الدور، علامة مميزة (بجوار مسجد أو متجر معروف)..."
+                placeholder="اسم الشارع، رقم البيت، الدور، أو أقرب علامة معروفة..."
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                className="w-full p-2.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-teal-600 focus:outline-hidden"
+                className="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
               />
             </div>
           </div>
 
           {/* 3. Initial Need & Assigned Researcher */}
-          <div className="p-4 bg-slate-50/70 border border-slate-200 rounded-xl space-y-3">
-            <span className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
-              <HeartHandshake size={14} className="text-teal-700" />
-              <span>نوع الاحتياج المبدئي وتعيين الباحث</span>
+          <div className="p-4 bg-slate-50/60 border border-slate-200 rounded-xl space-y-3">
+            <span className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
+              <HeartHandshake size={15} className="text-slate-400" />
+              <span>نوع المساعدة المطلوبة والباحث المسؤول</span>
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="font-bold text-slate-800">تصنيف الاحتياج المبدئي المطلوب</label>
+                <label className="font-semibold text-slate-700">نوع المساعدة المبدئية</label>
                 <select
                   value={initialNeedType}
                   onChange={(e) => setInitialNeedType(e.target.value)}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-teal-600 focus:outline-hidden"
+                  className="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
                 >
                   {NEED_CATEGORIES.map((cat) => (
                     <option key={cat.id} value={cat.id}>
@@ -326,7 +312,7 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-800">مبلغ الاحتياج التقديري المبدئي</label>
+                <label className="font-semibold text-slate-700">المبلغ التقديري المبدئي</label>
                 <AmountInput
                   value={estimatedInitialAmount}
                   onChange={setEstimatedInitialAmount}
@@ -340,18 +326,18 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
             <ResearcherSelect
               value={assignedResearcher}
               onChange={setAssignedResearcher}
-              label="الباحث الميداني المرشح لإجراء المعاينة"
+              label="الباحث المسؤول عن الزيارة"
               required
             />
 
             <div className="space-y-1">
-              <label className="font-bold text-slate-800">ملاحظات الاستقبال المكتبي وظروف التقدم بالطلب</label>
+              <label className="font-semibold text-slate-700">ملاحظات الاستقبال</label>
               <textarea
                 rows={2}
-                placeholder="ملخص شكوى المتقدم، سبب التقدم بطلب المساعدة، المستندات المبدئية التي تم الاطلاع عليها..."
+                placeholder="ملخص الحالة، سبب الطلب، أو أي أوراق شفتها مبدئياً..."
                 value={intakeNotes}
                 onChange={(e) => setIntakeNotes(e.target.value)}
-                className="w-full p-2.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-teal-600 focus:outline-hidden"
+                className="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
               />
             </div>
           </div>
@@ -361,16 +347,16 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-xl transition-colors cursor-pointer text-xs"
+              className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg transition-colors cursor-pointer text-xs"
             >
               إلغاء
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-[#005756] hover:bg-[#004241] text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center gap-2 cursor-pointer active:scale-98 text-xs"
+              className="px-5 py-2 bg-[#005756] hover:bg-[#004241] text-white font-bold rounded-lg transition-all shadow-xs flex items-center gap-2 cursor-pointer text-xs"
             >
-              <CheckCircle2 size={16} />
-              <span>حفظ وإدراج في قائمة الانتظار</span>
+              <CheckCircle2 size={15} />
+              <span>حفظ وإضافة لقائمة الانتظار</span>
             </button>
           </div>
         </form>

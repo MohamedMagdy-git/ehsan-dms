@@ -1330,13 +1330,13 @@ export function MobileFieldSurveyModal() {
               تم توثيق الزيارة واعتماد البحث بنجاح
             </h2>
             {isOfflineSubmission ? (
-              <div className="p-3 bg-amber-50 border border-amber-300 rounded-2xl text-amber-950 text-xs space-y-1 text-right mt-2">
-                <div className="flex items-center justify-center gap-1.5 font-bold text-amber-900">
-                  <HardDrive size={15} className="text-amber-700" />
-                  <span>تم الحفظ في طابور المزامنة المحلي (وضع عدم الاتصال)</span>
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 text-xs space-y-1 text-right mt-2">
+                <div className="flex items-center justify-center gap-1.5 font-bold text-slate-800">
+                  <HardDrive size={15} className="text-slate-400" />
+                  <span>تم الحفظ محلياً (وضع عدم الاتصال)</span>
                 </div>
-                <p className="text-[11px] text-amber-800 leading-relaxed text-center">
-                  تم حفظ بيانات الحالة والزيارة الميدانية محلياً في قاعدة IndexedDB على جهازك. سيتم رفع ومزامنة البيانات تلقائياً مع الخادم فور استعادة اتصال الإنترنت.
+                <p className="text-[11px] text-slate-500 leading-relaxed text-center">
+                  تم حفظ بيانات الحالة والزيارة محلياً على جهازك، وسيتم رفعها تلقائياً بمجرد عودة الإنترنت.
                 </p>
               </div>
             ) : (
@@ -1419,66 +1419,58 @@ export function MobileFieldSurveyModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-100 flex flex-col h-[100dvh] max-h-[100dvh] w-screen overflow-hidden animate-in fade-in duration-150">
-      {/* 1. Dynamic Island Styled Header */}
-      <div className="px-3.5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-[#004241] via-[#005251] to-[#005756] text-white flex items-center justify-between shrink-0 shadow-md pt-[max(0.75rem,env(safe-area-inset-top,0px))] relative z-20">
-        {/* Right side (اليمين): Circular calm exit/back button (X) */}
+    <div className="fixed inset-0 z-50 bg-white flex flex-col h-[100dvh] max-h-[100dvh] w-screen overflow-hidden animate-in fade-in duration-150">
+      {/* 1. Unified Soft-Gray / Pure-White Header */}
+      <div className="px-4 sm:px-6 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3 shrink-0 pt-[max(0.875rem,env(safe-area-inset-top,0px))] relative z-20">
+        {/* Right side: Title & Auto-save time */}
+        <div className="min-w-0">
+          <h2 className="text-base sm:text-lg font-bold text-slate-800 truncate">
+            {surveyMode === 'update_existing'
+              ? (primaryName ? `بحث حالة: ${primaryName}` : 'توثيق زيارة ميدانية')
+              : 'استمارة بحث حالة جديدة'}
+          </h2>
+          <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
+            <span className="inline-flex items-center gap-1.5">
+              <span className={`h-2 w-2 rounded-full ${isOnline ? 'bg-[#005756]' : 'bg-slate-400'}`} />
+              <span>{isOnline ? 'متصل · مزامنة مباشرة' : 'حفظ محلي (أوفلاين)'}</span>
+            </span>
+            {lastSavedTimestamp && (
+              <>
+                <span className="text-slate-300">·</span>
+                <span>آخر حفظ: {lastSavedTimestamp}</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Left side: Step badge & Clean X close button */}
         <div className="flex items-center gap-2.5 shrink-0">
+          <div className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1">
+            <span className="text-[10px] text-slate-500 font-medium">خطوة</span>
+            <span className="font-mono text-xs text-[#005756]">{currentStep}/4</span>
+          </div>
+
           <button
             type="button"
             onClick={handleExitToDashboard}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
-            title="إغلاق الاستمارة والعودة للوحة التحكم"
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+            title="إغلاق الاستمارة"
+            aria-label="إغلاق"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
-
-          <div className="hidden md:block">
-            <h2 className="font-bold text-xs sm:text-sm leading-tight text-white truncate max-w-[200px]">
-              {surveyMode === 'update_existing'
-                ? (primaryName ? `توثيق: ${primaryName}` : 'توثيق زيارة ميدانية')
-                : 'قيد وبحث ميداني جديد'}
-            </h2>
-            {lastSavedTimestamp && (
-              <span className="text-[10px] text-teal-200/80 block">
-                آخر حفظ تلقائي: {lastSavedTimestamp}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Center: Dynamic Island Capsule */}
-        <div className="flex-1 flex items-center justify-center px-2">
-          <div className="flex items-center gap-2 px-3 py-1 bg-slate-950 text-white rounded-full shadow-lg border border-slate-800/80 text-[11px] font-medium tracking-wide transition-all select-none">
-            {isOnline ? (
-              <>
-                <span className="relative flex h-2 w-2 shrink-0">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span className="whitespace-nowrap">مزامنة مباشرة</span>
-              </>
-            ) : (
-              <>
-                <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0"></span>
-                <span className="whitespace-nowrap text-amber-200">حفظ محلي (أوفلاين)</span>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Left side (اليسار): Step progress indicator badge */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="px-3 py-1 rounded-full bg-white/10 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs border border-white/10">
-            <span className="text-[10px] text-teal-200 font-medium">الخطوة</span>
-            <span className="font-mono text-xs">{currentStep}/4</span>
-          </div>
         </div>
       </div>
 
-      {/* 2. Wizard Progress Steps Indicator */}
-      <div className="bg-white border-b border-slate-200 py-2.5 px-4 sm:px-8 shrink-0 shadow-2xs">
-        <div className="flex items-center justify-between max-w-2xl mx-auto">
+      {/* 2. Simple Progress Bar + Wizard Steps */}
+      <div className="bg-white border-b border-slate-200 shrink-0">
+        <div className="w-full bg-slate-100 h-1 overflow-hidden">
+          <div
+            className="bg-[#005756] h-full transition-all duration-300"
+            style={{ width: `${(currentStep / 4) * 100}%` }}
+          />
+        </div>
+        <div className="py-2 px-4 sm:px-8 flex items-center justify-between max-w-2xl mx-auto">
           {[
             { num: 1, label: 'البيانات والموقع', icon: User },
             { num: 2, label: 'فحص المعيشة', icon: ShieldCheck },
@@ -1498,19 +1490,19 @@ export function MobileFieldSurveyModal() {
                 }}
                 className={`flex flex-col items-center gap-1 transition-all duration-150 ease-out active:scale-[0.96] cursor-pointer min-h-[44px] justify-center px-2 ${
                   isActive
-                    ? 'text-[#005756] font-bold scale-105'
+                    ? 'text-[#005756] font-bold'
                     : isDone
-                    ? 'text-emerald-700 font-medium'
+                    ? 'text-slate-700 font-medium'
                     : 'text-slate-400'
                 }`}
               >
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition-colors ${
                     isActive
-                      ? 'bg-[#005756] text-white ring-4 ring-teal-100 shadow-xs'
+                      ? 'bg-[#005756] text-white'
                       : isDone
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-slate-200 text-slate-500'
+                      ? 'bg-teal-50 text-[#005756] border border-teal-200'
+                      : 'bg-slate-100 text-slate-400'
                   }`}
                 >
                   {isDone ? <CheckCircle2 size={16} /> : <Icon size={14} />}
@@ -1542,15 +1534,15 @@ export function MobileFieldSurveyModal() {
           )}
 
           {dictationError && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-center justify-between gap-2 animate-in fade-in">
+            <div className="px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-slate-700 text-xs flex items-center justify-between gap-2 animate-in fade-in">
               <div className="flex items-center gap-2">
-                <AlertTriangle size={15} className="shrink-0 text-amber-600" />
-                <span className="font-semibold">{dictationError}</span>
+                <AlertTriangle size={15} className="shrink-0 text-slate-400" />
+                <span className="font-medium">{dictationError}</span>
               </div>
               <button
                 type="button"
                 onClick={() => setDictationError(null)}
-                className="text-amber-600 hover:text-amber-800 p-1 cursor-pointer"
+                className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
               >
                 <X size={14} />
               </button>
@@ -1684,12 +1676,12 @@ export function MobileFieldSurveyModal() {
                       </optgroup>
                     </select>
 
-                    {/* Informative Banner when selecting a waiting-list case */}
+                    {/* Informative Note when selecting a waiting-list case */}
                     {cases.find((c) => c.id === selectedCaseId)?.status === 'pending_field_research' && (
-                      <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-950 flex items-center gap-2 text-[11px] animate-in fade-in">
-                        <Clock size={15} className="text-amber-700 shrink-0" />
+                      <div className="px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-slate-600 flex items-center gap-2 text-[11px] animate-in fade-in">
+                        <Clock size={14} className="text-slate-400 shrink-0" />
                         <span>
-                          <strong>حالة بقائمة الانتظار:</strong> عند حفظ واعتماد هذه الاستمارة، ستتحول الحالة تلقائياً من <strong>قائمة الانتظار</strong> إلى <strong>نشطة ومعتمدة</strong> ويبدأ سريان صلاحية الـ 6 أشهر والدخول في جداول الميزانية والتخصيص المالي.
+                          عند حفظ هذه الاستمارة، تتحول الحالة تلقائياً من قائمة الانتظار إلى نشطة ومعتمدة وتدخل جدول الصرف.
                         </span>
                       </div>
                     )}
@@ -1895,10 +1887,10 @@ export function MobileFieldSurveyModal() {
           {/* ========================================================== */}
           {currentStep === 2 && (
             <div className="space-y-4 animate-in fade-in duration-200 slide-in-from-left-2">
-              <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-start gap-2">
-                <ShieldCheck size={16} className="text-amber-700 shrink-0 mt-0.5" />
+              <div className="px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-slate-500 text-[11px] flex items-center gap-2">
+                <ShieldCheck size={14} className="text-slate-400 shrink-0" />
                 <p className="leading-relaxed">
-                  <strong>قائمة الفحص الميداني والتحقق (Check List):</strong> يرجى التأكد العيني المباشر من مطابقة الثبوتيات أثناء الزيارة المنزلية قبل التوصية بالصرف.
+                  تأكد من مطابقة المستندات التالية أثناء المعاينة الميدانية قبل التوصية بالصرف.
                 </p>
               </div>
 
@@ -2207,20 +2199,20 @@ export function MobileFieldSurveyModal() {
           {currentStep === 3 && (
             <div className="space-y-4 animate-in fade-in duration-200 slide-in-from-left-2">
               {/* Requested Aid Type Selection */}
-              <div className="p-3.5 bg-teal-50/70 border border-teal-200 rounded-xl space-y-2">
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="font-bold text-teal-950 text-xs flex items-center gap-1.5">
-                    <HeartHandshake size={15} className="text-teal-700" />
-                    <span>نوع المساعدة المطلوبة (المستهدفة بالبحث الميداني) <span className="text-rose-600">*</span></span>
+                  <label className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
+                    <HeartHandshake size={15} className="text-slate-400" />
+                    <span>نوع المساعدة المطلوبة <span className="text-rose-600">*</span></span>
                   </label>
-                  <span className="text-[10px] text-teal-800 font-bold bg-white px-2 py-0.5 rounded border border-teal-200">
+                  <span className="text-[10px] text-slate-500 font-medium bg-white px-2 py-0.5 rounded border border-slate-200">
                     تصنيف الاستحقاق
                   </span>
                 </div>
                 <select
                   value={requestedAidType}
                   onChange={(e) => setRequestedAidType(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-slate-200 rounded-lg shadow-sm text-xs font-bold text-slate-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-none transition-colors"
+                  className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden transition-colors"
                 >
                   <option value="كفالة نقدية شهرية">كفالة نقدية شهرية (إعانة كفاف دورية)</option>
                   <option value="مساعدة علاجية / أدوية">مساعدة علاجية / أدوية لأمراض مزمنة</option>
@@ -2234,10 +2226,10 @@ export function MobileFieldSurveyModal() {
               </div>
 
               {/* Health Assessment */}
-              <div className="p-3.5 bg-rose-50/50 border border-rose-200 rounded-xl space-y-3">
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-rose-950 flex items-center gap-1.5 text-xs">
-                    <HeartPulse size={15} className="text-rose-600" />
+                  <span className="font-bold text-slate-700 flex items-center gap-1.5 text-xs">
+                    <HeartPulse size={15} className="text-slate-400" />
                     <span>التقييم الصحي وتكاليف العلاج</span>
                   </span>
 
@@ -2409,17 +2401,17 @@ export function MobileFieldSurveyModal() {
                   />
                 </div>
 
-                {/* Auto-Calculated Net Financial Gap Banner */}
-                <div className="p-3 bg-gradient-to-r from-teal-900 to-teal-800 text-white rounded-xl flex items-center justify-between">
+                {/* Auto-Calculated Net Financial Gap Card */}
+                <div className="p-3.5 bg-white border border-slate-200 text-slate-800 rounded-xl flex items-center justify-between">
                   <div>
-                    <span className="text-[11px] text-teal-200 block">الفجوة المالية الشهرية المحتسبة آلياً:</span>
-                    <strong className="text-base font-mono" suppressHydrationWarning>
+                    <span className="text-[11px] text-slate-500 block">العجز الشهري الصافي المحتسب:</span>
+                    <strong className="text-base font-mono text-[#005756]" suppressHydrationWarning>
                       {netFinancialGap.toLocaleString('en-US')} ج.م / شهرياً
                     </strong>
                   </div>
 
-                  <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-white/20 text-white">
-                    {netFinancialGap > 2000 ? 'عجز مالي حاد' : netFinancialGap > 1000 ? 'عجز متوسط' : 'فجوة طفيفة'}
+                  <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-slate-50 border border-slate-200 text-slate-700">
+                    {netFinancialGap > 2000 ? 'عجز مالي حاد' : netFinancialGap > 1000 ? 'عجز متوسط' : 'فجوة بسيطة'}
                   </span>
                 </div>
               </div>
@@ -2629,27 +2621,27 @@ export function MobileFieldSurveyModal() {
           {currentStep === 4 && (
             <div className="space-y-4 animate-in fade-in duration-200 slide-in-from-left-2">
               {/* Audio Recording & Speech to Text Widget */}
-              <div className="p-4 bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl shadow-md space-y-3">
+              <div className="p-4 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${isRecording ? 'bg-rose-500 animate-ping' : 'bg-teal-400'}`} />
-                    <span className="font-bold text-xs">التسجيل الصوتي الشفهي للباحث</span>
+                    <div className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-rose-600 animate-ping' : 'bg-[#005756]'}`} />
+                    <span className="font-bold text-xs text-slate-800">التسجيل الصوتي الشفهي للباحث</span>
                   </div>
 
                   {sttSupported && (
-                    <span className="text-[11px] text-teal-300 font-medium flex items-center gap-1">
+                    <span className="text-[11px] text-[#005756] font-medium flex items-center gap-1">
                       <span>تحدث بالصوت</span>
                     </span>
                   )}
                 </div>
 
-                <p className="text-[11px] text-slate-300 leading-relaxed">
-                  تسجيل الانطباع الشفهي وملاحظات المعاينة الميدانية مع ميزة التحدث بالصوت والكتابة الفورية.
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  سجّل انطباعك وملاحظات المعاينة الميدانية بالصوت مع إمكانية الكتابة التلقائية.
                 </p>
 
                 {audioError && (
-                  <div className="p-2.5 bg-rose-500/20 border border-rose-400/30 rounded-xl text-rose-200 text-[11px] flex items-center gap-2">
-                    <AlertTriangle size={14} className="shrink-0 text-rose-300" />
+                  <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-[11px] flex items-center gap-2">
+                    <AlertTriangle size={14} className="shrink-0 text-rose-600" />
                     <span>{audioError}</span>
                   </div>
                 )}
@@ -2660,7 +2652,7 @@ export function MobileFieldSurveyModal() {
                     <button
                       type="button"
                       onClick={startRecording}
-                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl flex items-center gap-2 text-xs shadow-md transition-colors"
+                      className="px-4 py-2 bg-[#005756] hover:bg-[#004342] text-white font-bold rounded-xl flex items-center gap-2 text-xs transition-colors cursor-pointer"
                     >
                       <Mic size={15} />
                       <span>{recordedAudioUrl ? 'إعادة تسجيل ملاحظة صوتية' : 'بدء التسجيل الصوتي'}</span>
@@ -2669,7 +2661,7 @@ export function MobileFieldSurveyModal() {
                     <button
                       type="button"
                       onClick={stopRecording}
-                      className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-xl flex items-center gap-2 text-xs shadow-md animate-pulse"
+                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl flex items-center gap-2 text-xs animate-pulse cursor-pointer"
                     >
                       <Square size={15} />
                       <span>إيقاف وحفظ التسجيل ({recordingSeconds} ثانية)</span>
@@ -2677,7 +2669,7 @@ export function MobileFieldSurveyModal() {
                   )}
 
                   {isTranscribing && (
-                    <span className="text-[11px] text-teal-300 flex items-center gap-1 animate-pulse">
+                    <span className="text-[11px] text-[#005756] font-medium flex items-center gap-1 animate-pulse">
                       <span>جاري الاستماع والتفريغ للنص...</span>
                     </span>
                   )}
@@ -2685,9 +2677,9 @@ export function MobileFieldSurveyModal() {
 
                 {/* Audio Player if recorded */}
                 {recordedAudioUrl && !isRecording && (
-                  <div className="p-3 bg-white/10 rounded-xl border border-white/10 space-y-2 pt-2">
+                  <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2 pt-2">
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="flex items-center gap-1 text-emerald-300 font-bold">
+                      <span className="flex items-center gap-1 text-[#005756] font-bold">
                         <CheckCircle2 size={13} />
                         <span>تم حفظ التسجيل الصوتي ({recordingSeconds} ث)</span>
                       </span>
@@ -2695,7 +2687,7 @@ export function MobileFieldSurveyModal() {
                       <button
                         type="button"
                         onClick={deleteRecording}
-                        className="text-rose-300 hover:text-rose-100 flex items-center gap-1"
+                        className="text-slate-500 hover:text-rose-600 flex items-center gap-1 cursor-pointer"
                       >
                         <Trash2 size={12} />
                         <span>حذف</span>
@@ -2871,31 +2863,40 @@ export function MobileFieldSurveyModal() {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-70 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setShowExitConfirmModal(false)}
         >
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-5 border border-slate-200 space-y-4 text-right">
-            <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
-              <AlertCircle size={26} />
-            </div>
-
-            <div className="text-center space-y-1">
-              <h3 className="font-bold text-slate-900 text-sm">
-                تأكيد مغادرة استمارة البحث الميداني
-              </h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                توجد بيانات تم تدوينها بالاستمارة. هل أنت متأكد من الخروج وإلغاء المسودة الحالية؟
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 pt-1">
+          <div
+            className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden text-right"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">
+                  تأكيد مغادرة الاستمارة
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  توجد بيانات لم تُحفظ بعد
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowExitConfirmModal(false)}
-                className="w-full py-2.5 px-3 bg-[#005756] hover:bg-[#004241] text-white text-xs font-bold rounded-xl transition-colors cursor-pointer active:scale-98"
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+                aria-label="إغلاق"
               >
-                متابعة الاستكمال
+                <X size={20} />
               </button>
+            </div>
 
+            <div className="p-6">
+              <p className="text-xs text-slate-600 leading-relaxed flex items-start gap-2">
+                <AlertCircle size={16} className="text-slate-400 shrink-0 mt-0.5" />
+                <span>توجد بيانات مدوّنة بالاستمارة الحالية، هل تريد الخروج بالفعل أم متابعة الاستكمال؟</span>
+              </p>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -2903,9 +2904,16 @@ export function MobileFieldSurveyModal() {
                   stopFieldDictation();
                   setIsFieldSurveyModalOpen(false);
                 }}
-                className="w-full py-2.5 px-3 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer active:scale-98"
+                className="px-4 py-2 text-slate-600 hover:text-rose-700 hover:bg-rose-50 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
               >
-                نعم، إلغاء والخروج
+                إلغاء والخروج
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowExitConfirmModal(false)}
+                className="px-5 py-2 bg-[#005756] hover:bg-[#004241] text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                متابعة الاستكمال
               </button>
             </div>
           </div>

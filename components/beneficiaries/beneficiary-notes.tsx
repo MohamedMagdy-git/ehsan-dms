@@ -132,10 +132,10 @@ export function BeneficiaryNotes({ caseId, caseCode, caseName }: BeneficiaryNote
             </div>
             <div>
               <h3 className="text-xs sm:text-sm font-bold text-slate-900">
-                تسجيل ملاحظة إدارية أو ميدانية جديدة
+                إضافة ملاحظة جديدة على الحالة
               </h3>
               <p className="text-[11px] text-slate-500">
-                تسجيل بصفتك:{' '}
+                باسم:{' '}
                 <strong className="text-slate-700 font-semibold">
                   {currentSessionProfile.name}
                 </strong>{' '}
@@ -189,7 +189,7 @@ export function BeneficiaryNotes({ caseId, caseCode, caseName }: BeneficiaryNote
             onChange={(e) => setNoteContent(e.target.value)}
             onKeyDown={handleKeyDown}
             rows={3}
-            placeholder="اكتب ملاحظتك التوثيقية أو التوصية الميدانية حول الحالة هنا... (اضغط Ctrl + Enter للإرسال السريع)"
+            placeholder="اكتب أي ملاحظة أو متابعة تخص الحالة هنا... (اضغط Ctrl + Enter للحفظ السريع)"
             className="w-full resize-y min-h-[96px] p-3 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 bg-slate-50/50 hover:bg-white focus:bg-white rounded-xl border border-slate-200 focus:outline-hidden focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all duration-150 leading-relaxed font-sans"
           />
 
@@ -232,11 +232,11 @@ export function BeneficiaryNotes({ caseId, caseCode, caseName }: BeneficiaryNote
             <div className="hidden md:block text-[11px] text-slate-500">
               {!isPrivate ? (
                 <span className="text-teal-700 font-medium flex items-center gap-1">
-                  <Globe size={12} /> تظهر لجميع الباحثين والمشرفين
+                  <Globe size={12} /> تظهر لكل الفريق والإدارة
                 </span>
               ) : (
                 <span className="text-purple-700 font-medium flex items-center gap-1">
-                  <Lock size={12} /> محفوظة لك وحدك كمسودة سرية
+                  <Lock size={12} /> ظاهرة لك أنت فقط
                 </span>
               )}
             </div>
@@ -267,7 +267,7 @@ export function BeneficiaryNotes({ caseId, caseCode, caseName }: BeneficiaryNote
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-200">
           <div className="flex items-center gap-2">
             <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
-              <span>سجل ملاحظات الحالة والنشاط</span>
+              <span>الملاحظات وسجل المتابعة</span>
               <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-mono font-bold">
                 {caseNotesList.length}
               </span>
@@ -333,7 +333,7 @@ export function BeneficiaryNotes({ caseId, caseCode, caseName }: BeneficiaryNote
                 : 'لا توجد ملاحظات مسجلة على هذه الحالة حتى الآن'}
             </p>
             <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
-              يمكنك استخدام نموذج التسجيل أعلاه لإضافة أول ملاحظة ميدانية أو إدارية توثيقية حول المستفيد.
+              تقدر تضيف أي ملاحظة ميدانية أو إدارية من المربع اللي فوق.
             </p>
           </div>
         ) : (

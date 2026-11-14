@@ -31,11 +31,25 @@ import {
   FileText,
   HeartHandshake,
   Eye,
+  Square,
+  Play,
+  Pause,
+  Loader2,
+  RotateCcw,
+  Volume2,
 } from 'lucide-react';
-import { CaseStudyReport, CaseStudyFamilyMember, PriorityLevel, HousingFacilities } from '@/types';
+import {
+  CaseStudyReport,
+  CaseStudyFamilyMember,
+  PriorityLevel,
+  HousingFacilities,
+  CaseExecutiveSummary,
+} from '@/types';
 import { ResearcherSelect } from '@/components/cases/researcher-select';
+import { ResearcherVoicePlayer } from '@/components/common/researcher-voice-player';
 
 const DRAFT_STORAGE_KEY = 'ehsan_case_study_draft_v1';
+const ENABLE_AI_EXTRACTION_V2 = false; // ميزة التفريغ الآلي بالذكاء الاصطناعي معطلة في الإصدار الأول v1
 
 // SpeechRecognition polyfill interface
 type IWindow = typeof window & {
@@ -156,6 +170,7 @@ export function CaseStudyModal() {
   const [basicIncomeAmount, setBasicIncomeAmount] = useState<number>(650);
   const [basicIncomeSources, setBasicIncomeSources] = useState('معاش تكافل وكرامة');
   const [additionalIncomeAmount, setAdditionalIncomeAmount] = useState<number>(400);
+  const [additionalIncomeSources, setAdditionalIncomeSources] = useState<string>('يوميات غير منتظمة');
   const [familyAssets, setFamilyAssets] = useState<string>('لا توجد أي أملاك مسجلة');
 
   // Expenses & Debts
@@ -230,6 +245,26 @@ export function CaseStudyModal() {
   const netFinancialGap = Math.max(0, totalObligations - totalIncome);
 
   // ----------------------------------------------------
+  // Full Voice Recording & AI Auto-fill (MediaRecorder)
+  // ----------------------------------------------------
+  const [isFullAudioRecording, setIsFullAudioRecording] = useState(false);
+  const [fullAudioDuration, setFullAudioDuration] = useState(0);
+  const [fullAudioBlob, setFullAudioBlob] = useState<Blob | null>(null);
+  const [fullAudioUrl, setFullAudioUrl] = useState<string | null>(null);
+  const [isExtractingWithAI, setIsExtractingWithAI] = useState(false);
+  const [isVoiceExtractionSuccess, setIsVoiceExtractionSuccess] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [executiveSummary, setExecutiveSummary] = useState<CaseExecutiveSummary | null>(null);
+  const [voiceSessionTranscript, setVoiceSessionTranscript] = useState<string>('');
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const sessionRecognitionRef = useRef<any>(null);
+
+  // ----------------------------------------------------
   // Voice Dictation (Speech to Text)
   // ----------------------------------------------------
   const [isListening, setIsListening] = useState(false);
@@ -302,6 +337,359 @@ export function CaseStudyModal() {
       showToast('تعذر تشغيل الميكروفون، يرجى السماح بالوصول في الإعدادات');
     }
   };
+
+  // Helper format seconds to mm:ss
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Start Full Audio Recording (MediaRecorder API)
+  const startFullAudioRecording = async () => {
+    if (isFullAudioRecording) return;
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showToast('المتصفح لا يدعم تسجيل الصوت عبر الميكروفون المباشر');
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      let options: MediaRecorderOptions = {};
+      if (typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function') {
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          options = { mimeType: 'audio/webm;codecs=opus' };
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          options = { mimeType: 'audio/webm' };
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          options = { mimeType: 'audio/mp4' };
+        }
+      }
+
+      const recorder = new MediaRecorder(stream, options);
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const mime = recorder.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: mime });
+        setFullAudioBlob(audioBlob);
+        if (fullAudioUrl && fullAudioUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(fullAudioUrl);
+        }
+        const newUrl = URL.createObjectURL(audioBlob);
+        setFullAudioUrl(newUrl);
+
+        // Convert to Data URL for persistence across views/modals
+        try {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            if (typeof reader.result === 'string') {
+              setFullAudioUrl(reader.result);
+            }
+          };
+          reader.readAsDataURL(audioBlob);
+        } catch {
+          // fallback to object URL
+        }
+
+        // Automatically attach as تسجيل_صوتي_للباحث.webm in case attachments
+        const audioSizeMb = ((audioBlob.size || 240000) / (1024 * 1024)).toFixed(2);
+        setUploadedDocs((prev) => [
+          {
+            id: 'doc-voice-memo',
+            category: 'voiceRecording' as any,
+            title: 'ملاحظات الباحث الصوتية عن الزيارة',
+            fileName: 'تسجيل_صوتي_للباحث.webm',
+            fileSize: `${audioSizeMb} MB`,
+            progress: 100,
+            status: 'completed' as const,
+            customDescription: 'تم حفظ التسجيل وجاهز للمراجعة',
+          },
+          ...prev.filter(
+            (item) => (item.category as string) !== 'voiceRecording' && item.id !== 'doc-voice-memo'
+          ),
+        ]);
+
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+        }
+      };
+
+      recorder.start(250);
+      setIsFullAudioRecording(true);
+      setFullAudioDuration(0);
+      setIsVoiceExtractionSuccess(false);
+      setVoiceSessionTranscript('');
+
+      // Also start live browser speech recognition in background if supported
+      const win = typeof window !== 'undefined' ? (window as IWindow) : null;
+      const SpeechRecognitionClass = win?.SpeechRecognition || win?.webkitSpeechRecognition;
+      if (SpeechRecognitionClass) {
+        try {
+          const recognition = new SpeechRecognitionClass();
+          recognition.lang = 'ar-EG';
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.onresult = (event: any) => {
+            let text = '';
+            for (let i = 0; i < event.results.length; i++) {
+              text += event.results[i][0].transcript + ' ';
+            }
+            if (text.trim()) {
+              setVoiceSessionTranscript(text.trim());
+            }
+          };
+          recognition.start();
+          sessionRecognitionRef.current = recognition;
+        } catch {
+          // ignore
+        }
+      }
+
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = setInterval(() => {
+        setFullAudioDuration((prev) => prev + 1);
+      }, 1000);
+
+      showToast('🎙️ بدأ التسجيل... سجل بصوتك أي ملاحظة مش مكتوبة عن الزيارة');
+    } catch (err: any) {
+      console.error('Error starting media recording:', err);
+      showToast('يرجى السماح بالوصول إلى الميكروفون لبدء التسجيل الصوتي');
+    }
+  };
+
+  // Stop Full Audio Recording
+  const stopFullAudioRecording = () => {
+    if (!isFullAudioRecording && !mediaRecorderRef.current) return;
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+    } catch (err) {
+      console.error('Error stopping recorder:', err);
+    }
+
+    if (sessionRecognitionRef.current) {
+      try {
+        sessionRecognitionRef.current.stop();
+      } catch {
+        // ignore
+      }
+      sessionRecognitionRef.current = null;
+    }
+
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    setIsFullAudioRecording(false);
+    showToast('تم حفظ التسجيل وجاهز للمراجعة (تسجيل_صوتي_للباحث.webm)');
+  };
+
+  // Delete Recorded Audio Memo
+  const deleteFullAudioRecording = () => {
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+    }
+    setIsPlayingAudio(false);
+    if (fullAudioUrl && fullAudioUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(fullAudioUrl);
+    }
+    setFullAudioBlob(null);
+    setFullAudioUrl(null);
+    setFullAudioDuration(0);
+    setUploadedDocs((prev) =>
+      prev.filter(
+        (item) => (item.category as string) !== 'voiceRecording' && item.id !== 'doc-voice-memo'
+      )
+    );
+    showToast('تم مسح الريكورد الصوتي، تقدر تسجل من جديد في أي وقت');
+  };
+
+  // Toggle playback of recorded audio
+  const togglePlayRecordedAudio = () => {
+    if (!audioPlayerRef.current || !fullAudioUrl) return;
+    if (isPlayingAudio) {
+      audioPlayerRef.current.pause();
+      setIsPlayingAudio(false);
+    } else {
+      audioPlayerRef.current
+        .play()
+        .then(() => setIsPlayingAudio(true))
+        .catch((e) => console.error(e));
+    }
+  };
+
+  // AI Voice-to-Form Extraction Handler
+  const handleAIVoiceExtraction = async () => {
+    if (!fullAudioBlob && !caseSummary && !voiceSessionTranscript) {
+      showToast('يرجى تسجيل مقطع صوتي أولاً لتفريغه وتعبئة الاستمارة آلياً');
+      return;
+    }
+
+    setIsExtractingWithAI(true);
+    try {
+      const formData = new FormData();
+      if (fullAudioBlob) {
+        formData.append('audio', fullAudioBlob, 'case-interview.webm');
+      }
+      const textToSend = voiceSessionTranscript.trim() || caseSummary.trim();
+      if (textToSend) {
+        formData.append('transcribedText', textToSend);
+      }
+
+      const response = await fetch('/api/research/voice-extract', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const contentType = response.headers.get('content-type') || '';
+      let result: any;
+      if (contentType.includes('application/json')) {
+        result = await response.json();
+      } else {
+        throw new Error(
+          response.status === 504 || response.status === 502
+            ? 'استغرقت معالجة التسجيل وقتاً أطول من المتوقع، يرجى إعادة المحاولة'
+            : `تعذر الاتصال بخدمة التحليل الذكي (${response.status})`
+        );
+      }
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'تعذر استخراج البيانات من الصوت');
+      }
+
+      const d = result.extractedData;
+
+      // Populate form states
+      if (d.caseName) setCaseName(d.caseName);
+      if (d.visitorName) setVisitorName(d.visitorName);
+      if (d.contactPhone) setContactPhone(d.contactPhone);
+      if (d.secondaryPhone) setSecondaryPhone(d.secondaryPhone);
+      if (d.address) setAddress(d.address);
+      if (d.landmarkAddress) setLandmarkAddress(d.landmarkAddress);
+      if (d.referralSource) setReferralSource(d.referralSource);
+      if (d.priorityLevel) setPriorityLevel(d.priorityLevel as PriorityLevel);
+      if (d.housingStatus) setHousingStatus(d.housingStatus);
+      if (d.caseSummary) setCaseSummary(d.caseSummary);
+
+      // Housing facilities
+      if (d.housingFacilities) {
+        if (d.housingFacilities.roofType) setRoofType(d.housingFacilities.roofType);
+        if (d.housingFacilities.waterConnection) setWaterConnection(d.housingFacilities.waterConnection);
+        if (d.housingFacilities.electricityMeter) setElectricityMeter(d.housingFacilities.electricityMeter);
+        if (d.housingFacilities.hasPrivateBathroom !== undefined) {
+          setHasPrivateBathroom(Boolean(d.housingFacilities.hasPrivateBathroom));
+        }
+        if (Array.isArray(d.housingFacilities.basicAppliancesAvailable)) {
+          setBasicAppliances(d.housingFacilities.basicAppliancesAvailable);
+        }
+      }
+
+      // Family members
+      if (Array.isArray(d.familyMembers) && d.familyMembers.length > 0) {
+        setFamilyMembers(
+          d.familyMembers.map((m: any, idx: number) => ({
+            id: `mem-${Date.now()}-${idx + 1}`,
+            orderNumber: idx + 1,
+            name: m.name || '',
+            relation: m.relation || (idx === 0 ? 'نفس الحالة (صاحب الملف الأساسي)' : 'الابن / الابنة'),
+            maritalStatus: m.maritalStatus || 'متزوج',
+            age: Number(m.age) || 30,
+            educationLevel: m.educationLevel || 'متوسط',
+            workCapacity: m.workCapacity || 'قادر على العمل',
+            currentJob: m.currentJob || 'لا يعمل',
+            isPrimaryCaregiver: Boolean(m.isPrimaryCaregiver),
+            chronicIllness: m.chronicIllness?.conditionName
+              ? {
+                  conditionName: m.chronicIllness.conditionName,
+                  monthlyCost: Number(m.chronicIllness.monthlyCost) || 0,
+                  isCoveredByStateInsurance: Boolean(m.chronicIllness.isCoveredByStateInsurance),
+                }
+              : undefined,
+          }))
+        );
+      }
+
+      // Financials
+      if (d.basicIncomeAmount !== undefined) setBasicIncomeAmount(Number(d.basicIncomeAmount) || 0);
+      if (d.basicIncomeSources) setBasicIncomeSources(d.basicIncomeSources);
+      if (d.additionalIncomeAmount !== undefined) setAdditionalIncomeAmount(Number(d.additionalIncomeAmount) || 0);
+      if (d.additionalIncomeSources) setAdditionalIncomeSources(d.additionalIncomeSources);
+      if (d.familyAssets) setFamilyAssets(d.familyAssets);
+      if (d.monthlyBasicExpenses !== undefined) setMonthlyBasicExpenses(Number(d.monthlyBasicExpenses) || 0);
+      if (d.monthlyDebtsInstallments !== undefined) setMonthlyDebtsInstallments(Number(d.monthlyDebtsInstallments) || 0);
+      if (d.debtsAndObligations) setDebtsAndObligations(d.debtsAndObligations);
+
+      // Health
+      if (d.medicalConditionDescription) setMedicalConditionDescription(d.medicalConditionDescription);
+      if (d.chronicVerification) setChronicVerification(d.chronicVerification);
+      if (d.monthlyMedicalCosts !== undefined) setMonthlyMedicalCosts(Number(d.monthlyMedicalCosts) || 0);
+      if (d.stateHealthInsurance) setStateHealthInsurance(d.stateHealthInsurance);
+
+      // Checklist
+      if (d.checklist) {
+        setChecklist((prev) => ({
+          ...prev,
+          ...d.checklist,
+        }));
+      }
+
+      if (d.additionalNotesAndRemarks) setAdditionalNotesAndRemarks(d.additionalNotesAndRemarks);
+
+      // Executive Summary
+      if (d.executiveSummary) {
+        setExecutiveSummary(d.executiveSummary);
+      }
+
+      // Attach raw audio recording to uploadedDocs
+      if (fullAudioBlob) {
+        const audioDocId = `audio-rec-${Date.now()}`;
+        const audioSizeMb = ((fullAudioBlob.size || 250000) / (1024 * 1024)).toFixed(2);
+        setUploadedDocs((prev) => [
+          {
+            id: audioDocId,
+            category: 'voiceRecording' as any,
+            title: 'تسجيل صوتي كامل لجلسة البحث الميداني',
+            fileName: `field-voice-survey-${Date.now()}.webm`,
+            fileSize: `${audioSizeMb} MB`,
+            progress: 100,
+            status: 'completed',
+            customDescription: fullAudioUrl ? 'مقطع صوتي محفوظ للاستماع الإداري' : 'ملف صوتي خام',
+          },
+          ...prev.filter((item) => (item.category as string) !== 'voiceRecording'),
+        ]);
+      }
+
+      setIsVoiceExtractionSuccess(true);
+      showToast('✨ تم تفريغ وتعبئة كافة بنود الاستمارة والـ Checklist والملخص الإداري بنجاح!');
+    } catch (err: any) {
+      console.error('Error in AI extraction:', err);
+      showToast(err?.message || 'تعذر استخراج البيانات من التسجيل الصوتي، يرجى المحاولة مرة أخرى');
+    } finally {
+      setIsExtractingWithAI(false);
+    }
+  };
+
+  // Clean up media streams and intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, []);
 
   // GPS Geolocation Handler
   const handleCaptureGps = () => {
@@ -445,6 +833,7 @@ export function CaseStudyModal() {
       if (d.familyMembers && Array.isArray(d.familyMembers)) setFamilyMembers(d.familyMembers);
       if (d.basicIncomeAmount !== undefined) setBasicIncomeAmount(d.basicIncomeAmount);
       if (d.additionalIncomeAmount !== undefined) setAdditionalIncomeAmount(d.additionalIncomeAmount);
+      if (d.additionalIncomeSources) setAdditionalIncomeSources(d.additionalIncomeSources);
       if (d.familyAssets) setFamilyAssets(d.familyAssets);
       if (d.monthlyBasicExpenses !== undefined) setMonthlyBasicExpenses(d.monthlyBasicExpenses);
       if (d.monthlyDebtsInstallments !== undefined) setMonthlyDebtsInstallments(d.monthlyDebtsInstallments);
@@ -455,6 +844,7 @@ export function CaseStudyModal() {
       if (d.monthlyMedicalCosts !== undefined) setMonthlyMedicalCosts(d.monthlyMedicalCosts);
       if (d.uploadedDocs && Array.isArray(d.uploadedDocs)) setUploadedDocs(d.uploadedDocs);
       if (d.additionalNotesAndRemarks) setAdditionalNotesAndRemarks(d.additionalNotesAndRemarks);
+      if (d.executiveSummary) setExecutiveSummary(d.executiveSummary);
       if (d.currentQuestion) setCurrentQuestion(d.currentQuestion);
       setHasDraftAvailable(false);
       showToast('تم استرجاع مسودة بحث الحالة بنجاح');
@@ -508,6 +898,7 @@ export function CaseStudyModal() {
           monthlyMedicalCosts,
           uploadedDocs,
           additionalNotesAndRemarks,
+          executiveSummary,
         };
         localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draftData));
         setLastSavedTime(
@@ -553,6 +944,7 @@ export function CaseStudyModal() {
     monthlyMedicalCosts,
     uploadedDocs,
     additionalNotesAndRemarks,
+    executiveSummary,
   ]);
 
   // Family Member handlers
@@ -786,7 +1178,7 @@ export function CaseStudyModal() {
       familyMembers,
       basicIncomeSources,
       basicIncomeAmount: Number(basicIncomeAmount) || 0,
-      additionalIncomeSources: 'يوميات غير منتظمة',
+      additionalIncomeSources: additionalIncomeSources || 'يوميات غير منتظمة',
       additionalIncomeAmount: Number(additionalIncomeAmount) || 0,
       familyAssets,
       monthlyBasicExpenses: Number(monthlyBasicExpenses) || 0,
@@ -813,9 +1205,15 @@ export function CaseStudyModal() {
           fileName: d.fileName,
           progress: d.progress,
           status: d.status,
+          url: (d.category as string) === 'voiceRecording' ? fullAudioUrl || undefined : undefined,
+          durationSeconds:
+            (d.category as string) === 'voiceRecording' ? fullAudioDuration || 15 : undefined,
         })),
       },
       additionalNotesAndRemarks,
+      voiceNoteUrl: fullAudioUrl || undefined,
+      voiceNoteDuration: fullAudioDuration || undefined,
+      executiveSummary: executiveSummary || undefined,
       status: 'pending_review',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -862,14 +1260,15 @@ export function CaseStudyModal() {
       {/* Floating Toast Notification */}
       {toastMessage && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-60 w-[92%] max-w-sm animate-in fade-in slide-in-from-top-4 duration-200">
-          <div className="bg-amber-950/95 text-amber-50 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-amber-600/60 backdrop-blur-md">
-            <AlertCircle size={20} className="text-amber-400 shrink-0" />
+          <div className="bg-white text-slate-800 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 border border-slate-200">
+            <AlertCircle size={18} className="text-slate-400 shrink-0" />
             <span className="text-xs sm:text-sm font-bold flex-1 leading-snug">
               {toastMessage}
             </span>
             <button
+              type="button"
               onClick={() => setToastMessage(null)}
-              className="text-amber-300 hover:text-white p-1 rounded-full cursor-pointer"
+              className="text-slate-400 hover:text-slate-700 p-1 rounded-lg cursor-pointer"
             >
               <X size={16} />
             </button>
@@ -878,44 +1277,42 @@ export function CaseStudyModal() {
       )}
 
       {/* STRICT ZERO-SCROLL MOBILE CONTAINER */}
-      <div className="relative w-full max-w-md h-[100dvh] sm:h-[90vh] sm:max-h-[820px] bg-white sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col justify-between border border-slate-200/80">
+      <div className="relative w-full max-w-md h-[100dvh] sm:h-[90vh] sm:max-h-[820px] bg-white sm:rounded-2xl shadow-xl overflow-hidden flex flex-col justify-between border border-slate-200">
         
         {/* ==================================================== */}
         {/* 1. HEADER (Fixed height, shrink-0)                    */}
         {/* ==================================================== */}
-        <div className="bg-white shrink-0 border-b border-slate-100">
-          {/* Simulated Mobile Top Bar */}
-          <div className="bg-slate-900 text-slate-100 px-4 py-2.5 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono tracking-wider font-semibold text-slate-300">
-                {new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
-              </span>
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[10px] text-slate-400 font-medium">
-                متصل | حفظ تلقائي
-              </span>
-            </div>
-
-            <div className="px-3 py-0.5 bg-slate-800 rounded-full border border-slate-700 flex items-center gap-1.5 shadow-inner">
-              <Sparkles size={11} className="text-teal-400 shrink-0" />
-              <span className="text-[11px] font-bold text-teal-200 tracking-wide">
-                بحث حالة
-              </span>
+        <div className="bg-white shrink-0 border-b border-slate-200">
+          {/* Clean Soft-Gray Modal Header */}
+          <div className="bg-slate-50 text-slate-800 px-5 py-3.5 border-b border-slate-200 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-bold text-slate-800 leading-tight">
+                تقرير بحث حالة
+              </h3>
+              <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#005756]" />
+                <span>متصل · حفظ تلقائي</span>
+                <span className="text-slate-300">·</span>
+                <span className="font-mono" suppressHydrationWarning>
+                  {new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
             </div>
 
             <button
               type="button"
               onClick={() => setIsFieldSurveyModalOpen(false)}
-              className="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
+              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
               title="إغلاق"
+              aria-label="إغلاق"
             >
-              <X size={18} />
+              <X size={20} />
             </button>
           </div>
 
           {/* Draft Restored Bar */}
           {hasDraftAvailable && (
-            <div className="px-4 py-2 bg-amber-50 border-b border-amber-200/80 flex items-center justify-between text-xs text-amber-900">
+            <div className="px-5 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs text-slate-700">
               <span className="text-[11px] font-semibold">
                 توجد مسودة سابقة {lastSavedTime ? `(${lastSavedTime})` : ''}
               </span>
@@ -923,14 +1320,14 @@ export function CaseStudyModal() {
                 <button
                   type="button"
                   onClick={handleRestoreDraft}
-                  className="px-2 py-0.5 bg-amber-700 text-white rounded-md text-[10px] font-bold cursor-pointer"
+                  className="px-2.5 py-1 bg-[#005756] hover:bg-[#004342] text-white rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
                 >
                   استرجاع
                 </button>
                 <button
                   type="button"
                   onClick={handleDiscardDraft}
-                  className="text-slate-500 text-[10px] cursor-pointer"
+                  className="text-slate-500 hover:text-slate-800 text-[10px] font-medium cursor-pointer"
                 >
                   تجاهل
                 </button>
@@ -938,23 +1335,159 @@ export function CaseStudyModal() {
             </div>
           )}
 
-          {/* Segmented Progress Bar */}
-          <div className="px-5 pt-3 pb-2.5">
+          {/* Clean Progress Bar */}
+          <div className="px-5 pt-3 pb-2.5 bg-white">
             <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden flex">
               <div
-                className="bg-gradient-to-r from-teal-700 to-emerald-600 h-full rounded-full transition-all duration-300"
+                className="bg-[#005756] h-full rounded-full transition-all duration-300"
                 style={{ width: `${completionPercentage}%` }}
               />
             </div>
             <div className="flex items-center justify-between text-xs font-bold text-slate-500 mt-2">
-              <span className="text-slate-800">
+              <span className="text-slate-700">
                 سؤال {currentQuestion} من {totalQuestions}
               </span>
-              <span className="text-teal-800 font-mono bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200/60">
+              <span className="text-[#005756] font-mono bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200">
                 {completionPercentage}%
               </span>
             </div>
           </div>
+
+          {/* Hidden Audio Player for Previewing Voice Recording */}
+          <audio
+            ref={audioPlayerRef}
+            src={fullAudioUrl || undefined}
+            onEnded={() => setIsPlayingAudio(false)}
+            className="hidden"
+          />
+
+          {/* ==================================================== */}
+          {/* FIELD VOICE MEMO RECORDING BAR (v1 Scope)            */}
+          {/* ==================================================== */}
+          {!isSuccessSubmitted && (
+            <div className="border-t border-slate-200 bg-slate-50 text-slate-800">
+              {/* State 1: Idle (Not recording, no audio yet) */}
+              {!isFullAudioRecording && !fullAudioUrl && (
+                <div className="px-5 py-2.5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0 text-slate-400">
+                      <Mic size={16} />
+                    </div>
+                    <div className="leading-tight min-w-0">
+                      <span className="font-bold text-xs text-slate-800 block truncate">
+                        ملاحظات الزيارة الصوتية
+                      </span>
+                      <span className="text-[10px] text-slate-500 truncate block">
+                        سجّل ملخص سريع يساعد في تقييم الحالة
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={startFullAudioRecording}
+                    className="px-3 py-1.5 bg-[#005756] hover:bg-[#004342] active:scale-95 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+                  >
+                    <Mic size={14} />
+                    <span>ابدأ التسجيل</span>
+                  </button>
+                </div>
+              )}
+
+              {/* State 2: Actively Recording */}
+              {isFullAudioRecording && (
+                <div className="px-5 py-2.5 bg-rose-50 flex items-center justify-between gap-3 animate-in fade-in">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 animate-pulse">
+                      <Mic size={16} />
+                    </div>
+                    <div className="leading-tight">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
+                        <span className="font-bold text-xs text-rose-900">جاري التسجيل...</span>
+                        <span className="font-mono text-xs font-bold text-rose-700 bg-white px-1.5 py-0.5 rounded border border-rose-200">
+                          {formatDuration(fullAudioDuration)}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-rose-700 block">
+                        سجّل بصوتك أي ملاحظات إضافية عن وضع الأسرة
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={stopFullAudioRecording}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+                  >
+                    <Square size={12} className="fill-white" />
+                    <span>إيقاف وحفظ</span>
+                  </button>
+                </div>
+              )}
+
+              {/* State 3: Recorded Audio Saved & Ready for Review */}
+              {!isFullAudioRecording && fullAudioUrl && (
+                <div className="px-5 py-2.5 bg-slate-50 flex items-center justify-between gap-2 animate-in fade-in">
+                  <div className="flex items-center gap-2 truncate">
+                    <button
+                      type="button"
+                      onClick={togglePlayRecordedAudio}
+                      className="px-2.5 py-1.5 rounded-xl bg-[#005756] hover:bg-[#004342] text-white flex items-center gap-1.5 shrink-0 cursor-pointer transition-colors text-xs font-bold"
+                      title={isPlayingAudio ? 'إيقاف مؤقت' : 'استمع للتسجيل'}
+                    >
+                      {isPlayingAudio ? <Pause size={13} /> : <Play size={13} className="mr-0.5" />}
+                      <span>{isPlayingAudio ? 'إيقاف مؤقت' : 'تشغيل التسجيل'}</span>
+                    </button>
+                    <div className="leading-tight truncate">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-xs text-slate-800">
+                          تم حفظ التسجيل
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-600 bg-white border border-slate-200 px-1.5 py-0.5 rounded">
+                          {formatDuration(fullAudioDuration || 12)}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-mono truncate block">
+                        تسجيل_صوتي_للباحث.webm
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {ENABLE_AI_EXTRACTION_V2 && (
+                      <button
+                        type="button"
+                        onClick={handleAIVoiceExtraction}
+                        disabled={isExtractingWithAI}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer bg-[#005756] hover:bg-[#004342] text-white"
+                      >
+                        <Sparkles size={13} />
+                        <span>تفريغ وتعبئة الاستمارة آلياً</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={startFullAudioRecording}
+                      className="px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors flex items-center gap-1"
+                      title="إعادة التسجيل"
+                    >
+                      <RotateCcw size={12} />
+                      <span className="hidden sm:inline">إعادة تسجيل</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={deleteFullAudioRecording}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 cursor-pointer transition-colors"
+                      title="حذف التسجيل"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ==================================================== */}
@@ -2036,26 +2569,26 @@ export function CaseStudyModal() {
                     </p>
                   </div>
 
-                  <div className="p-4 bg-gradient-to-br from-teal-950 via-slate-900 to-slate-950 text-white rounded-3xl shadow-xl space-y-3">
-                    <div className="text-center py-2 border-b border-teal-800/80">
-                      <span className="text-xs text-teal-300 font-bold block mb-1">
+                  <div className="p-4 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl space-y-3">
+                    <div className="text-center py-2 border-b border-slate-200">
+                      <span className="text-xs text-slate-500 font-semibold block mb-1">
                         صافي العجز الشهري المقترح للتغطية
                       </span>
-                      <span className="text-3xl sm:text-4xl font-black text-amber-300 font-mono tracking-tight">
+                      <span className="text-3xl sm:text-4xl font-black text-[#005756] font-mono tracking-tight">
                         {netFinancialGap.toLocaleString('ar-EG')} ج.م
                       </span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-center text-xs">
-                      <div className="p-2 bg-slate-800/70 rounded-xl">
-                        <span className="block text-[11px] text-slate-400">إجمالي الدخل</span>
-                        <span className="block font-bold text-emerald-400 font-mono mt-0.5">
+                      <div className="p-2.5 bg-white border border-slate-200 rounded-xl">
+                        <span className="block text-[11px] text-slate-500">إجمالي الدخل</span>
+                        <span className="block font-bold text-slate-800 font-mono mt-0.5">
                           {totalIncome.toLocaleString('ar-EG')} ج.م
                         </span>
                       </div>
-                      <div className="p-2 bg-slate-800/70 rounded-xl">
-                        <span className="block text-[11px] text-slate-400">إجمالي الالتزامات</span>
-                        <span className="block font-bold text-rose-300 font-mono mt-0.5">
+                      <div className="p-2.5 bg-white border border-slate-200 rounded-xl">
+                        <span className="block text-[11px] text-slate-500">إجمالي الالتزامات</span>
+                        <span className="block font-bold text-rose-700 font-mono mt-0.5">
                           {totalObligations.toLocaleString('ar-EG')} ج.م
                         </span>
                       </div>
@@ -2425,7 +2958,18 @@ export function CaseStudyModal() {
                         className="px-2.5 py-1.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-xs"
                       >
                         <div className="flex items-center gap-2 truncate">
-                          <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                          {(doc.category as string) === 'voiceRecording' ? (
+                            <button
+                              type="button"
+                              onClick={togglePlayRecordedAudio}
+                              className="p-1 rounded-md bg-teal-100 text-teal-800 hover:bg-teal-200 cursor-pointer shrink-0 transition-colors"
+                              title={isPlayingAudio ? 'إيقاف مؤقت' : 'استماع للتسجيل الصوتي'}
+                            >
+                              {isPlayingAudio ? <Pause size={12} /> : <Play size={12} />}
+                            </button>
+                          ) : (
+                            <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                          )}
                           <span className="font-bold text-slate-800 truncate">
                             {doc.title} {doc.customDescription ? `(${doc.customDescription})` : ''}
                           </span>
@@ -2441,19 +2985,81 @@ export function CaseStudyModal() {
                     ))}
                   </div>
 
-                  {/* Notes */}
+                  {/* Voice Memo Card in Step 22 (الملاحظات الإضافية وتوصية الباحث) */}
+                  <div className="pt-1 space-y-2">
+                    {!isFullAudioRecording && !fullAudioUrl && (
+                      <div className="p-3.5 bg-gradient-to-br from-teal-50/90 via-white to-emerald-50/50 border-2 border-teal-600/60 rounded-2xl space-y-2.5 text-right shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-xs font-black text-teal-950 block">
+                              ملاحظات الزيارة الصوتية
+                            </span>
+                            <span className="text-[11px] text-slate-600 font-medium block mt-0.5">
+                              سجّل ملخص سريع يساعد في تقييم الحالة
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={startFullAudioRecording}
+                          className="w-full py-3 px-4 bg-[#005756] hover:bg-[#004241] active:scale-98 text-white rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                        >
+                          <Mic size={16} />
+                          <span>ابدأ التسجيل</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {isFullAudioRecording && (
+                      <div className="p-3.5 bg-rose-50 border-2 border-rose-400 rounded-2xl space-y-3 text-right animate-in fade-in">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="w-3 h-3 rounded-full bg-rose-600 animate-ping" />
+                            <span className="text-xs font-black text-rose-950">
+                              شغال تسجيل دلوقتي... سجل بصوتك أي ملاحظة مش مكتوبة
+                            </span>
+                          </div>
+                          <span className="font-mono text-sm font-black text-white bg-rose-600 px-2.5 py-0.5 rounded-lg">
+                            {formatDuration(fullAudioDuration)}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={stopFullAudioRecording}
+                          className="w-full py-3 px-4 bg-rose-600 hover:bg-rose-700 active:scale-98 text-white rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                        >
+                          <Square size={14} className="fill-white" />
+                          <span>وقف واحفظ الريكورد</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {!isFullAudioRecording && fullAudioUrl && (
+                      <ResearcherVoicePlayer
+                        audioUrl={fullAudioUrl}
+                        durationSeconds={fullAudioDuration || 12}
+                        researcherName={visitorName}
+                        fileName="تسجيل_صوتي_للباحث.webm"
+                        onReRecord={startFullAudioRecording}
+                        onDelete={deleteFullAudioRecording}
+                      />
+                    )}
+                  </div>
+
+                  {/* Written Notes & Researcher Recommendation */}
                   <div className="relative">
                     <input
                       type="text"
                       value={additionalNotesAndRemarks}
                       onChange={(e) => setAdditionalNotesAndRemarks(e.target.value)}
-                      placeholder="التوصية الختامية للباحث..."
+                      placeholder="أو اكتب هنا التوصية الختامية للباحث..."
                       className="w-full p-2.5 pl-10 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-700 focus:bg-white text-slate-800"
                     />
                     <button
                       type="button"
                       onClick={() => toggleVoiceDictation('remarks', setAdditionalNotesAndRemarks)}
                       className="absolute left-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-teal-800 cursor-pointer"
+                      title="إملاء صوتي سريع للنص"
                     >
                       <Mic size={14} />
                     </button>
@@ -2473,6 +3079,74 @@ export function CaseStudyModal() {
                       تأكيد واعتماد ملف الحالة
                     </h2>
                   </div>
+
+                  {/* Researcher Voice Notes Card (v1 Primary Feature) */}
+                  {fullAudioUrl ? (
+                    <ResearcherVoicePlayer
+                      audioUrl={fullAudioUrl}
+                      durationSeconds={fullAudioDuration || 14}
+                      researcherName={visitorName}
+                      fileName="تسجيل_صوتي_للباحث.webm"
+                      onReRecord={startFullAudioRecording}
+                      onDelete={deleteFullAudioRecording}
+                    />
+                  ) : isFullAudioRecording ? (
+                    <div className="p-3.5 bg-rose-50 border-2 border-rose-400 rounded-2xl space-y-2.5 text-right animate-in fade-in">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-rose-600 animate-ping" />
+                          <span className="text-xs font-black text-rose-950">
+                            شغال تسجيل دلوقتي... سجل بصوتك أي ملاحظة مش مكتوبة
+                          </span>
+                        </div>
+                        <span className="font-mono text-sm font-black text-white bg-rose-600 px-2.5 py-0.5 rounded-lg">
+                          {formatDuration(fullAudioDuration)}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={stopFullAudioRecording}
+                        className="w-full py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <Square size={13} className="fill-white" />
+                        <span>وقف واحفظ الريكورد</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-right">
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 block">
+                          ملاحظات الزيارة الصوتية
+                        </span>
+                        <span className="text-[11px] text-slate-500 block">
+                          سجّل ملخص سريع يساعد في تقييم الحالة
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={startFullAudioRecording}
+                        className="px-3.5 py-2 bg-[#005756] hover:bg-[#004241] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+                      >
+                        <Mic size={14} />
+                        <span>ابدأ التسجيل</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* AI Executive Recommendation Card (Hidden in v1 via ENABLE_AI_EXTRACTION_V2) */}
+                  {ENABLE_AI_EXTRACTION_V2 && executiveSummary && (
+                    <div className="p-3 bg-gradient-to-br from-teal-50 via-emerald-50/50 to-white border-2 border-teal-600/70 rounded-2xl space-y-2 text-right shadow-2xs animate-in zoom-in-95 duration-200">
+                      <div className="flex items-center justify-between pb-1.5 border-b border-teal-200/70">
+                        <div className="flex items-center gap-1.5">
+                          <Sparkles size={15} className="text-teal-700 animate-pulse" />
+                          <span className="font-black text-xs text-teal-950">توصية التحليل الذكي للإدارة</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-800 leading-relaxed font-semibold">
+                        {executiveSummary.justificationText}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Summary Capsules (Zero-Scroll strictly fitted) */}
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-xs">
@@ -2583,7 +3257,7 @@ export function CaseStudyModal() {
               <button
                 type="button"
                 onClick={handleNext}
-                className="flex-1 h-14 bg-slate-900 hover:bg-slate-950 active:scale-[0.98] text-white rounded-xl text-sm sm:text-base font-bold shadow-none transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="flex-1 h-14 bg-[#005756] hover:bg-[#004342] active:scale-[0.98] text-white rounded-xl text-sm sm:text-base font-bold shadow-none transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>حفظ ومتابعة</span>
                 <ArrowLeft size={18} />

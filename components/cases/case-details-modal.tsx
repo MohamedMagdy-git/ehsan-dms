@@ -34,6 +34,7 @@ import { calculateCaseAssessment, getPriorityLabel, getStatusLabel } from '@/ser
 import { CaseStatus } from '@/types';
 import { BeneficiaryNotes } from '@/components/beneficiaries/beneficiary-notes';
 import { ResearcherSelect } from './researcher-select';
+import { ResearcherVoicePlayer } from '@/components/common/researcher-voice-player';
 
 export function CaseDetailsModal() {
   const {
@@ -120,17 +121,17 @@ export function CaseDetailsModal() {
           const title = alloc.batchTitle || `كفالات ${alloc.periodLabel || alloc.period}`;
 
           let status: LedgerEntry['status'] = isApproved ? 'delivered' : 'draft';
-          let statusLabel = isApproved ? 'تم الاعتماد والصرف' : 'مقترح مسودة';
+          let statusLabel = isApproved ? 'تم الصرف' : 'تحت المراجعة';
 
           if (item.isExcluded) {
             status = 'excluded';
-            statusLabel = 'مستبعدة من الدورة';
+            statusLabel = 'مستبعدة من الشهر';
           }
 
           const notes = item.isExcluded
-            ? `[استبعاد]: ${item.exclusionReason || 'استبعاد مؤقت من دورة الصرف'}`
+            ? `[استبعاد]: ${item.exclusionReason || 'استبعاد مؤقت من صرف هذا الشهر'}`
             : item.isManuallyAdjusted && item.adjustmentReason
-            ? `[تعديل استثنائي]: ${item.adjustmentReason}`
+            ? `[تعديل المبلغ]: ${item.adjustmentReason}`
             : item.reasoning;
 
           entries.push({
@@ -138,33 +139,33 @@ export function CaseDetailsModal() {
             batchTitle: title,
             date,
             category: item.fundSourceName || 'الصندوق العام',
-            fundSourceBadge: item.fundSource === 'restricted_case' ? 'مقيد بالاسم' : item.fundSource === 'restricted_purpose' ? 'مقيد لغرض' : 'صندوق عام',
+            fundSourceBadge: item.fundSource === 'restricted_case' ? 'تبرع للحالة بالاسم' : item.fundSource === 'restricted_purpose' ? 'تبرع لغرض محدد' : 'صندوق عام',
             proposedAmount: item.proposedAmount,
             approvedAmount: item.approvedAmount,
             notes: notes || '-',
             status,
             statusLabel,
-            voucherNo: isApproved ? `إذن اعتماد #${alloc.period.replace('-', '')}-${caseCode.replace('CASE-', '')}` : `مسودة #${alloc.period}`,
+            voucherNo: isApproved ? `إيصال صرف #${alloc.period.replace('-', '')}-${caseCode.replace('CASE-', '')}` : `مسودة #${alloc.period}`,
             isFastTrack: false,
           });
         }
       });
     }
 
-    // 2. استخراج أذونات الصرف الفوري والتبرعات المقيدة الخاصة بالحالة
+    // 2. استخراج المساعدات الفورية والتبرعات الخاصة بالحالة
     caseFastTrackOrders.forEach((order) => {
       entries.push({
         id: `ft-${order.id}`,
-        batchTitle: `صرف فوري (${order.shariaCategoryName})`,
+        batchTitle: `مساعدة فورية (${order.shariaCategoryName})`,
         date: order.deliveredDate || order.issuedDate,
         category: order.shariaCategoryName,
-        fundSourceBadge: 'صرف فوري',
+        fundSourceBadge: 'مساعدة فورية',
         proposedAmount: order.amount,
         approvedAmount: order.status === 'delivered' ? order.amount : order.status === 'cancelled' ? 0 : order.amount,
         notes: `${order.purposeNote}${order.deliveryNotes ? ` · تسليم: ${order.deliveryNotes}` : ''}`,
         status: order.status === 'delivered' ? 'delivered' : order.status === 'cancelled' ? 'cancelled' : 'approved',
-        statusLabel: order.status === 'delivered' ? 'تم التسليم الفعلي' : order.status === 'cancelled' ? 'ملغي' : 'قيد التسليم',
-        voucherNo: order.deliveryReceiptNo ? `${order.voucherCode} (سند: ${order.deliveryReceiptNo})` : order.voucherCode,
+        statusLabel: order.status === 'delivered' ? 'تم التسليم' : order.status === 'cancelled' ? 'ملغي' : 'جاري التسليم',
+        voucherNo: order.deliveryReceiptNo ? `${order.voucherCode} (إيصال: ${order.deliveryReceiptNo})` : order.voucherCode,
         isFastTrack: true,
       });
     });
@@ -196,14 +197,14 @@ export function CaseDetailsModal() {
   const handleExportLedger = () => {
     if (!currentCase || beneficiaryLedger.length === 0) return;
     const headers = [
-      'مسمى دورة الصرف / الدفعة',
-      'تاريخ الاستحقاق / الصرف الفعلي',
-      'بند ومصدر المساعدة',
+      'اسم الدفعة / المساعدة',
+      'تاريخ الصرف',
+      'نوع المساعدة',
       'المبلغ المقرر (ج.م)',
       'المبلغ المنصرف (ج.م)',
-      'سبب الاستثناء / الملاحظات',
+      'ملاحظات',
       'حالة الاستلام',
-      'رقم سند / إذن الصرف',
+      'رقم الإيصال',
     ];
     const rows = beneficiaryLedger.map((e) => [
       `"${e.batchTitle.replace(/"/g, '""')}"`,
@@ -225,7 +226,7 @@ export function CaseDetailsModal() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    setDownloadNotice('تم تصدير كشف الحساب المالي للمستفيد بنجاح');
+    setDownloadNotice('تم تحميل كشف حساب المساعدات بنجاح');
     setTimeout(() => setDownloadNotice(null), 3500);
   };
 
@@ -258,18 +259,18 @@ export function CaseDetailsModal() {
         <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
 
         {/* Header - Full-Width Layout */}
-        <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-slate-50/95 border-b border-slate-200 shrink-0">
+        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 shrink-0">
           {/* Top row: Case Code & Status Badges on Start, Close button (X) on End */}
-          <div className="flex items-center justify-between gap-2 mb-2 sm:mb-2.5">
+          <div className="flex items-center justify-between gap-2 mb-2">
             <div className="flex items-center gap-2 flex-wrap min-w-0">
-              <span className="px-2.5 py-0.5 rounded-md bg-teal-100/90 text-teal-900 font-mono text-xs font-bold border border-teal-200/60">
+              <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 font-mono text-[11px] font-semibold">
                 {currentCase.code}
               </span>
               <span
-                className={`text-xs px-2.5 py-0.5 rounded-md font-bold ${
+                className={`text-[11px] px-2.5 py-0.5 rounded-md font-semibold border ${
                   currentCase.status === 'pending_field_research'
-                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                    : 'bg-slate-200/80 text-slate-700'
+                    ? 'bg-slate-100 text-slate-700 border-slate-200'
+                    : 'bg-slate-100 text-slate-700 border-slate-200'
                 }`}
               >
                 {getStatusLabel(currentCase.status)}
@@ -279,7 +280,7 @@ export function CaseDetailsModal() {
             <button
               type="button"
               onClick={() => setSelectedCaseId(null)}
-              className="p-1.5 min-h-[38px] min-w-[38px] flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 active:scale-95 transition-all cursor-pointer"
+              className="p-1.5 min-h-[38px] min-w-[38px] flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 active:scale-95 transition-all cursor-pointer"
               aria-label="إغلاق النافذة"
             >
               <X size={20} />
@@ -288,10 +289,10 @@ export function CaseDetailsModal() {
 
           {/* Beneficiary Name Row - Full width with zero squishing */}
           <div className="w-full">
-            <h2 className="text-base sm:text-lg lg:text-xl font-bold text-slate-900 leading-snug break-words flex flex-wrap items-baseline gap-2">
+            <h2 className="text-lg font-bold text-slate-800 leading-snug break-words flex flex-wrap items-baseline gap-2">
               <span>{currentCase.primaryName || currentCase.fullName}</span>
               {currentCase.secondaryName && (
-                <span className="text-slate-500 font-normal text-xs sm:text-sm">
+                <span className="text-slate-500 font-normal text-xs">
                   ({currentCase.secondaryName})
                 </span>
               )}
@@ -335,11 +336,7 @@ export function CaseDetailsModal() {
                 }`}
               >
                 <MapPin size={16} className="shrink-0" />
-                <span className="truncate">
-                  {currentCase.status === 'pending_field_research'
-                    ? 'بدء بحث حالة'
-                    : 'بحث حالة'}
-                </span>
+                <span className="truncate">بدء البحث الميداني</span>
               </button>
 
               <button
@@ -348,35 +345,36 @@ export function CaseDetailsModal() {
                 className="min-h-[44px] px-3 py-2 bg-slate-100 hover:bg-slate-200/80 active:bg-slate-200 text-slate-800 border border-slate-200/80 rounded-xl text-xs sm:text-sm font-bold transition-all duration-150 flex items-center justify-center gap-2 shadow-2xs cursor-pointer active:scale-[0.98]"
               >
                 <Edit3 size={15} className="shrink-0 text-slate-600" />
-                <span className="truncate">تعديل بيانات الحالة</span>
+                <span className="truncate">تعديل البيانات</span>
               </button>
             </div>
           )}
         </div>
 
-        {/* Status & Exception Alert Banner if needed */}
+        {/* Status & Exception Inline Note if needed */}
         {currentCase.vulnerability.incompleteDocuments && (
-          <div className="px-4 sm:px-6 py-2.5 bg-amber-50 border-b border-amber-200 text-xs text-amber-900 flex items-center justify-between">
+          <div className="px-4 sm:px-6 py-2.5 bg-slate-50 border-b border-slate-200 text-xs text-slate-600 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <AlertTriangle size={15} className="text-amber-700 shrink-0" />
+              <AlertTriangle size={15} className="text-slate-400 shrink-0" />
               <span>
-                <strong>أوراق الحالة غير مكتملة رسمياً</strong> · ثقة الباحث الميداني ({currentCase.vulnerability.confidenceScore}%)
+                <strong className="text-slate-700">أوراق الحالة ناقصة</strong> · تقييم الباحث ({currentCase.vulnerability.confidenceScore}%)
                 {currentCase.vulnerability.exceptionApproved ? (
-                  <span className="text-emerald-700 font-bold mr-2">
-                    (معتمدة كاستثناء إنساني بواسطة {currentCase.vulnerability.exceptionApprovedBy})
+                  <span className="text-teal-700 font-semibold mr-2">
+                    (تم اعتماد الاستثناء بواسطة {currentCase.vulnerability.exceptionApprovedBy})
                   </span>
                 ) : (
-                  <span className="text-rose-700 font-bold mr-2">(بانتظار قرار اعتماد الاستثناء)</span>
+                  <span className="text-slate-500 font-medium mr-2">(بانتظار موافقة الإدارة على الاستثناء)</span>
                 )}
               </span>
             </div>
 
             {!currentCase.vulnerability.exceptionApproved && currentUserRole === 'admin' && (
               <button
+                type="button"
                 onClick={() => setShowExceptionDialog(true)}
-                className="px-2.5 py-1 bg-amber-700 hover:bg-amber-800 text-white font-bold rounded-md transition-colors text-[11px]"
+                className="px-2.5 py-1 bg-[#005756] hover:bg-[#004241] text-white font-semibold rounded-lg transition-colors text-[11px] shrink-0 cursor-pointer"
               >
-                اعتماد استثناء إنساني
+                موافقة استثنائية
               </button>
             )}
           </div>
@@ -394,7 +392,7 @@ export function CaseDetailsModal() {
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              الملف التعريفي والتقييم
+              ملخص الحالة والتقييم
             </button>
             <button
               type="button"
@@ -405,7 +403,7 @@ export function CaseDetailsModal() {
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              البيانات المالية والفجوة
+              الدخل والمصروفات
             </button>
             <button
               type="button"
@@ -416,7 +414,7 @@ export function CaseDetailsModal() {
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              سجل الزيارات الميدانية ({caseVisits.length})
+              الزيارات الميدانية ({caseVisits.length})
             </button>
             <button
               type="button"
@@ -427,7 +425,7 @@ export function CaseDetailsModal() {
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              المستندات والمرفقات ({currentCase.attachments.length})
+              المستندات ({currentCase.attachments.length})
             </button>
             <button
               type="button"
@@ -439,7 +437,7 @@ export function CaseDetailsModal() {
               }`}
             >
               <MessageSquare size={14} className={activeTab === 'notes' ? 'text-teal-700' : 'text-slate-400'} />
-              <span>ملاحظات الحالة والنشاط</span>
+              <span>الملاحظات والسجل</span>
               <span
                 className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold font-mono ${
                   activeTab === 'notes' ? 'bg-teal-200 text-teal-900' : 'bg-slate-200 text-slate-700'
@@ -459,41 +457,41 @@ export function CaseDetailsModal() {
               <div className="p-4 rounded-xl bg-teal-50/50 border border-teal-200 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900 text-sm">مؤشر أولوية الاحتياج:</span>
+                    <span className="font-bold text-slate-900 text-sm">درجة الاحتياج:</span>
                     <span className="font-mono text-base font-extrabold text-teal-900">
-                      {assessment.totalScore} / 100
+                      {assessment.totalScore} من 100
                     </span>
                     <span className="text-teal-800 font-semibold mr-2">
                       ({getPriorityLabel(currentCase.priority)})
                     </span>
                   </div>
                   <span className="text-[11px] text-teal-700 font-medium">
-                    حساب خوارزمي دقيق وموثق
+                    تقييم تلقائي حسب الحالة
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-teal-200/60 font-mono text-[11px]">
                   <div className="p-2 bg-white rounded-lg border border-teal-100">
-                    <span className="text-slate-500 block font-sans">فجوة الدخل:</span>
+                    <span className="text-slate-500 block font-sans">عجز الدخل الشهري:</span>
                     <strong className="text-slate-900">{assessment.financialGapScore} نقطة</strong>
                   </div>
                   <div className="p-2 bg-white rounded-lg border border-teal-100">
-                    <span className="text-slate-500 block font-sans">الأمراض المزمنة:</span>
+                    <span className="text-slate-500 block font-sans">الحالة الصحية والعلاج:</span>
                     <strong className="text-slate-900">{assessment.medicalUrgencyScore} نقطة</strong>
                   </div>
                   <div className="p-2 bg-white rounded-lg border border-teal-100">
-                    <span className="text-slate-500 block font-sans">الأيتام والإعالة:</span>
+                    <span className="text-slate-500 block font-sans">الأيتام وعدد الأفراد:</span>
                     <strong className="text-slate-900">{assessment.orphanDependentsScore} نقطة</strong>
                   </div>
                   <div className="p-2 bg-white rounded-lg border border-teal-100">
-                    <span className="text-slate-500 block font-sans">حالة السكن:</span>
+                    <span className="text-slate-500 block font-sans">ظروف السكن:</span>
                     <strong className="text-slate-900">{assessment.housingInsecurityScore} نقطة</strong>
                   </div>
                 </div>
 
                 {/* Factors Explanations */}
                 <div className="pt-2">
-                  <span className="font-semibold text-slate-700 block mb-1">عوامل التقييم الميداني المحسوبة:</span>
+                  <span className="font-semibold text-slate-700 block mb-1">ملخص ظروف الأسرة:</span>
                   <ul className="space-y-1 list-disc list-inside text-slate-600 leading-relaxed">
                     {assessment.explanation.map((exp, idx) => (
                       <li key={idx}>{exp}</li>
@@ -505,7 +503,7 @@ export function CaseDetailsModal() {
               {/* Household Members */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-slate-900 text-sm">أفراد الأسرة والمعالون ({currentCase.householdMembers.length} أفراد)</h3>
+                  <h3 className="font-bold text-slate-900 text-sm">أفراد الأسرة ({currentCase.householdMembers.length} أفراد)</h3>
                   {currentCase.vulnerability.isOrphanHousehold && (
                     <span className="text-amber-800 font-semibold bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
                       أسرة بها {currentCase.vulnerability.orphanCount} أيتام
@@ -522,7 +520,7 @@ export function CaseDetailsModal() {
                         <th className="p-2.5">السن</th>
                         <th className="p-2.5">التعليم</th>
                         <th className="p-2.5">الحالة الصحية</th>
-                        <th className="p-2.5">العمل والكسب</th>
+                        <th className="p-2.5">العمل / مصدر الدخل</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -544,22 +542,22 @@ export function CaseDetailsModal() {
               {/* Vulnerability & Living Conditions */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                  <h4 className="font-bold text-slate-900 flex items-center gap-1.5">
-                    <Heart size={15} className="text-rose-600" />
-                    <span>الوضع الصحي والرعاية الطبية</span>
+                  <h4 className="font-bold text-slate-700 flex items-center gap-1.5">
+                    <Heart size={15} className="text-slate-400" />
+                    <span>الحالة الصحية والعلاج</span>
                   </h4>
                   <p className="text-slate-700 leading-relaxed">
-                    {currentCase.vulnerability.chronicIllnessDetails || 'لا توجد أمراض مزمنة حرجة مسجلة'}
+                    {currentCase.vulnerability.chronicIllnessDetails || 'لا توجد أمراض مزمنة مسجلة'}
                   </p>
                   <div className="text-[11px] text-slate-500 font-mono pt-1">
-                    مصاريف العلاج الشهرية: <strong>{currentCase.financials.medicalExpenses.toLocaleString('ar-EG')} ج.م</strong>
+                    تكلفة العلاج الشهري: <strong>{currentCase.financials.medicalExpenses.toLocaleString('ar-EG')} ج.م</strong>
                   </div>
                 </div>
 
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                  <h4 className="font-bold text-slate-900 flex items-center gap-1.5">
-                    <Home size={15} className="text-teal-700" />
-                    <span>ظروف السكن والإقامة</span>
+                  <h4 className="font-bold text-slate-700 flex items-center gap-1.5">
+                    <Home size={15} className="text-slate-400" />
+                    <span>ظروف السكن والعنوان</span>
                   </h4>
                   <p className="text-slate-700 leading-relaxed">
                     العنوان: {currentCase.address}
@@ -575,38 +573,64 @@ export function CaseDetailsModal() {
                         href={currentCase.gpsLocation.mapsUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 hover:underline"
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#005756] bg-teal-50 px-2 py-0.5 rounded border border-teal-200 hover:underline"
                       >
-                        <MapPin size={11} className="text-emerald-600" />
+                        <MapPin size={11} className="text-[#005756]" />
                         <span>موقع المنزل على خرائط جوجل (GPS)</span>
                       </a>
                     </div>
                   )}
                   <p className="text-slate-600">
-                    تصنيف السكن: {currentCase.vulnerability.housingCondition === 'dilapidated_urgent' ? 'آيل للسقوط / خطورة شديدة' : currentCase.vulnerability.housingCondition === 'rent_unstable' ? 'إيجار غير مستقر مهدد بالإخلاء' : 'إيجار مستقر'}
+                    نوع السكن: {currentCase.vulnerability.housingCondition === 'dilapidated_urgent' ? 'غير آمن / آيل للسقوط' : currentCase.vulnerability.housingCondition === 'rent_unstable' ? 'إيجار غير مستقر وعليهم متأخرات' : 'إيجار مستقر'}
                   </p>
                 </div>
               </div>
 
+              {/* Researcher Voice Memo Player (if available or pending review) */}
+              {(currentCase.voiceNoteUrl ||
+                currentCase.status === 'pending_review' ||
+                currentCase.attachments?.some(
+                  (a) => a.category === 'voice_memo' || a.fileName.endsWith('.webm')
+                )) && (
+                <ResearcherVoicePlayer
+                  audioUrl={
+                    currentCase.voiceNoteUrl ||
+                    currentCase.attachments?.find(
+                      (a) => a.category === 'voice_memo' || a.fileName.endsWith('.webm')
+                    )?.url ||
+                    null
+                  }
+                  durationSeconds={
+                    currentCase.voiceNoteDuration ||
+                    currentCase.attachments?.find((a) => a.category === 'voice_memo')
+                      ?.durationSeconds ||
+                    18
+                  }
+                  researcherName={currentCase.assignedResearcher}
+                  fileName="تسجيل_صوتي_للباحث.webm"
+                  transcriptHint={currentCase.notes}
+                />
+              )}
+
               {/* Case Notes & Chronological Audit Timeline */}
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
-                    <FileText size={15} className="text-teal-700" />
-                    <span>السجل التاريخي والتايم لاين الإجرائي للحالة</span>
+                  <h4 className="font-bold text-slate-700 flex items-center gap-1.5 text-xs">
+                    <FileText size={15} className="text-slate-400" />
+                    <span>ملاحظات البحث وتاريخ الحالة</span>
                   </h4>
-                  <span className="text-[10px] text-slate-400 font-mono">توثيق تلقائي للأذونات والقرارات</span>
+                  <span className="text-[10px] text-slate-400 font-mono">سجل المتابعة والقرارات</span>
                 </div>
                 {currentCase.notes ? (
                   <div className="p-3 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-700 whitespace-pre-line leading-relaxed max-h-40 overflow-y-auto">
                     {currentCase.notes}
                   </div>
                 ) : (
-                  <p className="text-slate-500 text-xs italic">لا توجد ملاحظات أو قيود تاريخية مسجلة حتى الآن.</p>
+                  <p className="text-slate-500 text-xs italic">لا توجد ملاحظات مسجلة على الحالة حتى الآن.</p>
                 )}
                 <div className="pt-2 flex items-center justify-between border-t border-slate-200/60">
                   <span className="text-[11px] text-slate-600 font-medium">
-                    يوجد {thisCaseNotes.length} ملاحظة تفاعلية (عامة وخاصة) مسجلة للحالة
+                    يوجد {thisCaseNotes.length} ملاحظة مسجلة على الحالة
                   </span>
                   <button
                     type="button"
@@ -614,7 +638,7 @@ export function CaseDetailsModal() {
                     className="px-3 py-1.5 bg-teal-800 hover:bg-teal-900 text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-95"
                   >
                     <MessageSquare size={13} />
-                    <span>سجل ملاحظات الحالة ({thisCaseNotes.length})</span>
+                    <span>عرض الملاحظات والسجل ({thisCaseNotes.length})</span>
                   </button>
                 </div>
               </div>
@@ -649,12 +673,12 @@ export function CaseDetailsModal() {
                     onChange={(e) => changeCaseStatus(currentCase.id, e.target.value as CaseStatus)}
                     className="p-1.5 border border-slate-300 rounded-lg text-xs bg-white font-medium"
                   >
-                    <option value="active_eligible">مؤهلة ومستحقة</option>
-                    <option value="pending_exception">بانتظار اعتماد استثناء</option>
-                    <option value="under_review">تحت البحث والمراجعة</option>
-                    <option value="temporarily_suspended">إيقاف مؤقت للدعم</option>
-                    <option value="excluded_current_month">استبعاد من دورة الشهر</option>
-                    <option value="closed">إغلاق الملف نهائياً</option>
+                    <option value="active_eligible">مستحقة للدعم</option>
+                    <option value="pending_exception">تحتاج موافقة استثنائية</option>
+                    <option value="under_review">تحت المراجعة</option>
+                    <option value="temporarily_suspended">إيقاف مؤقت</option>
+                    <option value="excluded_current_month">مستبعدة من صرف هذا الشهر</option>
+                    <option value="closed">إغلاق الملف</option>
                   </select>
                 </div>
               </div>
@@ -664,37 +688,37 @@ export function CaseDetailsModal() {
           {activeTab === 'financials' && (
             <div className="space-y-5">
               {/* Financial Calculation Balance Box */}
-              <div className="p-4 bg-slate-900 text-white rounded-xl space-y-4">
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-300 font-semibold">ميزان الفجوة المالية الشهرية (الواقع الميداني)</span>
-                  <span className="text-xs px-2 py-0.5 rounded-sm bg-teal-800 text-teal-100 font-mono">
-                    محسوبة آلياً
+                  <span className="text-slate-700 font-bold">ملخص الدخل والمصروفات الشهرية</span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-600 font-mono">
+                    حساب تلقائي
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-800 text-center">
-                  <div className="p-3 bg-slate-800/80 rounded-lg">
-                    <span className="text-slate-400 block text-xs">إجمالي الدخول الحقيقية</span>
-                    <span className="text-lg font-bold font-mono text-emerald-400 mt-1 block">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+                  <div className="p-3 bg-white border border-slate-200 rounded-xl">
+                    <span className="text-slate-500 block text-xs">إجمالي الدخل الشهري</span>
+                    <span className="text-lg font-bold font-mono text-slate-800 mt-1 block">
                       {(currentCase.financials.directIncome + currentCase.financials.indirectIncome + currentCase.financials.externalAid).toLocaleString('ar-EG')} ج.م
                     </span>
-                    <span className="text-[10px] text-slate-400">مباشر + غير مباشر + دعم خارجي</span>
+                    <span className="text-[10px] text-slate-400">دخل ثابت + يوميات + مساعدات خارجية</span>
                   </div>
 
-                  <div className="p-3 bg-slate-800/80 rounded-lg">
-                    <span className="text-slate-400 block text-xs">إجمالي المصروفات الأساسية</span>
-                    <span className="text-lg font-bold font-mono text-rose-400 mt-1 block">
+                  <div className="p-3 bg-white border border-slate-200 rounded-xl">
+                    <span className="text-slate-500 block text-xs">إجمالي المصروفات الشهرية</span>
+                    <span className="text-lg font-bold font-mono text-slate-800 mt-1 block">
                       {(currentCase.financials.basicExpenses + currentCase.financials.medicalExpenses).toLocaleString('ar-EG')} ج.م
                     </span>
-                    <span className="text-[10px] text-slate-400">معيشة + فواتير + علاج شهري</span>
+                    <span className="text-[10px] text-slate-400">معيشة + إيجار وفواتير + علاج</span>
                   </div>
 
-                  <div className="p-3 bg-teal-950/80 border border-teal-700/60 rounded-lg">
-                    <span className="text-teal-200 block text-xs">فجوة الاحتياج الشهري للأسرة</span>
-                    <span className="text-xl font-extrabold font-mono text-white mt-1 block">
+                  <div className="p-3 bg-white border border-teal-200 rounded-xl">
+                    <span className="text-[#005756] font-semibold block text-xs">العجز الشهري (فرق الدخل عن المصاريف)</span>
+                    <span className="text-xl font-extrabold font-mono text-[#005756] mt-1 block">
                       {currentCase.financials.netFinancialGap.toLocaleString('ar-EG')} ج.م
                     </span>
-                    <span className="text-[10px] text-teal-300">مبلغ الاحتياج المقدر شهرياً</span>
+                    <span className="text-[10px] text-slate-500">المبلغ المطلوب لتغطية احتياج الأسرة</span>
                   </div>
                 </div>
               </div>
@@ -704,20 +728,20 @@ export function CaseDetailsModal() {
                 {/* Incomes */}
                 <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3">
                   <h4 className="font-bold text-slate-900 border-b pb-2 flex items-center justify-between">
-                    <span>مصادر الدخل (المثبتة وغير الرسمية)</span>
+                    <span>تفاصيل الدخل الشهري</span>
                     <span className="text-emerald-700 font-mono text-xs font-bold">+ دخل</span>
                   </h4>
                   <div className="space-y-2 font-mono">
                     <div className="flex justify-between items-center py-1 border-b border-slate-100">
-                      <span className="text-slate-600 font-sans">دخل مثبت (معاش تكافل وكرامة/تأمينات):</span>
+                      <span className="text-slate-600 font-sans">دخل ثابت (معاش / تكافل وكرامة / تأمينات):</span>
                       <strong className="text-slate-900">{currentCase.financials.directIncome.toLocaleString('ar-EG')} ج.م</strong>
                     </div>
                     <div className="flex justify-between items-center py-1 border-b border-slate-100">
-                      <span className="text-slate-600 font-sans">دخل غير مباشر وعمل غير منتظم (يوميات):</span>
+                      <span className="text-slate-600 font-sans">شغل يومية غير منتظم:</span>
                       <strong className="text-slate-900">{currentCase.financials.indirectIncome.toLocaleString('ar-EG')} ج.م</strong>
                     </div>
                     <div className="flex justify-between items-center py-1">
-                      <span className="text-slate-600 font-sans">مساعدات خارجية منتظمة من أفراد/جهات:</span>
+                      <span className="text-slate-600 font-sans">مساعدات شهرية من أهل الخير أو جمعيات:</span>
                       <strong className="text-slate-900">{currentCase.financials.externalAid.toLocaleString('ar-EG')} ج.م</strong>
                     </div>
                   </div>
@@ -726,27 +750,27 @@ export function CaseDetailsModal() {
                 {/* Expenses */}
                 <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3">
                   <h4 className="font-bold text-slate-900 border-b pb-2 flex items-center justify-between">
-                    <span>المصروفات والالتزامات الحتمية</span>
-                    <span className="text-rose-700 font-mono text-xs font-bold">- نفقات</span>
+                    <span>تفاصيل المصروفات الشهرية</span>
+                    <span className="text-rose-700 font-mono text-xs font-bold">- مصروفات</span>
                   </h4>
                   <div className="space-y-2 font-mono">
                     <div className="flex justify-between items-center py-1 border-b border-slate-100">
-                      <span className="text-slate-600 font-sans">نفقات المعيشة والإيجار والغذاء الأساسي:</span>
+                      <span className="text-slate-600 font-sans">مصاريف البيت والإيجار والأكل:</span>
                       <strong className="text-slate-900">{currentCase.financials.basicExpenses.toLocaleString('ar-EG')} ج.م</strong>
                     </div>
                     <div className="flex justify-between items-center py-1 border-b border-slate-100">
-                      <span className="text-slate-600 font-sans">تكلفة العلاج والأدوية المزمنة:</span>
+                      <span className="text-slate-600 font-sans">مصاريف العلاج والأدوية الشهرية:</span>
                       <strong className="text-rose-600 font-bold">{currentCase.financials.medicalExpenses.toLocaleString('ar-EG')} ج.م</strong>
                     </div>
                     <div className="flex justify-between items-center py-1 text-slate-500 font-sans text-[11px]">
-                      <span>إجمالي المساعدات المصروفة تاريخياً للحالة:</span>
+                      <span>إجمالي المساعدات اللي استلمتها الحالة قبل كده:</span>
                       <strong className="font-mono text-slate-900">{currentCase.historicalAssistanceTotal.toLocaleString('ar-EG')} ج.م</strong>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Beneficiary Financial Ledger: سجل المساعدات والدورات المصروفة */}
+              {/* Beneficiary Financial Ledger: سجل المساعدات المصروفة للحالة */}
               <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3.5 shadow-2xs">
                 {/* Ledger Header & Toolbar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-100">
@@ -756,13 +780,13 @@ export function CaseDetailsModal() {
                     </div>
                     <div>
                       <h4 className="font-bold text-slate-900 text-xs sm:text-sm flex items-center gap-1.5">
-                        <span>سجل المساعدات والدورات المصروفة</span>
+                        <span>سجل المساعدات المصروفة للحالة</span>
                         <span className="text-[11px] text-slate-500 font-normal">
-                          (كشف الحساب المالي الموحد للحالة)
+                          (كشف حساب المساعدات)
                         </span>
                       </h4>
                       <p className="text-[10px] text-slate-400">
-                        مطابقة دورات التخصيص المعتمدة وأذونات الصرف الفوري والتبرعات المقيدة
+                        كل المبالغ اللي اتصرفت للحالة سواء شهرية أو فورية
                       </p>
                     </div>
                   </div>
@@ -790,7 +814,7 @@ export function CaseDetailsModal() {
                             : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
-                        الدورات ({beneficiaryLedger.filter((e) => !e.isFastTrack).length})
+                        مساعدات شهرية ({beneficiaryLedger.filter((e) => !e.isFastTrack).length})
                       </button>
                       <button
                         type="button"
@@ -801,7 +825,7 @@ export function CaseDetailsModal() {
                             : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
-                        صرف فوري ({caseFastTrackOrders.length})
+                        مساعدات فورية ({caseFastTrackOrders.length})
                       </button>
                     </div>
 
@@ -811,10 +835,10 @@ export function CaseDetailsModal() {
                       onClick={handleExportLedger}
                       disabled={beneficiaryLedger.length === 0}
                       className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-[11px] font-bold transition cursor-pointer disabled:opacity-50"
-                      title="تصدير كشف حساب الحالة بصيغة CSV"
+                      title="تحميل كشف حساب المساعدات بصيغة CSV"
                     >
                       <Download size={12} />
-                      <span>تصدير كشف الحساب (.csv)</span>
+                      <span>تحميل كشف الحساب (.csv)</span>
                     </button>
                   </div>
                 </div>
@@ -830,9 +854,9 @@ export function CaseDetailsModal() {
                 {filteredLedger.length === 0 ? (
                   <div className="py-8 text-center text-slate-500 text-xs border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
                     <Receipt size={24} className="mx-auto text-slate-300 mb-2" />
-                    <p className="font-semibold text-slate-700">لا توجد حركات مسجلة في كشف حساب الحالة</p>
+                    <p className="font-semibold text-slate-700">لم يتم صرف أي مساعدات لهذه الحالة حتى الآن</p>
                     <p className="text-[11px] text-slate-400 mt-0.5">
-                      ستظهر هنا تلقائياً كافة مبالغ دورات التخصيص المعتمدة وأذونات الصرف الفوري المقيدة
+                      ستظهر هنا كل المساعدات الشهرية أو الفورية بمجرد صرفها للحالة
                     </p>
                   </div>
                 ) : (
@@ -841,12 +865,12 @@ export function CaseDetailsModal() {
                       <table className="w-full text-right text-xs border-collapse">
                         <thead className="bg-slate-100 text-slate-700 text-[11px] font-bold sticky top-0 z-10 border-b border-slate-200">
                           <tr>
-                            <th className="py-2.5 px-3 border-l border-slate-200">1. مسمى دورة الصرف / الدفعة</th>
-                            <th className="py-2.5 px-3 border-l border-slate-200 whitespace-nowrap">2. تاريخ الاستحقاق / الصرف</th>
-                            <th className="py-2.5 px-3 border-l border-slate-200">3. بند ومصدر المساعدة</th>
-                            <th className="py-2.5 px-3 border-l border-slate-200 whitespace-nowrap">4. المقرر / المنصرف</th>
-                            <th className="py-2.5 px-3 border-l border-slate-200 min-w-[160px]">5. سبب الاستثناء / الملاحظات</th>
-                            <th className="py-2.5 px-3 whitespace-nowrap">6. حالة الاستلام ورقم السند/الإذن</th>
+                            <th className="py-2.5 px-3 border-l border-slate-200">1. اسم الدفعة / المساعدة</th>
+                            <th className="py-2.5 px-3 border-l border-slate-200 whitespace-nowrap">2. تاريخ الصرف</th>
+                            <th className="py-2.5 px-3 border-l border-slate-200">3. نوع المساعدة</th>
+                            <th className="py-2.5 px-3 border-l border-slate-200 whitespace-nowrap">4. المبلغ المنصرف</th>
+                            <th className="py-2.5 px-3 border-l border-slate-200 min-w-[160px]">5. ملاحظات</th>
+                            <th className="py-2.5 px-3 whitespace-nowrap">6. حالة الاستلام ورقم الإيصال</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 text-slate-800">
@@ -863,7 +887,7 @@ export function CaseDetailsModal() {
                                   <span className="font-bold text-slate-900">{row.batchTitle}</span>
                                 </div>
                                 <span className="text-[10px] text-slate-400 block mt-0.5 mr-3">
-                                  {row.isFastTrack ? 'إذن صرف فوري' : 'دورة ميزانية دورية'}
+                                  {row.isFastTrack ? 'مساعدة فورية' : 'مساعدة شهرية'}
                                 </span>
                               </td>
 
@@ -876,11 +900,11 @@ export function CaseDetailsModal() {
                               <td className="py-2.5 px-3 border-l border-slate-100">
                                 <div className="font-semibold text-slate-900 text-[11px]">{row.category}</div>
                                 <span className={`inline-block px-1.5 py-0.2 rounded text-[9px] font-bold mt-0.5 ${
-                                  row.fundSourceBadge === 'صرف فوري'
+                                  row.fundSourceBadge === 'مساعدة فورية'
                                     ? 'bg-teal-50 text-teal-800 border border-teal-200'
-                                    : row.fundSourceBadge === 'مقيد بالاسم'
+                                    : row.fundSourceBadge === 'تبرع للحالة بالاسم'
                                     ? 'bg-purple-50 text-purple-800 border border-purple-200'
-                                    : row.fundSourceBadge === 'مقيد لغرض'
+                                    : row.fundSourceBadge === 'تبرع لغرض محدد'
                                     ? 'bg-amber-50 text-amber-800 border border-amber-200'
                                     : 'bg-slate-100 text-slate-700'
                                 }`}>
@@ -944,14 +968,14 @@ export function CaseDetailsModal() {
                     {/* Summary Footer Bar (Excel Totals) */}
                     <div className="bg-slate-50 px-4 py-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
                       <div className="flex items-center gap-4 text-slate-600 font-medium">
-                        <span>إجمالي المعاملات: <strong className="font-mono text-slate-900">{ledgerSummary.totalOperations}</strong></span>
+                        <span>عدد مرات الصرف: <strong className="font-mono text-slate-900">{ledgerSummary.totalOperations}</strong></span>
                         <span>·</span>
-                        <span>الدورات المنصرفة: <strong className="font-mono text-emerald-700">{ledgerSummary.deliveredCount}</strong></span>
+                        <span>دفعات تم تسليمها: <strong className="font-mono text-emerald-700">{ledgerSummary.deliveredCount}</strong></span>
                         <span>·</span>
-                        <span>متوسط الصرف: <strong className="font-mono text-slate-900">{ledgerSummary.averageDelivered.toLocaleString('ar-EG')} ج.م</strong></span>
+                        <span>متوسط المساعدة: <strong className="font-mono text-slate-900">{ledgerSummary.averageDelivered.toLocaleString('ar-EG')} ج.م</strong></span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-500 font-semibold text-[11px]">صافي المنصرف الفعلي للحالة:</span>
+                        <span className="text-slate-500 font-semibold text-[11px]">إجمالي المبالغ المستلمة:</span>
                         <span className="text-sm font-extrabold font-mono text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-lg border border-emerald-300">
                           {ledgerSummary.totalDelivered.toLocaleString('ar-EG')} ج.م
                         </span>
@@ -967,20 +991,20 @@ export function CaseDetailsModal() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm">سجل الزيارات والتقارير الميدانية</h3>
-                  <p className="text-xs text-slate-500">متابعة إلزامية كل 6 أشهر لتجديد بيانات الحالة والاستحقاق</p>
+                  <h3 className="font-bold text-slate-900 text-sm">سجل زيارات ومعاينات الباحثين</h3>
+                  <p className="text-xs text-slate-500">متابعة دورية كل 6 شهور للتأكد من ظروف الأسرة</p>
                 </div>
                 <button
                   onClick={() => setShowReassignDialog(true)}
                   className="px-3 py-1.5 bg-teal-50 border border-teal-200 text-teal-800 rounded-lg text-xs font-semibold hover:bg-teal-100 transition-colors"
                 >
-                  تعيين باحث للزيارة القادمة
+                  تحديد باحث للزيارة الجاية
                 </button>
               </div>
 
               {caseVisits.length === 0 ? (
                 <div className="py-8 text-center text-slate-500 border border-dashed border-slate-200 rounded-xl">
-                  لم يتم تسجيل زيارات سابقة في الأرشيف الرقمي لهذه الحالة
+                  لم يتم تسجيل أي زيارات ميدانية لهذه الحالة حتى الآن
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -992,14 +1016,14 @@ export function CaseDetailsModal() {
                           <span className="text-slate-400 font-mono">· {v.visitDate}</span>
                         </div>
                         <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${v.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
-                          {v.status === 'completed' ? 'مكتملة وموثقة' : 'متأخرة عن الموعد'}
+                          {v.status === 'completed' ? 'تمت الزيارة' : 'زيارة متأخرة'}
                         </span>
                       </div>
                       <p className="text-slate-700 leading-relaxed text-xs">
                         {v.observations}
                       </p>
                       <div className="pt-2 border-t border-slate-200 text-teal-900 font-medium text-xs">
-                        توصيات الباحث: {v.recommendedChanges}
+                        توصية الباحث: {v.recommendedChanges}
                       </div>
                     </div>
                   ))}
@@ -1012,8 +1036,8 @@ export function CaseDetailsModal() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm">المستندات والأدلة الميدانية المرفقة</h3>
-                  <p className="text-xs text-slate-500">وثائق الهوية، التقارير الطبية، عقود الإيجار، وتوثيق الفيديو</p>
+                  <h3 className="font-bold text-slate-900 text-sm">أوراق ومستندات الحالة</h3>
+                  <p className="text-xs text-slate-500">صور البطاقات، شهادات الميلاد، التقارير الطبية، وإيصالات الإيجار والمرافق</p>
                 </div>
                 {permissions.canManageCases && (
                   <button
@@ -1024,14 +1048,14 @@ export function CaseDetailsModal() {
                     }}
                     className="px-3 py-1.5 bg-teal-800 text-white rounded-lg text-xs font-bold hover:bg-teal-900 transition-colors flex items-center gap-1.5 shadow-2xs"
                   >
-                    <span>إرفاق وثيقة / إثبات جديد</span>
+                    <span>إضافة مستند جديد</span>
                   </button>
                 )}
               </div>
 
               {currentCase.attachments.length === 0 ? (
                 <div className="py-8 text-center text-slate-500 border border-dashed border-slate-200 rounded-xl">
-                  لا توجد مستندات مرفقة حالياً
+                  لا توجد أوراق أو مستندات مرفوعة لهذه الحالة حالياً
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1058,7 +1082,7 @@ export function CaseDetailsModal() {
                           setTimeout(() => setDownloadNotice(null), 3500);
                         }}
                         className="p-2 text-teal-800 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer"
-                        title="تحميل ومعاينة المستند"
+                        title="تحميل المستند"
                       >
                         <Download size={15} />
                       </button>
@@ -1070,7 +1094,7 @@ export function CaseDetailsModal() {
               {downloadNotice && (
                 <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs flex items-center gap-2 animate-in fade-in">
                   <CheckCircle size={15} className="text-emerald-700 shrink-0" />
-                  <span>تم تجهيز وتحميل المستند الرسمي: <strong>{downloadNotice}</strong></span>
+                  <span>تم تجهيز وتحميل المستند: <strong>{downloadNotice}</strong></span>
                 </div>
               )}
             </div>
@@ -1088,7 +1112,7 @@ export function CaseDetailsModal() {
         {/* Footer */}
         <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
           <span className="text-slate-500 text-xs font-mono">
-            كود الملف المرجعي: {currentCase.code}
+            كود الحالة: {currentCase.code}
           </span>
           <button
             onClick={() => setSelectedCaseId(null)}
@@ -1101,33 +1125,49 @@ export function CaseDetailsModal() {
 
       {/* Exception Approval Sub-Dialog */}
       {showExceptionDialog && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/50">
-          <div className="bg-white rounded-xl max-w-md w-full p-5 space-y-4 border border-slate-200 shadow-xl">
-            <h3 className="font-bold text-slate-900 text-sm">اعتماد استثناء إنساني للحالة</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              وفقاً للقواعد التشغيلية، نقص المستندات لا يحرم الحالة الحرجة إذا كانت ثقة الباحث الميداني عالية ({currentCase.vulnerability.confidenceScore}%). يرجى توثيق مبرر الاعتماد الرسمي:
-            </p>
-            <textarea
-              rows={3}
-              value={exceptionReasonInput}
-              onChange={(e) => setExceptionReasonInput(e.target.value)}
-              placeholder="مثال: حالة مرضية شديدة وسكن غير آمن، وجارٍ استخراج الأوراق بمعرفة الفريق القانوني..."
-              className="w-full p-2.5 text-xs border border-slate-200 rounded-lg focus:outline-hidden focus:border-teal-600"
-            />
-            <div className="flex justify-end gap-2 text-xs">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-xl overflow-hidden">
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-800 text-base">موافقة استثنائية لصرف المساعدة</h3>
+                <p className="text-xs text-slate-500 mt-0.5">اعتماد مؤقت لحين استكمال باقي الأوراق</p>
+              </div>
               <button
+                type="button"
                 onClick={() => setShowExceptionDialog(false)}
-                className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
               >
-                إلغاء
+                <X size={18} />
               </button>
-              <button
-                onClick={handleApproveException}
-                disabled={!exceptionReasonInput.trim()}
-                className="px-4 py-1.5 bg-amber-700 hover:bg-amber-800 disabled:opacity-50 text-white font-bold rounded-lg"
-              >
-                تأكيد اعتماد الاستثناء
-              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                رغم نقص بعض الأوراق، يمكن اعتماد الحالة طالما الباحث الميداني أكد احتياجها الفعلي بنسبة ({currentCase.vulnerability.confidenceScore}%). اكتب سبب الموافقة الاستثنائية:
+              </p>
+              <textarea
+                rows={3}
+                value={exceptionReasonInput}
+                onChange={(e) => setExceptionReasonInput(e.target.value)}
+                placeholder="مثال: حالة مرضية حرجة وسكن غير آمن، وجاري استكمال باقي الأوراق..."
+                className="w-full p-2.5 text-xs border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15"
+              />
+              <div className="flex justify-end gap-2 text-xs pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowExceptionDialog(false)}
+                  className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg font-semibold cursor-pointer"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApproveException}
+                  disabled={!exceptionReasonInput.trim()}
+                  className="px-4 py-2 bg-[#005756] hover:bg-[#004241] disabled:opacity-50 text-white font-bold rounded-lg cursor-pointer"
+                >
+                  تأكيد الموافقة
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1135,32 +1175,45 @@ export function CaseDetailsModal() {
 
       {/* Reassign Researcher Sub-Dialog */}
       {showReassignDialog && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/50">
-          <div className="bg-white rounded-xl max-w-md w-full p-5 space-y-4 border border-slate-200 shadow-xl">
-            <h3 className="font-bold text-slate-900 text-sm">تكليف باحث ميداني للمتابعة</h3>
-            <p className="text-xs text-slate-600">
-              تحديد الباحث المسؤول عن الزيارة الميدانية القادمة للحالة دون شطب السجل التاريخي:
-            </p>
-            <ResearcherSelect
-              value={newResearcherInput}
-              onChange={setNewResearcherInput}
-              label="اختيار الباحث الميداني المعتمد"
-              required
-            />
-            <div className="flex justify-end gap-2 text-xs">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-xl overflow-hidden">
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-800 text-base">تغيير الباحث المسؤول</h3>
+                <p className="text-xs text-slate-500 mt-0.5">تحديد الباحث للزيارة والمتابعة الجاية</p>
+              </div>
               <button
+                type="button"
                 onClick={() => setShowReassignDialog(false)}
-                className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
               >
-                إلغاء
+                <X size={18} />
               </button>
-              <button
-                onClick={handleReassign}
-                disabled={!newResearcherInput.trim()}
-                className="px-4 py-1.5 bg-teal-800 hover:bg-teal-900 disabled:opacity-50 text-white font-bold rounded-lg"
-              >
-                حفظ التكليف
-              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <ResearcherSelect
+                value={newResearcherInput}
+                onChange={setNewResearcherInput}
+                label="اختيار الباحث الميداني"
+                required
+              />
+              <div className="flex justify-end gap-2 text-xs pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowReassignDialog(false)}
+                  className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg font-semibold cursor-pointer"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="button"
+                  onClick={handleReassign}
+                  disabled={!newResearcherInput.trim()}
+                  className="px-4 py-2 bg-[#005756] hover:bg-[#004241] disabled:opacity-50 text-white font-bold rounded-lg cursor-pointer"
+                >
+                  حفظ الباحث
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1168,74 +1221,90 @@ export function CaseDetailsModal() {
 
       {/* Add Document Sub-Dialog */}
       {showAddAttachmentDialog && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/50">
-          <div className="bg-white rounded-xl max-w-md w-full p-5 space-y-4 border border-slate-200 shadow-xl">
-            <h3 className="font-bold text-slate-900 text-sm">إرفاق مستند أو وثيقة لملف الحالة</h3>
-            <div className="space-y-3 text-xs">
-              <div className="space-y-1">
-                <label className="text-slate-700 font-semibold">عنوان المستند أو الوصف *</label>
-                <input
-                  type="text"
-                  value={attachmentTitle}
-                  onChange={(e) => setAttachmentTitle(e.target.value)}
-                  placeholder="مثال: روشتة علاج الغسيل الكلوي لشهر أكتوبر"
-                  className="w-full p-2 border border-slate-200 rounded-lg text-xs"
-                />
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-xl overflow-hidden">
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-800 text-base">إضافة مستند جديد</h3>
+                <p className="text-xs text-slate-500 mt-0.5">إرفاق ورقة أو مستند جديد لملف الحالة</p>
               </div>
-
-              <div className="space-y-1">
-                <label className="text-slate-700 font-semibold">تصنيف الوثيقة</label>
-                <select
-                  value={attachmentCategory}
-                  onChange={(e) => setAttachmentCategory(e.target.value as any)}
-                  className="w-full p-2 border border-slate-200 rounded-lg text-xs"
-                >
-                  <option value="medical_report">تقرير طبي أو روشتة علاج</option>
-                  <option value="national_id">بطاقة رقم قومي أو شهادة ميلاد</option>
-                  <option value="income_proof">بيان معاش أو إثبات دخل</option>
-                  <option value="housing_contract">عقد إيجار أو إيصال مرافق</option>
-                  <option value="field_video">فيديو معاينة ميدانية</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-slate-700 font-semibold">اسم الملف والمستند المرفق</label>
-                <input
-                  type="text"
-                  value={attachmentFileName}
-                  onChange={(e) => setAttachmentFileName(e.target.value)}
-                  placeholder="october_medical_report.pdf"
-                  className="w-full p-2 border border-slate-200 rounded-lg font-mono text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 text-xs pt-1">
               <button
+                type="button"
                 onClick={() => setShowAddAttachmentDialog(false)}
-                className="px-3 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
               >
-                إلغاء
+                <X size={18} />
               </button>
-              <button
-                onClick={() => {
-                  if (!attachmentTitle.trim()) return;
-                  addCaseAttachment(currentCase.id, {
-                    title: attachmentTitle.trim(),
-                    category: attachmentCategory,
-                    fileName: attachmentFileName.trim() || `${attachmentCategory}_doc.pdf`,
-                    fileSize: '1.4 MB',
-                    uploadDate: new Date().toISOString().split('T')[0],
-                  });
-                  setShowAddAttachmentDialog(false);
-                  setAttachmentTitle('');
-                  setAttachmentFileName('');
-                }}
-                disabled={!attachmentTitle.trim()}
-                className="px-4 py-1.5 bg-teal-800 hover:bg-teal-900 disabled:opacity-50 text-white font-bold rounded-lg"
-              >
-                حفظ وإرفاق بالملف
-              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="space-y-3 text-xs">
+                <div className="space-y-1">
+                  <label className="text-slate-700 font-semibold">اسم المستند أو الوصف *</label>
+                  <input
+                    type="text"
+                    value={attachmentTitle}
+                    onChange={(e) => setAttachmentTitle(e.target.value)}
+                    placeholder="مثال: روشتة علاج الغسيل الكلوي لشهر أكتوبر"
+                    className="w-full p-2 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-slate-700 font-semibold">نوع المستند</label>
+                  <select
+                    value={attachmentCategory}
+                    onChange={(e) => setAttachmentCategory(e.target.value as any)}
+                    className="w-full p-2 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15"
+                  >
+                    <option value="medical_report">تقرير طبي أو روشتة علاج</option>
+                    <option value="national_id">بطاقة رقم قومي أو شهادة ميلاد</option>
+                    <option value="income_proof">برنت تأمينات أو مفردات مرتب / معاش</option>
+                    <option value="housing_contract">عقد إيجار أو وصل كهرباء / مياه</option>
+                    <option value="field_video">فيديو معاينة ميدانية</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-slate-700 font-semibold">اسم الملف المرفق</label>
+                  <input
+                    type="text"
+                    value={attachmentFileName}
+                    onChange={(e) => setAttachmentFileName(e.target.value)}
+                    placeholder="october_medical_report.pdf"
+                    className="w-full p-2 border border-slate-200 rounded-lg font-mono text-xs focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 text-xs pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowAddAttachmentDialog(false)}
+                  className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg font-semibold cursor-pointer"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!attachmentTitle.trim()) return;
+                    addCaseAttachment(currentCase.id, {
+                      title: attachmentTitle.trim(),
+                      category: attachmentCategory,
+                      fileName: attachmentFileName.trim() || `${attachmentCategory}_doc.pdf`,
+                      fileSize: '1.4 MB',
+                      uploadDate: new Date().toISOString().split('T')[0],
+                    });
+                    setShowAddAttachmentDialog(false);
+                    setAttachmentTitle('');
+                    setAttachmentFileName('');
+                  }}
+                  disabled={!attachmentTitle.trim()}
+                  className="px-4 py-2 bg-[#005756] hover:bg-[#004241] disabled:opacity-50 text-white font-bold rounded-lg cursor-pointer"
+                >
+                  حفظ المستند
+                </button>
+              </div>
             </div>
           </div>
         </div>

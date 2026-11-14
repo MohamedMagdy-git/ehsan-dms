@@ -112,28 +112,24 @@ export function UrgentVoucherPrintModal({
       />
 
       {/* Screen-Only Control Toolbar (Hidden during Print) */}
-      <div className="no-print w-full max-w-4xl bg-white rounded-2xl shadow-xl border border-slate-200 p-3 sm:p-4 mb-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sticky top-2 z-60">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center shrink-0">
-            <Printer size={20} />
-          </div>
+      <div className="no-print w-full max-w-4xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden mb-3 sticky top-2 z-60">
+        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm sm:text-base font-bold text-slate-900">
+              <h2 className="text-lg font-bold text-slate-800">
                 إذن الصرف المالي الفوري المعتمد
               </h2>
-              <span className="text-[11px] font-mono font-bold bg-teal-100 text-teal-800 px-2 py-0.5 rounded">
+              <span className="text-[11px] font-mono font-bold bg-white border border-slate-200 text-slate-700 px-2 py-0.5 rounded-md">
                 {order.voucherCode}
               </span>
             </div>
-            <p className="text-xs text-slate-500">
-              مستند مالي A4 رسمي مجهز للطباعة والتوقيعات والاعتماد الرقابي
+            <p className="text-xs text-slate-500 mt-1">
+              مستند مالي A4 رسمي مجهز للطباعة والتوقيعات
             </p>
           </div>
-        </div>
 
         {/* Quick order switcher if multiple orders provided */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {availableOrders.length > 1 && onSelectOrder && (
             <select
               value={order.id}
@@ -141,7 +137,7 @@ export function UrgentVoucherPrintModal({
                 const found = availableOrders.find((o) => o.id === e.target.value);
                 if (found) onSelectOrder(found);
               }}
-              className="bg-slate-100 border border-slate-300 text-slate-800 rounded-xl px-2.5 py-2 text-xs font-semibold focus:outline-none cursor-pointer"
+              className="bg-white border border-slate-200 text-slate-800 rounded-xl px-2.5 py-2 text-xs font-semibold focus:border-[#005756] focus:outline-hidden cursor-pointer"
             >
               {availableOrders.map((o) => (
                 <option key={o.id} value={o.id}>
@@ -152,20 +148,24 @@ export function UrgentVoucherPrintModal({
           )}
 
           <button
+            type="button"
             onClick={() => window.print()}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold shadow transition-all cursor-pointer active:scale-95"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#005756] hover:bg-[#004342] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
           >
             <Printer size={15} />
             <span>طباعة الإذن (A4)</span>
           </button>
 
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
             title="إغلاق النافذة (Esc)"
+            aria-label="إغلاق"
           >
             <X size={20} />
           </button>
+        </div>
         </div>
       </div>
 

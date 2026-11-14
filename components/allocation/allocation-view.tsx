@@ -974,32 +974,45 @@ export function AllocationView() {
 
       {/* Exclusion Reason Modal */}
       {excludingItemId && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 border border-slate-200 shadow-2xl">
-            <h3 className="font-bold text-slate-900 text-sm">توثيق سبب استبعاد الحالة من دورة الصرف</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              وفقاً للنظام الرقابي، يتطلب استبعاد أي حالة توثيق السبب الإداري:
-            </p>
-            <textarea
-              rows={3}
-              value={exclusionReasonInput}
-              onChange={(e) => setExclusionReasonInput(e.target.value)}
-              placeholder="اكتب سبب الاستبعاد..."
-              className="w-full p-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-teal-700"
-            />
-            <div className="flex justify-end gap-2 text-xs">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-xl overflow-hidden">
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg">سبب استبعاد الحالة من الصرف</h3>
+                <p className="text-xs text-slate-500 mt-1">توثيق سبب الاستبعاد المؤقت لهذه الدورة</p>
+              </div>
               <button
+                type="button"
                 onClick={() => setExcludingItemId(null)}
-                className="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
               >
-                إلغاء
+                <X size={20} />
               </button>
-              <button
-                onClick={handleConfirmExclusion}
-                className="px-4 py-1.5 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-xl shadow-xs transition cursor-pointer"
-              >
-                تأكيد الاستبعاد
-              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <textarea
+                rows={3}
+                value={exclusionReasonInput}
+                onChange={(e) => setExclusionReasonInput(e.target.value)}
+                placeholder="اكتب سبب الاستبعاد بشكل واضح..."
+                className="w-full p-2.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15"
+              />
+              <div className="flex justify-end gap-2 text-xs pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setExcludingItemId(null)}
+                  className="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg font-semibold transition cursor-pointer"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmExclusion}
+                  className="px-4 py-2 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-lg shadow-xs transition cursor-pointer"
+                >
+                  تأكيد الاستبعاد
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1007,67 +1020,76 @@ export function AllocationView() {
 
       {/* Official Approval Confirmation Modal */}
       {showApprovalDialog && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 border border-slate-200 shadow-2xl">
-            <div className="flex items-center gap-2.5 text-[#005756]">
-              <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center shrink-0">
-                <ShieldCheck size={22} />
-              </div>
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-xl overflow-hidden">
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-base text-slate-900">الاعتماد الرسمي لميزانية المساعدات وقفل الدورة</h3>
-                <p className="text-[11px] text-slate-500">توثيق الاعتماد والإقفال المالي النهائي لدورة الصرف</p>
+                <h3 className="font-bold text-lg text-slate-800">اعتماد ميزانية الصرف وقفل الدورة</h3>
+                <p className="text-xs text-slate-500 mt-1">مراجعة المبالغ وتأكيد الاعتماد النهائي</p>
               </div>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              أنت على وشك اعتماد كشف صرف المساعدات لدورة <strong>{currentAllocation.batchTitle || currentAllocation.periodLabel}</strong> بمبلغ إجمالي <strong className="tabular-nums font-mono">{currentAllocation.summary.totalAllocated.toLocaleString('ar-EG')} ج.م</strong> لصالح <strong>{currentAllocation.summary.fundedCasesCount} أسرة معتمدة</strong>.
-            </p>
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-3">
-              <span className="font-semibold text-slate-700 block pb-1 border-b border-slate-200">
-                الأثر المالي المتوقع على الخزينة:
-              </span>
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <div className="p-2.5 bg-white rounded-xl border border-teal-200 shadow-2xs">
-                  <span className="text-teal-900 font-bold block mb-1">يخصم من الصندوق العام:</span>
-                  <MoneyDisplay
-                    amount={currentAllocation.items
-                      .filter((i) => !i.isExcluded && i.fundSource === 'unrestricted_pool')
-                      .reduce((s, i) => s + i.approvedAmount, 0)}
-                    size="md"
-                    variant="teal"
-                  />
-                </div>
-                <div className="p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
-                  <span className="text-slate-500 font-semibold block mb-1">الفائض المرحل للدورة التالية:</span>
-                  <MoneyDisplay
-                    amount={currentAllocation.summary.unallocatedBalance}
-                    size="md"
-                    variant="neutral"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-between items-center pt-1 gap-2">
-                <span className="text-slate-600 font-medium shrink-0">اسم المسؤول المعتمد:</span>
-                <input
-                  type="text"
-                  value={approverName}
-                  onChange={(e) => setApproverName(e.target.value)}
-                  className="p-1.5 text-xs bg-white border border-slate-200 rounded-lg font-bold text-slate-900 w-60 focus:outline-hidden focus:ring-1 focus:ring-teal-700"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 text-xs pt-2">
               <button
+                type="button"
                 onClick={() => setShowApprovalDialog(false)}
-                className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl font-semibold transition cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
               >
-                تراجع
+                <X size={20} />
               </button>
-              <button
-                onClick={handleConfirmApproval}
-                className="px-5 py-2 bg-[#005756] hover:bg-[#004241] text-white font-bold rounded-xl shadow-xs transition cursor-pointer"
-              >
-                تأكيد الاعتماد وقفل الدورة
-              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                أنت على وشك اعتماد كشف الصرف لدورة <strong>{currentAllocation.batchTitle || currentAllocation.periodLabel}</strong> بإجمالي <strong className="tabular-nums font-mono">{currentAllocation.summary.totalAllocated.toLocaleString('ar-EG')} ج.م</strong> لـ <strong>{currentAllocation.summary.fundedCasesCount} أسرة</strong>.
+              </p>
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-3">
+                <span className="font-bold text-slate-700 flex items-center gap-1.5 pb-1.5 border-b border-slate-200">
+                  <ShieldCheck size={15} className="text-slate-400" />
+                  <span>التفاصيل المالية على الخزينة:</span>
+                </span>
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div className="p-2.5 bg-white rounded-lg border border-slate-200">
+                    <span className="text-slate-600 font-semibold block mb-1">يخصم من الصندوق العام:</span>
+                    <MoneyDisplay
+                      amount={currentAllocation.items
+                        .filter((i) => !i.isExcluded && i.fundSource === 'unrestricted_pool')
+                        .reduce((s, i) => s + i.approvedAmount, 0)}
+                      size="md"
+                      variant="teal"
+                    />
+                  </div>
+                  <div className="p-2.5 bg-white rounded-lg border border-slate-200">
+                    <span className="text-slate-500 font-semibold block mb-1">الفائض المرحل للدورة الجاية:</span>
+                    <MoneyDisplay
+                      amount={currentAllocation.summary.unallocatedBalance}
+                      size="md"
+                      variant="neutral"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-between items-center pt-1 gap-2">
+                  <span className="text-slate-700 font-semibold shrink-0">اسم المسؤول المعتمد:</span>
+                  <input
+                    type="text"
+                    value={approverName}
+                    onChange={(e) => setApproverName(e.target.value)}
+                    className="p-1.5 text-xs bg-white border border-slate-200 rounded-lg font-bold text-slate-900 w-60 focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 text-xs pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowApprovalDialog(false)}
+                  className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg font-semibold transition cursor-pointer"
+                >
+                  تراجع
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmApproval}
+                  className="px-5 py-2 bg-[#005756] hover:bg-[#004241] text-white font-bold rounded-lg shadow-xs transition cursor-pointer"
+                >
+                  تأكيد الاعتماد وقفل الدورة
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1075,57 +1097,17 @@ export function AllocationView() {
 
       {/* Exceptional Unlock Confirmation Modal */}
       {showUnlockDialog && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 border border-amber-300 shadow-2xl">
-            <div className="flex items-center gap-2.5 text-amber-700">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
-                <Unlock size={22} className="text-amber-800" />
-              </div>
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-xl overflow-hidden">
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-base text-slate-900">
-                  فتح الميزانية المعتمدة للتعديل الاستثنائي
+                <h3 className="font-bold text-lg text-slate-800">
+                  فتح الدورة المعتمدة للتعديل
                 </h3>
-                <p className="text-[11px] text-slate-500">
-                  دورة: {currentAllocation.periodLabel} · حوكمة الرقابة المالية
+                <p className="text-xs text-slate-500 mt-1">
+                  دورة: {currentAllocation.periodLabel} · سجل الرقابة المالية
                 </p>
               </div>
-            </div>
-
-            <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-950 space-y-2">
-              <div className="font-bold flex items-center gap-1.5 text-amber-900">
-                <ShieldAlert size={15} />
-                <span>ضوابط وإجراءات الفتح الاستثنائي:</span>
-              </div>
-              <ul className="list-disc list-inside space-y-1 text-[11px] text-amber-900 leading-relaxed pr-1">
-                <li>ستعود حالة الدورة فوراً إلى <strong>(مسودة)</strong> لتمكين الإدارة من تعديل المبالغ المعتمدة.</li>
-                <li>يتم توثيق اسمك وتاريخ العملية وسبب التعديل بصورة غير قابلة للحذف في <strong>سجل التدقيق والرقابة</strong>.</li>
-              </ul>
-            </div>
-
-            {unlockError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 text-xs font-semibold">
-                {unlockError}
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700">
-                سبب فتح التعديل الاستثنائي <span className="text-rose-500">*</span>
-              </label>
-              <textarea
-                rows={3}
-                required
-                value={unlockReasonInput}
-                onChange={(e) => {
-                  setUnlockReasonInput(e.target.value);
-                  setUnlockError('');
-                }}
-                placeholder="اكتب بالتفصيل مبررات فتح الميزانية المعتمدة..."
-                className="w-full p-2.5 text-xs bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-amber-600 resize-none shadow-2xs"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 text-xs pt-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => {
@@ -1133,18 +1115,62 @@ export function AllocationView() {
                   setUnlockReasonInput('');
                   setUnlockError('');
                 }}
-                className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl font-semibold transition cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
               >
-                إلغاء التراجع
+                <X size={20} />
               </button>
-              <button
-                type="button"
-                onClick={handleConfirmUnlock}
-                className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow-xs transition cursor-pointer flex items-center gap-1.5"
-              >
-                <Unlock size={14} />
-                <span>تأكيد الفتح الاستثنائي للمسودة</span>
-              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-[11px] text-slate-500 bg-slate-50 rounded-xl border border-slate-200/80 px-3.5 py-2.5 leading-relaxed">
+                أول ما تفتح التعديل، الدورة هترجع لحالة (مسودة) عشان تقدر تعدل المبالغ، وهيتسجل اسمك وسبب التعديل في سجل المراجعة.
+              </p>
+
+              {unlockError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 text-xs font-semibold">
+                  {unlockError}
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                  <ShieldAlert size={14} className="text-slate-400" />
+                  <span>سبب فتح التعديل <span className="text-rose-500">*</span></span>
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={unlockReasonInput}
+                  onChange={(e) => {
+                    setUnlockReasonInput(e.target.value);
+                    setUnlockError('');
+                  }}
+                  placeholder="اكتب سبب فتح الميزانية للتعديل..."
+                  className="w-full p-2.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 text-xs pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowUnlockDialog(false);
+                    setUnlockReasonInput('');
+                    setUnlockError('');
+                  }}
+                  className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg font-semibold transition cursor-pointer"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmUnlock}
+                  className="px-5 py-2 bg-[#005756] hover:bg-[#004241] text-white font-bold rounded-lg shadow-xs transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <Unlock size={14} />
+                  <span>تأكيد فتح التعديل</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

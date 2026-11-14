@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { motion, MotionConfig } from 'motion/react';
 import { useApp } from '@/context/app-context';
 import {
   LayoutDashboard,
@@ -55,6 +56,7 @@ export function Sidebar({
     icon: React.ComponentType<{ size?: number; className?: string }>;
     badge?: string | number | null;
     badgeUrgent?: boolean;
+    comingSoon?: boolean;
   }
 
   interface NavGroup {
@@ -91,7 +93,6 @@ export function Sidebar({
           label: NAVIGATION_SECTIONS['cases-review'].sidebarLabel,
           icon: ShieldCheck,
           badge: pendingReviewCount > 0 ? `${pendingReviewCount}` : null,
-          badgeUrgent: pendingReviewCount > 0,
         },
         {
           id: 'research',
@@ -136,6 +137,7 @@ export function Sidebar({
           label: NAVIGATION_SECTIONS['donor-portal'].sidebarLabel,
           icon: UserCheck,
           badge: null,
+          comingSoon: true,
         },
       ],
     },
@@ -217,62 +219,99 @@ export function Sidebar({
         </div>
 
         {/* Categorized Navigation Groups */}
-        <nav className="flex-1 py-3 px-2.5 space-y-2.5 overflow-y-auto">
-          {visibleGroups.map((group, groupIdx) => (
-            <div key={group.id} className="space-y-1">
-              {/* Divider between icon groups in collapsed mode */}
-              {groupIdx > 0 && collapsed && (
-                <div className="border-t border-teal-800/50 my-2 mx-2" />
-              )}
+        <MotionConfig reducedMotion="user">
+          <nav className="flex-1 py-3 px-2.5 space-y-2.5 overflow-y-auto">
+            {visibleGroups.map((group, groupIdx) => (
+              <div key={group.id} className="space-y-1">
+                {/* Divider between icon groups in collapsed mode */}
+                {groupIdx > 0 && collapsed && (
+                  <div className="border-t border-teal-800/50 my-2 mx-2" />
+                )}
 
-              {/* Subheader title in expanded mode */}
-              {!collapsed && (
-                <div className="px-3 pt-2 pb-0.5 text-[10.5px] font-bold text-teal-300/70 tracking-wider">
-                  {group.title}
-                </div>
-              )}
+                {/* Subheader title in expanded mode */}
+                {!collapsed && (
+                  <div className="px-3 pt-2 pb-0.5 text-[10.5px] font-bold text-teal-300/70 tracking-wider">
+                    {group.title}
+                  </div>
+                )}
 
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeSection === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      setActiveSection(item.id);
-                      onCloseMobile();
-                    }}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150 hover:-translate-y-0.5 active:scale-[0.98] text-right relative cursor-pointer ${
-                      isActive
-                        ? 'bg-white/15 text-white font-semibold shadow-xs ring-1 ring-white/10'
-                        : 'text-teal-100 hover:bg-white/10 hover:text-white'
-                    }`}
-                    title={collapsed ? item.label : undefined}
-                  >
-                    <Icon
-                      size={19}
-                      className={`shrink-0 ${isActive ? 'text-[#76B837]' : 'text-teal-300'}`}
-                    />
-                    {!collapsed && (
-                      <span className="flex-1 truncate tracking-tight">{item.label}</span>
-                    )}
-                    {!collapsed && item.badge !== null && (
-                      <span
-                        className={`text-[10.5px] px-2 py-0.5 rounded-full tabular-nums shrink-0 font-semibold border ${
-                          item.badgeUrgent
-                            ? 'bg-rose-500 text-white border-rose-400 animate-pulse'
-                            : 'bg-teal-900/80 text-teal-200 border-teal-700/50'
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isDisabled = Boolean(item.comingSoon);
+                  const isActive = !isDisabled && activeSection === item.id;
+                  return (
+                    <motion.button
+                      key={item.id}
+                      type="button"
+                      disabled={isDisabled}
+                      aria-disabled={isDisabled || undefined}
+                      whileTap={!isDisabled ? { scale: 0.97 } : undefined}
+                      onClick={() => {
+                        if (isDisabled) return;
+                        setActiveSection(item.id);
+                        onCloseMobile();
+                      }}
+                      className={`group w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors duration-150 text-right relative ${
+                        isDisabled
+                          ? 'text-teal-100/45 cursor-not-allowed'
+                          : isActive
+                          ? 'text-white font-semibold cursor-pointer'
+                          : 'text-teal-100/80 hover:bg-white/[0.06] hover:text-white cursor-pointer'
+                      }`}
+                      title={
+                        collapsed
+                          ? isDisabled
+                            ? `${item.label} (قريباً)`
+                            : item.label
+                          : undefined
+                      }
+                    >
+                      {isActive && (
+                        <motion.span
+                          layoutId="active-sidebar-pill"
+                          aria-hidden="true"
+                          transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                          className="absolute inset-0 bg-white/10 backdrop-blur-xs rounded-xl border border-white/5 pointer-events-none"
+                        />
+                      )}
+                      <Icon
+                        size={19}
+                        className={`relative z-10 shrink-0 transition-colors ${
+                          isDisabled
+                            ? 'text-teal-200/40'
+                            : isActive
+                            ? 'text-white'
+                            : 'text-teal-200/75 group-hover:text-white'
                         }`}
-                      >
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </nav>
+                      />
+                      {!collapsed && (
+                        <span className="relative z-10 flex-1 truncate tracking-tight">
+                          {item.label}
+                        </span>
+                      )}
+                      {!collapsed && isDisabled && (
+                        <span className="relative z-10 text-[10px] px-2 py-0.5 rounded-full shrink-0 font-medium bg-white/[0.08] text-teal-100/75 border border-white/10">
+                          قريباً
+                        </span>
+                      )}
+                      {!collapsed && !isDisabled && item.badge !== null && (
+                        <span
+                          className={`relative z-10 text-[11px] px-2 py-0.5 rounded-full tabular-nums shrink-0 font-medium border ${
+                            item.badgeUrgent
+                              ? 'bg-rose-500/15 text-rose-300 border-rose-500/20'
+                              : 'bg-white/[0.08] text-teal-100/85 border-white/10'
+                          }`}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+                    </motion.button>
+                  );
+                })}
+              </div>
+            ))}
+          </nav>
+        </MotionConfig>
 
         {/* Custom PWA Install Widget (Placed at the bottom of the sidebar) */}
         <PWAInstallWidget collapsed={collapsed} />

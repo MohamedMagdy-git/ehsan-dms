@@ -56,11 +56,12 @@ export interface CaseVulnerability {
 export interface MockAttachment {
   id: string;
   title: string;
-  category: 'national_id' | 'medical_report' | 'income_proof' | 'housing_contract' | 'field_video' | 'family_records' | 'utility_bill';
+  category: 'national_id' | 'medical_report' | 'income_proof' | 'housing_contract' | 'field_video' | 'family_records' | 'utility_bill' | 'voice_memo';
   fileName: string;
   fileSize: string;
   uploadDate: string;
   url?: string;
+  durationSeconds?: number;
 }
 
 export interface BeneficiaryCase {
@@ -95,6 +96,8 @@ export interface BeneficiaryCase {
     mapsUrl?: string;
   };
   directionsNote?: string;
+  voiceNoteUrl?: string;
+  voiceNoteDuration?: number;
 }
 
 export interface CaseResearchReport {
@@ -432,13 +435,24 @@ export interface CaseStudyReport {
       fileName: string;
       progress: number;
       status: 'uploading' | 'completed';
+      url?: string;
+      durationSeconds?: number;
     }>;
   };
   
   additionalNotesAndRemarks?: string; // ملاحظات وتفاصيل إضافية (أسفل صفحة 2 من نموذج PDF)
+  voiceNoteUrl?: string;              // رابط التسجيل الصوتي للملاحظات الميدانية للباحث
+  voiceNoteDuration?: number;         // مدة التسجيل الصوتي بالثواني
+  executiveSummary?: CaseExecutiveSummary; // ملخص إداري تنفيذي مستنتج بالذكاء الاصطناعي
   status: 'pending_review' | CaseStatus; // حالة الاستمارة (بانتظار المراجعة والاعتماد)
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CaseExecutiveSummary {
+  recommendedDecision: 'high_priority' | 'medium_priority' | 'ineligible';
+  justificationText: string; // سطرين يوضحان مبرر القرار والفجوة
+  checklistAlerts: string[]; // أي نواقص مستندات تم استنتاجها من التسجيل
 }
 
 

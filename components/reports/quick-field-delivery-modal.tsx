@@ -181,39 +181,39 @@ export function QuickFieldDeliveryModal({
       />
 
       {/* شريط التحكم للشاشة فقط */}
-      <div className="no-print w-full max-w-4xl bg-white rounded-xl border border-slate-200/70 shadow-none p-3.5 mb-3 flex flex-col sm:flex-row items-center justify-between gap-3 sticky top-2 z-70">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center shrink-0">
-            <Printer size={20} />
-          </div>
+      <div className="no-print w-full max-w-4xl bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden mb-3 sticky top-2 z-70">
+        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
               <span>كشف الصرف الميداني للباحث</span>
-              <span className="text-[11px] bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full font-bold">
-                {items.length} حالة · عمودين A4
+              <span className="text-[11px] bg-white border border-slate-200 text-slate-700 px-2.5 py-0.5 rounded-md font-semibold">
+                {items.length} حالة · A4
               </span>
             </h2>
-            <p className="text-xs text-slate-500">
-              قائمة مختصرة ومركزة ومقسمة على عمودين لتوفير الورق وسرعة الحركة بالشارع
+            <p className="text-xs text-slate-500 mt-1">
+              قائمة مختصرة مقسمة على عمودين لسهولة الطباعة والحركة الميدانية
             </p>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-          <button
-            onClick={() => window.print()}
-            className="px-4 py-2 bg-[#005756] hover:bg-[#004241] text-white text-xs font-bold rounded-xl shadow-none flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <Printer size={15} />
-            <span>طباعة كشف الصرف الميداني (Ctrl + P)</span>
-          </button>
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
-            title="إغلاق النافذة"
-          >
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="px-4 py-2 bg-[#005756] hover:bg-[#004241] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Printer size={15} />
+              <span>طباعة كشف الصرف (Ctrl + P)</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+              title="إغلاق النافذة"
+              aria-label="إغلاق"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
       </div>
 

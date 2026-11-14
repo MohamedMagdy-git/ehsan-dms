@@ -26,9 +26,9 @@ export function calculateFieldSurveyCompleteness(c: BeneficiaryCase): SurveyComp
     { name: 'الحي / المركز', done: Boolean(c.district) },
     { name: 'العنوان ومحل الإقامة التفصيلي', done: Boolean(c.address && c.address.trim().length >= 4) },
     { name: 'علامة مميزة للعنوان', done: Boolean(c.directionsNote && c.directionsNote.trim().length > 0) },
-    { name: 'إحداثيات موقع البيت (GPS)', done: Boolean(c.gpsLocation?.latitude && c.gpsLocation?.longitude) },
+    { name: 'موقع البيت على الخريطة', done: Boolean(c.gpsLocation?.latitude && c.gpsLocation?.longitude) },
     { name: 'اسم الباحث الميداني المسؤول', done: Boolean(c.assignedResearcher) },
-    { name: 'تاريخ الزيارة الميدانية', done: Boolean(c.lastVisitDate || c.registrationDate) },
+    { name: 'تاريخ النزول الميداني', done: Boolean(c.lastVisitDate || c.registrationDate) },
     { name: 'الحالة السكنية ونوع الحيازة', done: Boolean(c.vulnerability?.housingCondition) },
     { name: 'قيد أفراد الأسرة المقيمين', done: Boolean(c.householdMembers && c.householdMembers.length > 0) },
     {
@@ -45,9 +45,9 @@ export function calculateFieldSurveyCompleteness(c: BeneficiaryCase): SurveyComp
     { name: 'الدخل غير المنتظم / اليوميات', done: typeof c.financials?.indirectIncome === 'number' },
     { name: 'المصروفات والالتزامات الأساسية', done: (c.financials?.basicExpenses || 0) > 0 },
     { name: 'تكاليف العلاج الشهرية', done: typeof c.financials?.medicalExpenses === 'number' },
-    { name: 'حساب العجز الشهري (الفجوة المالية)', done: (c.financials?.netFinancialGap || 0) > 0 },
-    { name: 'مشاهدات وتوصيات الباحث الميداني', done: Boolean(c.notes && c.notes.trim().length >= 15) },
-    { name: 'المستندات الثبوتية الأربعة (4/4)', done: Boolean(c.attachments && c.attachments.length >= 4) },
+    { name: 'حساب العجز الشهري', done: (c.financials?.netFinancialGap || 0) > 0 },
+    { name: 'ملاحظات وتوصية الباحث', done: Boolean(c.notes && c.notes.trim().length >= 15) },
+    { name: 'الأوراق المطلوبة (4/4)', done: Boolean(c.attachments && c.attachments.length >= 4) },
   ];
 
   const totalFields = 22;
@@ -60,24 +60,24 @@ export function calculateFieldSurveyCompleteness(c: BeneficiaryCase): SurveyComp
   let statusBadge: SurveyCompletenessResult['statusBadge'];
   if (percentage === 100) {
     statusBadge = {
-      label: 'بحث مكتمل',
+      label: 'مكتملة',
       variant: 'complete',
-      badgeClass: 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold',
-      barClass: 'bg-emerald-600',
+      badgeClass: 'text-slate-700 font-semibold',
+      barClass: 'bg-[#005756]',
     };
   } else if (percentage >= 80) {
     statusBadge = {
-      label: 'شبه مكتمل',
+      label: 'قربت تكتمل',
       variant: 'almost',
-      badgeClass: 'bg-teal-100 text-teal-900 border-teal-300 font-bold',
-      barClass: 'bg-teal-600',
+      badgeClass: 'text-slate-600 font-medium',
+      barClass: 'bg-slate-500',
     };
   } else {
     statusBadge = {
-      label: 'بيانات ناقصة',
+      label: 'ناقصة بيانات',
       variant: 'incomplete',
-      badgeClass: 'bg-amber-100 text-amber-900 border-amber-300 font-bold',
-      barClass: 'bg-amber-500',
+      badgeClass: 'text-slate-500 font-medium',
+      barClass: 'bg-slate-400',
     };
   }
 
