@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AppProvider, useApp } from '@/context/app-context';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
@@ -46,6 +46,16 @@ function MainApp() {
     : currentSessionProfile?.defaultTab || 'dashboard';
 
   const isDonorPortal = effectiveSection === 'donor-portal';
+  const prevSectionRef = useRef(effectiveSection);
+
+  useEffect(() => {
+    if (prevSectionRef.current !== effectiveSection) {
+      prevSectionRef.current = effectiveSection;
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }, [effectiveSection]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900 font-sans">
