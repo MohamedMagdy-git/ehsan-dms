@@ -9,8 +9,6 @@ import {
   ChevronLeft,
   CheckCircle2,
   X,
-  Lock,
-  Unlock,
   Check,
   FileSpreadsheet,
   AlertCircle,
@@ -57,6 +55,7 @@ export function DashboardView() {
   const {
     metrics,
     cases,
+    donations,
     currentAllocation,
     setActiveSection,
     setSelectedCaseId,
@@ -165,11 +164,6 @@ export function DashboardView() {
   const coveragePercentage =
     totalAssessedNeed > 0 ? Math.min(100, Math.round((totalAllocated / totalAssessedNeed) * 100)) : 100;
 
-  const unrestrictedSharePercent =
-    metrics.receivedDonationsTotal > 0
-      ? Math.round((metrics.unrestrictedDonationsBalance / metrics.receivedDonationsTotal) * 100)
-      : 0;
-
   // Handle direct one-click cycle approval from dashboard
   const handleQuickApproveCycle = () => {
     setIsApprovingCycle(true);
@@ -193,7 +187,7 @@ export function DashboardView() {
       {/* Inspirational Quranic Guidance Card tailored to current role */}
       <RoleInspirationalCard />
 
-      {/* 2. Treasury KPIs Grid (موقف الخزينة هذا الشهر) */}
+      {/* 2. Treasury KPIs Grid (4 Unified Calm Cards) */}
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
@@ -205,26 +199,28 @@ export function DashboardView() {
             onClick={() => setShowDonationBreakdownModal(true)}
             className="text-xs text-[#005756] font-semibold hover:underline flex items-center gap-1 cursor-pointer"
           >
-            <span>عرض تفصيل الصناديق</span>
+            <span>عرض تبرعات الشهر</span>
             <ChevronLeft size={14} />
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3.5">
-          {/* Metric 1: Total Received Donations */}
-          <div className="p-3.5 sm:p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between hover:border-slate-300 transition-colors">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {/* Card 1: Total Monthly Donations */}
+          <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between hover:border-slate-300 transition-colors">
             <div>
               <div className="flex items-center justify-between gap-1">
-                <span className="text-xs font-semibold text-slate-700 tracking-tight">إجمالي التبرعات</span>
+                <span className="text-xs font-semibold text-slate-700 tracking-tight">
+                  إجمالي تبرعات الشهر
+                </span>
                 <InfoTooltip
-                  title="إجمالي التبرعات"
-                  badge="نقد بالخزينة"
+                  title="إجمالي تبرعات الشهر"
+                  badge="دخلت الخزينة"
                   badgeColor="slate"
                   icon="help"
                   iconSize={13}
                   content={
                     <p suppressHydrationWarning>
-                      المبالغ التي دخلت حسابات وخزينة المبادرة هذا الشهر ({metrics.receivedDonationsTotal.toLocaleString('en-US')} ج.م)، وتشمل التبرعات العامة والمخصصة.
+                      كل التبرعات المستلمة في الخزينة هذا الشهر ({metrics.receivedDonationsTotal.toLocaleString('en-US')} ج.م) وتُدار كسيولة موحدة للصرف الشهري.
                     </p>
                   }
                 />
@@ -233,97 +229,23 @@ export function DashboardView() {
             </div>
             <div className="mt-3">
               <MoneyDisplay amount={metrics.receivedDonationsTotal} size="lg" variant="neutral" />
-              <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 tabular-nums">
+              <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 tabular-nums">
                 <span>مودعة بالكامل</span>
-                <span className="text-slate-700 font-semibold">100% موثقة</span>
+                <span className="text-slate-700 font-semibold">سيولة موحدة</span>
               </div>
             </div>
           </div>
 
-          {/* Metric 2: Unrestricted Donations */}
-          <div className="p-3.5 sm:p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between hover:border-slate-300 transition-colors">
+          {/* Card 2: Approved Assistance */}
+          <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between hover:border-slate-300 transition-colors">
             <div>
               <div className="flex items-center justify-between gap-1">
-                <span className="text-xs font-semibold text-slate-700 tracking-tight">التبرعات العامة</span>
-                <InfoTooltip
-                  title="التبرعات العامة"
-                  badge="صرف مرن"
-                  badgeColor="teal"
-                  icon="help"
-                  iconSize={13}
-                  content={
-                    <p suppressHydrationWarning>
-                      مبالغ عامة متاحة للصرف على أي أسرة مستحقة بدون شروط مسبقة من المتبرع ({metrics.unrestrictedDonationsBalance.toLocaleString('en-US')} ج.م).
-                    </p>
-                  }
-                />
-              </div>
-              <span className="text-[11px] text-slate-500 block mt-0.5">متاحة لكل المساعدات</span>
-            </div>
-            <div className="mt-3">
-              <MoneyDisplay amount={metrics.unrestrictedDonationsBalance} size="lg" variant="neutral" />
-              <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 tabular-nums">
-                <span>وعاء الصرف الحر</span>
-                <span className="text-slate-700 font-semibold">
-                  <span className="font-mono" dir="ltr">{unrestrictedSharePercent}%</span> من النقد
+                <span className="text-xs font-semibold text-slate-700 tracking-tight">
+                  المعتمد للصرف
                 </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Metric 3: Restricted Donations */}
-          <div className="p-3.5 sm:p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between hover:border-slate-300 transition-colors">
-            <div>
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-xs font-semibold text-slate-700 tracking-tight">تبرعات لأغراض محددة</span>
                 <InfoTooltip
-                  title="تبرعات لأغراض محددة"
-                  badge="مقيدة"
-                  badgeColor="slate"
-                  icon="help"
-                  iconSize={13}
-                  content={
-                    <div className="space-y-1 text-xs">
-                      <p suppressHydrationWarning>
-                        أموال خصصها المتبرعون لأبواب محددة ({metrics.restrictedDonationsBalance.toLocaleString('en-US')} ج.م) ولا تُصرف إلا فيها:
-                      </p>
-                      <div className="pt-1 border-t border-slate-800 text-[10px] space-y-0.5">
-                        <div>• رعاية طبية وعمليات: 25,000 ج.م</div>
-                        <div>• كفالة أيتام وتعليم: 20,000 ج.م</div>
-                        <div>• كفالة حالة خاصة (EHS-105): 15,000 ج.م</div>
-                        <div>• ترميم وسقف منازل: 15,000 ج.م</div>
-                      </div>
-                    </div>
-                  }
-                />
-              </div>
-              <span className="text-[11px] text-slate-500 block mt-0.5">مخصصة لبنود معينة</span>
-            </div>
-            <div className="mt-3">
-              <MoneyDisplay amount={metrics.restrictedDonationsBalance} size="lg" variant="neutral" />
-              <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] tabular-nums">
-                <button
-                  type="button"
-                  onClick={() => setShowDonationBreakdownModal(true)}
-                  className="text-slate-600 hover:text-[#005756] font-semibold underline cursor-pointer"
-                >
-                  عرض الأغراض
-                </button>
-                <span className="text-slate-700 font-semibold">
-                  <span className="font-mono" dir="ltr">4</span> بنود
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Metric 4: Approved Assistance */}
-          <div className="p-3.5 sm:p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between hover:border-slate-300 transition-colors">
-            <div>
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-xs font-semibold text-slate-700 tracking-tight">المعتمد هذا الشهر</span>
-                <InfoTooltip
-                  title="المعتمد هذا الشهر"
-                  badge="كشف الصرف"
+                  title="المعتمد للصرف"
+                  badge="كشف الشهر"
                   badgeColor="slate"
                   icon="help"
                   iconSize={13}
@@ -338,36 +260,38 @@ export function DashboardView() {
             </div>
             <div className="mt-3">
               <MoneyDisplay amount={metrics.approvedAssistanceTotal} size="lg" variant="neutral" />
-              <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 tabular-nums">
+              <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 tabular-nums">
                 <span>الأسر المستفيدة</span>
                 <span className="text-slate-700 font-semibold">{metrics.eligibleCases} أسر</span>
               </div>
             </div>
           </div>
 
-          {/* Metric 5: Disbursed Assistance */}
-          <div className="p-3.5 sm:p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between hover:border-slate-300 transition-colors">
+          {/* Card 3: Actually Disbursed */}
+          <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between hover:border-slate-300 transition-colors">
             <div>
               <div className="flex items-center justify-between gap-1">
-                <span className="text-xs font-semibold text-slate-700 tracking-tight">تم صرفه</span>
+                <span className="text-xs font-semibold text-slate-700 tracking-tight">
+                  تم صرفه فعلياً
+                </span>
                 <InfoTooltip
-                  title="المبالغ المسلمة"
+                  title="تم صرفه فعلياً"
                   badge="توثيق التسليم"
                   badgeColor="slate"
                   icon="help"
                   iconSize={13}
                   content={
                     <p>
-                      المبالغ التي تم تسليمها وتوثيق إيصالاتها بالفعل. بمجرد اعتماد الكشف يتحول المبلغ إلى مصروف ومسلم.
+                      المبالغ التي تم تسليمها للمستحقين بالفعل. يتحول المبلغ المعتمد إلى مصروف فعلياً فور اعتماد الكشف.
                     </p>
                   }
                 />
               </div>
-              <span className="text-[11px] text-slate-500 block mt-0.5">توثيق تسليم المساعدات</span>
+              <span className="text-[11px] text-slate-500 block mt-0.5">المسلم للمستحقين</span>
             </div>
             <div className="mt-3">
               <MoneyDisplay amount={metrics.disbursedAssistanceTotal} size="lg" variant="neutral" />
-              <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] tabular-nums">
+              <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] tabular-nums">
                 <span className="text-slate-500">الحالة</span>
                 <span className={`font-semibold ${isAllocationApproved ? 'text-[#005756]' : 'text-slate-700'}`}>
                   {isAllocationApproved ? 'تم التسليم' : 'بانتظار الاعتماد'}
@@ -376,14 +300,16 @@ export function DashboardView() {
             </div>
           </div>
 
-          {/* Metric 6: Remaining in Treasury (Unified White Calm Card) */}
-          <div className="p-3.5 sm:p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between hover:border-slate-300 transition-colors">
+          {/* Card 4: Remaining in Treasury (Total Donations - Approved) */}
+          <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between hover:border-slate-300 transition-colors">
             <div>
               <div className="flex items-center justify-between gap-1">
-                <span className="text-xs font-semibold text-slate-900 tracking-tight">المتبقي في الخزنة</span>
+                <span className="text-xs font-semibold text-slate-900 tracking-tight">
+                  المتبقي في الخزنة
+                </span>
                 <InfoTooltip
-                  title="المتبقي في الخزنة (متاح للصرف)"
-                  badge="رصيد آمن"
+                  title="المتبقي في الخزنة"
+                  badge="صافي الرصيد"
                   badgeColor="teal"
                   icon="help"
                   iconSize={13}
@@ -391,22 +317,32 @@ export function DashboardView() {
                     <div className="space-y-1 text-xs">
                       <p className="font-semibold text-slate-200">طريقة الحساب:</p>
                       <div className="bg-slate-800 p-2 rounded-lg font-mono text-[11px] text-slate-200" suppressHydrationWarning>
-                        التبرعات العامة ({metrics.unrestrictedDonationsBalance.toLocaleString('en-US')}) - المعتمد ({metrics.approvedAssistanceTotal.toLocaleString('en-US')}) = {metrics.unrestrictedAvailableBalance.toLocaleString('en-US')} ج.م
+                        إجمالي تبرعات الشهر ({metrics.receivedDonationsTotal.toLocaleString('en-US')}) - المعتمد للصرف ({metrics.approvedAssistanceTotal.toLocaleString('en-US')}) = {metrics.netTreasuryBalance.toLocaleString('en-US')} ج.م
                       </div>
                       <p>
-                        الرصيد العام المتبقي للاستخدام الحر دون المساس بالتبرعات المخصصة لأغراض معينة.
+                        الرصيد المتاح للتوزيع والصرف بعد خصم التزامات الكشف الحالي.
                       </p>
                     </div>
                   }
                 />
               </div>
-              <span className="text-[11px] text-slate-500 block mt-0.5">متاح للصرف بحرية</span>
+              <span className="text-[11px] text-slate-500 block mt-0.5">متاح للتوزيع والصرف</span>
             </div>
             <div className="mt-3">
-              <MoneyDisplay amount={metrics.unrestrictedAvailableBalance} size="lg" variant="teal" />
-              <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] tabular-nums">
+              <MoneyDisplay
+                amount={metrics.netTreasuryBalance}
+                size="lg"
+                variant={metrics.netTreasuryBalance >= 0 ? 'teal' : 'rose'}
+              />
+              <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] tabular-nums">
                 <span className="text-slate-500">موقف السيولة</span>
-                <span className="text-[#005756] font-bold">جاهزة للصرف</span>
+                <span
+                  className={`font-bold ${
+                    metrics.netTreasuryBalance >= 0 ? 'text-[#005756]' : 'text-rose-600'
+                  }`}
+                >
+                  {metrics.netTreasuryBalance >= 0 ? 'جاهزة للصرف' : 'يوجد عجز'}
+                </span>
               </div>
             </div>
           </div>
@@ -1233,139 +1169,87 @@ export function DashboardView() {
         </div>
       </div>
 
-      {/* Modal 1: Donation Breakdown Modal */}
+      {/* Modal 1: Unified Monthly Donations Summary Modal */}
       {showDonationBreakdownModal && (
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
           onClick={() => setShowDonationBreakdownModal(false)}
         >
           <div
-            className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-xl overflow-hidden flex flex-col max-h-[90vh] text-right"
+            className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200/80 shadow-xl overflow-hidden flex flex-col max-h-[90vh] text-right"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-4 shrink-0">
+            <div className="px-6 py-4 bg-white border-b border-slate-200/80 flex items-center justify-between gap-4 shrink-0">
               <div>
-                <h3 className="text-lg font-bold text-slate-800">تفصيل أموال الخزينة</h3>
-                <p className="text-xs text-slate-500 mt-1 tabular-nums" suppressHydrationWarning>
-                  إجمالي التبرعات الموجودة بالخزينة: {metrics.receivedDonationsTotal.toLocaleString('en-US')} ج.م
+                <h3 className="text-base font-bold text-slate-900">ملخص تبرعات الشهر</h3>
+                <p className="text-xs text-slate-500 mt-0.5 tabular-nums" suppressHydrationWarning>
+                  إجمالي التبرعات المستلمة بالخزينة: {metrics.receivedDonationsTotal.toLocaleString('en-US')} ج.م
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowDonationBreakdownModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+                className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                 aria-label="إغلاق"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
             <div className="p-6 space-y-4 overflow-y-auto text-xs text-slate-700 leading-relaxed">
-              {/* Category 1: Unrestricted */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+              <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 text-xs">
+                    التبرعات المستلمة في الخزينة ({donations.filter((d) => d.status === 'received').length})
+                  </span>
+                  <MoneyDisplay amount={metrics.receivedDonationsTotal} size="sm" variant="teal" />
+                </div>
+
+                <div className="divide-y divide-slate-100 border border-slate-200/80 rounded-xl bg-white">
+                  {donations
+                    .filter((d) => d.status === 'received')
+                    .map((d) => (
+                      <div
+                        key={d.id}
+                        className="p-3 flex items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-900 truncate">{d.donorName}</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                            {d.receivedDate}
+                            {d.manualReceiptNo ? ` · إيصال ${d.manualReceiptNo}` : ''}
+                            {d.notes ? ` · ${d.notes}` : ''}
+                          </p>
+                        </div>
+                        <MoneyDisplay
+                          amount={d.amount}
+                          size="xs"
+                          variant="neutral"
+                          className="shrink-0"
+                        />
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {metrics.pledgedDonationsTotal > 0 && (
+                <div className="px-3.5 py-2.5 bg-slate-50/70 rounded-xl border border-slate-200/80 flex items-center justify-between text-xs text-slate-600">
                   <div className="flex items-center gap-2">
-                    <Unlock size={16} className="text-slate-400" />
-                    <span className="font-bold text-slate-800 text-sm">
-                      1. التبرعات العامة (متاحة لكل الحالات)
-                    </span>
+                    <Clock size={15} className="text-slate-400 shrink-0" />
+                    <span>تعهدات منتظرة قيد التحصيل:</span>
                   </div>
-                  <div className="bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-                    <MoneyDisplay
-                      amount={metrics.unrestrictedDonationsBalance}
-                      size="sm"
-                      variant="teal"
-                    />
-                  </div>
+                  <MoneyDisplay amount={metrics.pledgedDonationsTotal} size="xs" variant="neutral" />
                 </div>
-                <p className="text-slate-600 text-xs">
-                  <strong>التوضيح:</strong> تبرعات عامة يمكن صرفها على أي احتياج أساسي مثل الإيجارات والغذاء وسداد الديون والإعانات الشهرية.
-                </p>
-                <div className="bg-white rounded-lg p-2.5 border border-slate-200/80 space-y-1.5 text-[11px]">
-                  <div className="flex justify-between text-slate-700">
-                    <span>• م. أحمد حسام الدين (تحويل بنكي شهري)</span>
-                    <span className="font-mono font-bold">65,000 ج.م</span>
-                  </div>
-                  <div className="flex justify-between text-slate-700">
-                    <span>• مجموعة الأمل للمقاولات (شيك دعم عام)</span>
-                    <span className="font-mono font-bold">40,000 ج.م</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Category 2: Restricted */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Lock size={16} className="text-slate-400" />
-                    <span className="font-bold text-slate-800 text-sm">
-                      2. تبرعات لأغراض محددة
-                    </span>
-                  </div>
-                  <div className="bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-                    <MoneyDisplay
-                      amount={metrics.restrictedDonationsBalance}
-                      size="sm"
-                      variant="neutral"
-                    />
-                  </div>
-                </div>
-                <p className="text-slate-600 text-xs">
-                  <strong>ضابط الصرف:</strong> مبالغ خصصها المتبرعون لأغراض محددة ولا تُصرف في غيرها:
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                  <div className="p-2.5 bg-white rounded-lg border border-slate-200/80 space-y-1">
-                    <div className="flex justify-between font-bold text-slate-800">
-                      <span>رعاية طبية وعمليات</span>
-                      <span className="font-mono text-[#005756]">25,000 ج.م</span>
-                    </div>
-                    <p className="text-slate-500 text-[10px]">د. منى الشريف: جلسات غسيل كلوي وأدوية أمراض مزمنة</p>
-                  </div>
-
-                  <div className="p-2.5 bg-white rounded-lg border border-slate-200/80 space-y-1">
-                    <div className="flex justify-between font-bold text-slate-800">
-                      <span>كفالة أيتام وتعليم</span>
-                      <span className="font-mono text-[#005756]">20,000 ج.م</span>
-                    </div>
-                    <p className="text-slate-500 text-[10px]">فاعل خير (الإسكندرية): نفقات معيشة وكتب ومصاريف دراسية</p>
-                  </div>
-
-                  <div className="p-2.5 bg-white rounded-lg border border-slate-200/80 space-y-1">
-                    <div className="flex justify-between font-bold text-slate-800">
-                      <span>كفالة حالة خاصة بالاسم</span>
-                      <span className="font-mono text-[#005756]">15,000 ج.م</span>
-                    </div>
-                    <p className="text-slate-500 text-[10px]">م. هشام عبد المنعم: للحالة EHS-105 (أحمد رجب - ضمور عضلات)</p>
-                  </div>
-
-                  <div className="p-2.5 bg-white rounded-lg border border-slate-200/80 space-y-1">
-                    <div className="flex justify-between font-bold text-slate-800">
-                      <span>ترميم وسقف منازل</span>
-                      <span className="font-mono text-[#005756]">15,000 ج.م</span>
-                    </div>
-                    <p className="text-slate-500 text-[10px]">د. سارة الديب: عزل أمطار وترميم أسقف قبل الشتاء</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Category 3: Pledged */}
-              <div className="px-3.5 py-2.5 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between text-xs text-slate-600">
-                <div className="flex items-center gap-2">
-                  <Clock size={15} className="text-slate-400 shrink-0" />
-                  <span>تعهدات منتظرة (أ. طارق عبد الحميد - تحويل بنكي قريب):</span>
-                </div>
-                <MoneyDisplay amount={metrics.pledgedDonationsTotal} size="xs" variant="neutral" />
-              </div>
+              )}
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2 shrink-0">
+            <div className="px-6 py-4 bg-white border-t border-slate-200/80 flex justify-end gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setShowDonationBreakdownModal(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 rounded-xl hover:bg-slate-200/70 transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold bg-white border border-slate-200/80 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 إغلاق
               </button>

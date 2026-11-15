@@ -39,16 +39,10 @@ export function Sidebar({
     setActiveSection,
     metrics,
     currentSessionProfile,
-    fastTrackOrders,
     cases,
   } = useApp();
 
   const pendingReviewCount = cases?.filter((c) => c.status === 'pending_review').length ?? 0;
-
-  const todayStr = new Date().toISOString().split('T')[0];
-  const overdueFastTrackCount = fastTrackOrders?.filter(
-    (o) => o.status === 'pending_delivery' && Boolean(o.dueDeadlineDate && o.dueDeadlineDate < todayStr)
-  ).length ?? 0;
 
   interface NavItem {
     id: string;
@@ -123,8 +117,8 @@ export function Sidebar({
           id: 'fast-track',
           label: NAVIGATION_SECTIONS['fast-track'].sidebarLabel,
           icon: Zap,
-          badge: overdueFastTrackCount > 0 ? `${overdueFastTrackCount} متأخر` : null,
-          badgeUrgent: overdueFastTrackCount > 0,
+          badge: null,
+          comingSoon: true,
         },
         {
           id: 'allocation',
