@@ -187,45 +187,57 @@ export function Sidebar({
         } ${mobileOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}
       >
         {/* Brand Header */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-white/10 shrink-0">
+        <div
+          className={`h-16 flex items-center border-b border-white/10 shrink-0 ${
+            collapsed ? 'justify-center px-2' : 'justify-between px-4'
+          }`}
+        >
           {!collapsed ? (
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-400/20 flex items-center justify-center text-teal-300 shadow-xs backdrop-blur-xs shrink-0">
-                <HandHeart size={22} className="text-teal-300" />
+            <>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-400/20 flex items-center justify-center text-teal-300 shadow-xs backdrop-blur-xs shrink-0">
+                  <HandHeart size={22} className="text-teal-300" />
+                </div>
+                <div>
+                  <h1 className="font-bold text-base leading-tight tracking-tight text-white">
+                    منظومة إحسان
+                  </h1>
+                  <p className="text-xs text-teal-100/70 mt-0.5">كفالة ودعم الأسر</p>
+                </div>
               </div>
-              <div>
-                <h1 className="font-bold text-base leading-tight tracking-tight text-white">
-                  منظومة إحسان
-                </h1>
-                <p className="text-xs text-teal-100/70 mt-0.5">كفالة ودعم الأسر</p>
-              </div>
-            </div>
-          ) : (
-            <div className="w-full flex justify-center">
-              <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-400/20 flex items-center justify-center text-teal-300 shadow-xs">
-                <HandHeart size={22} className="text-teal-300" />
-              </div>
-            </div>
-          )}
 
-          {/* Desktop Collapse Toggle */}
-          <button
-            onClick={onToggleCollapse}
-            className="hidden lg:flex items-center justify-center w-7 h-7 rounded-lg text-teal-200 hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
-            title={collapsed ? 'توسيع القائمة' : 'تصغير القائمة'}
-          >
-            {collapsed ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
-          </button>
+              {/* Desktop Collapse Toggle */}
+              <button
+                type="button"
+                onClick={onToggleCollapse}
+                className="hidden lg:flex items-center justify-center w-7 h-7 rounded-lg text-teal-200 hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+                title="تصغير القائمة"
+                aria-label="تصغير القائمة"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="flex items-center justify-center w-11 h-11 rounded-xl bg-teal-500/10 border border-teal-400/20 text-teal-200 hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+              title="توسيع القائمة"
+              aria-label="توسيع القائمة"
+            >
+              <ChevronLeft size={19} />
+            </button>
+          )}
         </div>
 
         {/* Categorized Navigation Groups */}
         <MotionConfig reducedMotion="user">
-          <nav className="flex-1 py-3 px-2.5 space-y-2.5 overflow-y-auto">
+          <nav className={`flex-1 py-3 space-y-2.5 overflow-y-auto ${collapsed ? 'px-2' : 'px-2.5'}`}>
             {visibleGroups.map((group, groupIdx) => (
               <div key={group.id} className="space-y-1">
                 {/* Divider between icon groups in collapsed mode */}
                 {groupIdx > 0 && collapsed && (
-                  <div className="border-t border-teal-800/50 my-2 mx-2" />
+                  <div className="w-8 mx-auto border-t border-teal-800/50 my-2" />
                 )}
 
                 {/* Subheader title in expanded mode */}
@@ -251,7 +263,11 @@ export function Sidebar({
                         setActiveSection(item.id);
                         onCloseMobile();
                       }}
-                      className={`group w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors duration-150 text-right relative ${
+                      className={`group rounded-xl text-sm font-medium transition-colors duration-150 relative ${
+                        collapsed
+                          ? 'w-11 h-11 mx-auto flex items-center justify-center'
+                          : 'w-full flex items-center gap-3 px-3 py-2 text-right'
+                      } ${
                         isDisabled
                           ? 'text-teal-100/45 cursor-not-allowed'
                           : isActive

@@ -252,19 +252,16 @@ export function Header({
 
       {/* Zone 3: Quick Contextual Actions based on Role */}
       <div className="flex items-center gap-2 shrink-0">
-        {/* Donation action: visible to admin, finance, and donor */}
+        {/* Donation action: calm secondary button across all visible roles */}
         {(currentUserRole === 'admin' ||
           currentUserRole === 'finance' ||
           currentUserRole === 'donor') && (
           <button
+            type="button"
             onClick={onOpenNewDonation}
-            className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] shadow-xs cursor-pointer whitespace-nowrap ${
-              currentUserRole === 'donor'
-                ? 'text-white bg-emerald-600 hover:bg-emerald-700 shadow-emerald-950/10'
-                : 'text-teal-800 bg-teal-50 border border-teal-200/70 hover:bg-teal-100/80'
-            }`}
+            className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200/80 rounded-xl transition-colors duration-150 active:scale-[0.98] cursor-pointer whitespace-nowrap shrink-0"
           >
-            <Plus size={15} />
+            <Plus size={15} className="text-slate-400 shrink-0" />
             <span>
               {currentUserRole === 'donor'
                 ? 'تقديم مساهمة جديدة'
@@ -273,13 +270,14 @@ export function Header({
           </button>
         )}
 
-        {/* Case registration: visible only to admin and researcher */}
+        {/* Case registration: single primary CTA visible to admin and researcher */}
         {(currentUserRole === 'admin' || currentUserRole === 'researcher') && (
           <button
+            type="button"
             onClick={onOpenNewCase}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-[#005756] hover:bg-[#004241] rounded-xl transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] shadow-xs shadow-teal-950/15 cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 text-xs font-semibold text-white bg-[#005756] hover:bg-[#004241] rounded-xl transition-colors duration-150 active:scale-[0.98] shadow-xs shadow-teal-950/15 cursor-pointer whitespace-nowrap shrink-0"
           >
-            <Plus size={15} />
+            <Plus size={15} className="shrink-0" />
             <span>تسجيل حالة جديدة</span>
           </button>
         )}

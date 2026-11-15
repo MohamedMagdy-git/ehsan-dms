@@ -86,7 +86,7 @@ export function PWAInstallWidget({ collapsed = false }: PWAInstallWidgetProps) {
         <button
           type="button"
           onClick={handleInstallClick}
-          className="w-10 h-10 rounded-xl bg-gradient-to-b from-[#003833] to-[#004d40] border border-teal-500/40 text-white hover:border-teal-300 hover:scale-105 active:scale-95 transition-all shadow-md flex items-center justify-center cursor-pointer group"
+          className="w-11 h-11 rounded-xl bg-gradient-to-b from-[#003833] to-[#004d40] border border-teal-500/40 text-white hover:border-teal-300 active:scale-95 transition-all shadow-md flex items-center justify-center cursor-pointer group"
           title="تثبيت تطبيق إحسان"
           aria-label="تثبيت تطبيق إحسان"
         >
