@@ -135,52 +135,52 @@ export function ReportsView() {
         {/* Header & Main Actions */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-5">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
-                كشوف الصرف الميداني للباحثين
-              </h2>
-              <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-teal-50 border border-teal-200 text-teal-900">
-                تسليم العهدة الميدانية
-              </span>
-            </div>
+            <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+              كشوف الصرف الميداني للباحثين
+            </h2>
             <p className="text-xs text-slate-500 leading-relaxed max-w-2xl">
-              إعداد وطباعة كشوف الصرف الميدانية وتصدير البيانات
+              تسليم العهدة الميدانية · إعداد وطباعة كشوف الصرف وتصدير البيانات
             </p>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Quick Print Button */}
+          {/* Action Buttons: Single Primary CTA on top + 2-col secondary grid on mobile, inline row on sm+ */}
+          <div className="flex flex-col sm:flex-row sm:flex-wrap lg:flex-nowrap items-stretch sm:items-center gap-2.5 sm:gap-2 shrink-0">
+            {/* Quick Print Button (Single Primary CTA) */}
             <button
+              type="button"
               onClick={() => setIsQuickPrintModalOpen(true)}
               disabled={activeQuickItems.length === 0}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#005756] hover:bg-[#004241] active:scale-95 disabled:opacity-50 disabled:pointer-events-none text-white text-xs font-bold rounded-xl shadow-none transition-all cursor-pointer"
+              className="w-full sm:w-auto min-h-[44px] sm:min-h-0 sm:h-10 inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-[#005756] hover:bg-[#004241] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none text-white text-xs font-bold rounded-xl shadow-xs shadow-teal-950/15 transition-colors cursor-pointer whitespace-nowrap shrink-0"
               title="طباعة كشف الصرف الميداني للباحث"
             >
-              <Printer size={15} />
+              <Printer size={15} className="shrink-0" />
               <span>طباعة كشف الصرف الميداني</span>
             </button>
 
-            {/* Quick Excel Export */}
-            <button
-              onClick={handleExportQuickExcel}
-              disabled={activeQuickItems.length === 0}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-emerald-700 hover:bg-emerald-800 active:scale-95 disabled:opacity-50 disabled:pointer-events-none text-white text-xs font-bold rounded-xl shadow-none transition-all cursor-pointer"
-              title="تصدير كشف الصرف الميداني إلى ملف إكسل (.xlsx)"
-            >
-              <FileSpreadsheet size={15} />
-              <span>تصدير إكسل</span>
-            </button>
+            <div className="grid grid-cols-2 gap-2.5 sm:contents">
+              {/* Quick Excel Export (Calm Secondary) */}
+              <button
+                type="button"
+                onClick={handleExportQuickExcel}
+                disabled={activeQuickItems.length === 0}
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-0 sm:h-10 inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2.5 sm:py-2 bg-white hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none text-slate-700 text-xs font-semibold rounded-xl border border-slate-200/80 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                title="تصدير كشف الصرف الميداني إلى ملف إكسل (.xlsx)"
+              >
+                <FileSpreadsheet size={15} className="text-slate-400 shrink-0" />
+                <span>تصدير إكسل</span>
+              </button>
 
-            {/* Solidarity Full Official Report Button (Unchanged Legacy Report) */}
-            <button
-              onClick={() => setIsSolidarityModalOpen(true)}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-all cursor-pointer"
-              title="فتح الكشف الإداري المفصل المعتمد للتضامن الاجتماعي"
-            >
-              <FileText size={15} className="text-slate-500" />
-              <span>الكشف الرسمي المفصل (المعتمد للتضامن)</span>
-            </button>
+              {/* Solidarity Full Official Report Button (Calm Secondary, Concise Mobile Label) */}
+              <button
+                type="button"
+                onClick={() => setIsSolidarityModalOpen(true)}
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-0 sm:h-10 inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2.5 sm:py-2 bg-white hover:bg-slate-50 active:scale-[0.98] text-slate-700 text-xs font-semibold rounded-xl border border-slate-200/80 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                title="فتح الكشف الإداري المفصل المعتمد للتضامن الاجتماعي"
+              >
+                <FileText size={15} className="text-slate-400 shrink-0" />
+                <span>الكشف الرسمي</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -243,20 +243,20 @@ export function ReportsView() {
           </div>
 
           {/* Custody Amount Box */}
-          <div className="lg:col-span-4 p-3 bg-teal-50/60 rounded-xl border border-teal-200/80 flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-teal-800">إجمالي العهدة النقدية المطلوبة</span>
-              <span className="text-[11px] font-bold font-mono px-2 py-0.5 rounded-md bg-teal-100 text-teal-900">
+          <div className="lg:col-span-4 p-3.5 bg-slate-50/80 rounded-xl border border-slate-200/80 flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-semibold text-slate-600">إجمالي العهدة النقدية المطلوبة</span>
+              <span className="text-[11px] font-semibold tabular-nums text-slate-500">
                 {activeQuickItems.length} حالة مستحقة
               </span>
             </div>
             <div className="mt-1 flex items-baseline gap-1.5">
-              <div className="text-xl font-black text-teal-950 font-mono">
+              <div className="text-xl font-black text-slate-900 tabular-nums">
                 {totalCustodyAmount.toLocaleString('ar-EG')}
               </div>
-              <span className="text-xs font-bold text-teal-800">ج.م</span>
+              <span className="text-xs font-bold text-slate-500">ج.م</span>
             </div>
-            <div className="text-[10px] text-teal-700 font-medium truncate mt-0.5" title={tafqeetNumberToArabicWords(totalCustodyAmount)}>
+            <div className="text-[11px] text-slate-500 font-medium truncate mt-0.5" title={tafqeetNumberToArabicWords(totalCustodyAmount)}>
               فقط {tafqeetNumberToArabicWords(totalCustodyAmount)}
             </div>
           </div>
@@ -376,7 +376,7 @@ export function ReportsView() {
                           <span>الباحث: {caseObj?.assignedResearcher || 'غير محدد'}</span>
                         </div>
                       </div>
-                      <div className="font-bold text-sm text-[#005756] shrink-0 bg-teal-50 px-2 py-1 rounded-lg">
+                      <div className="font-bold text-sm text-[#005756] shrink-0">
                         <span className="font-mono tabular-nums font-black">{item.approvedAmount.toLocaleString('ar-EG')}</span>
                         <span className="text-xs mr-0.5"> ج.م</span>
                       </div>
@@ -419,13 +419,17 @@ export function ReportsView() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Card 1: متأخرات الزيارات والأبحاث */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between space-y-3">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-none flex flex-col justify-between space-y-3">
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="p-2 rounded-xl bg-amber-50 text-amber-700">
+                <span className="p-2 rounded-xl bg-slate-50 border border-slate-200/70 text-slate-500">
                   <Clock size={16} />
                 </span>
-                <span className="text-xs font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                <span
+                  className={`text-xs font-semibold tabular-nums ${
+                    overdueCases.length > 0 ? 'text-rose-600' : 'text-slate-500'
+                  }`}
+                >
                   {overdueCases.length} متأخرة
                 </span>
               </div>
@@ -435,22 +439,23 @@ export function ReportsView() {
               </p>
             </div>
             <button
+              type="button"
               onClick={() => exportOverdueToExcel(overdueCases)}
-              className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl transition cursor-pointer"
+              className="w-full min-h-[40px] inline-flex items-center justify-center gap-1.5 py-2 px-3 bg-white hover:bg-slate-50 border border-slate-200/80 text-slate-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
             >
-              <FileSpreadsheet size={13} className="text-emerald-700" />
+              <FileSpreadsheet size={14} className="text-slate-400 shrink-0" />
               <span>تصدير إكسل ({overdueCases.length})</span>
             </button>
           </div>
 
           {/* Card 2: أذونات الصرف الفوري */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between space-y-3">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-none flex flex-col justify-between space-y-3">
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="p-2 rounded-xl bg-teal-50 text-teal-700">
+                <span className="p-2 rounded-xl bg-slate-50 border border-slate-200/70 text-slate-500">
                   <Zap size={16} />
                 </span>
-                <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-lg border border-teal-200">
+                <span className="text-xs font-semibold tabular-nums text-slate-500">
                   {fastTrackOrders.length} إذن فوري
                 </span>
               </div>
@@ -459,21 +464,23 @@ export function ReportsView() {
                 إدارة وطباعة أذونات المساعدات النقدية الطارئة والعمليات العاجلة.
               </p>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className={`grid gap-2 ${fastTrackOrders.length > 0 ? 'grid-cols-2' : 'grid-cols-1'}`}>
               <button
+                type="button"
                 onClick={() => exportVouchersToExcel(fastTrackOrders)}
-                className="flex-1 inline-flex items-center justify-center gap-1 py-2 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl transition cursor-pointer"
+                className="w-full min-h-[40px] inline-flex items-center justify-center gap-1.5 py-2 px-2.5 bg-white hover:bg-slate-50 border border-slate-200/80 text-slate-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
               >
-                <FileSpreadsheet size={13} className="text-emerald-700" />
+                <FileSpreadsheet size={14} className="text-slate-400 shrink-0" />
                 <span>إكسل</span>
               </button>
               {fastTrackOrders.length > 0 && (
                 <button
+                  type="button"
                   onClick={() => setSelectedVoucherOrder(fastTrackOrders[0])}
-                  className="inline-flex items-center justify-center gap-1 py-2 px-3 bg-teal-50 hover:bg-teal-100 text-[#005756] text-xs font-bold rounded-xl transition cursor-pointer"
+                  className="w-full min-h-[40px] inline-flex items-center justify-center gap-1.5 py-2 px-2.5 bg-white hover:bg-slate-50 border border-slate-200/80 text-slate-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
                   title="معاينة إذن الصرف المالي A4"
                 >
-                  <Printer size={13} />
+                  <Printer size={14} className="text-slate-400 shrink-0" />
                   <span>طباعة A4</span>
                 </button>
               )}
@@ -481,13 +488,17 @@ export function ReportsView() {
           </div>
 
           {/* Card 3: كشف الاستثناءات ونقص المستندات */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between space-y-3">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-none flex flex-col justify-between space-y-3">
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="p-2 rounded-xl bg-rose-50 text-rose-700">
+                <span className="p-2 rounded-xl bg-slate-50 border border-slate-200/70 text-slate-500">
                   <AlertTriangle size={16} />
                 </span>
-                <span className="text-xs font-mono font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-200">
+                <span
+                  className={`text-xs font-semibold tabular-nums ${
+                    exceptionCases.length > 0 ? 'text-rose-600' : 'text-slate-500'
+                  }`}
+                >
                   {exceptionCases.length} استثناء
                 </span>
               </div>
@@ -497,22 +508,23 @@ export function ReportsView() {
               </p>
             </div>
             <button
+              type="button"
               onClick={() => exportExceptionsToExcel(exceptionCases)}
-              className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl transition cursor-pointer"
+              className="w-full min-h-[40px] inline-flex items-center justify-center gap-1.5 py-2 px-3 bg-white hover:bg-slate-50 border border-slate-200/80 text-slate-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
             >
-              <FileSpreadsheet size={13} className="text-emerald-700" />
+              <FileSpreadsheet size={14} className="text-slate-400 shrink-0" />
               <span>تصدير إكسل ({exceptionCases.length})</span>
             </button>
           </div>
 
           {/* Card 4: تقرير التبرعات والمحافظ المقيدة */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between space-y-3">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-none flex flex-col justify-between space-y-3">
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="p-2 rounded-xl bg-emerald-50 text-emerald-700">
+                <span className="p-2 rounded-xl bg-slate-50 border border-slate-200/70 text-slate-500">
                   <PieChart size={16} />
                 </span>
-                <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                <span className="text-xs font-semibold tabular-nums text-slate-500">
                   {donations.length} حركة
                 </span>
               </div>
@@ -522,10 +534,11 @@ export function ReportsView() {
               </p>
             </div>
             <button
+              type="button"
               onClick={() => exportDonationsToExcel(donations)}
-              className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl transition cursor-pointer"
+              className="w-full min-h-[40px] inline-flex items-center justify-center gap-1.5 py-2 px-3 bg-white hover:bg-slate-50 border border-slate-200/80 text-slate-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
             >
-              <FileSpreadsheet size={13} className="text-emerald-700" />
+              <FileSpreadsheet size={14} className="text-slate-400 shrink-0" />
               <span>تصدير إكسل ({donations.length})</span>
             </button>
           </div>

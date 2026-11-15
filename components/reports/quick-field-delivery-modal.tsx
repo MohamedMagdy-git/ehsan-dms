@@ -139,7 +139,7 @@ export function QuickFieldDeliveryModal({
   const modalJSX = (
     <div
       id="quick-delivery-modal-root"
-      className="fixed inset-0 z-60 overflow-y-auto bg-slate-900/80 backdrop-blur-xs flex flex-col items-center justify-start p-2 sm:p-4 print:p-0 print:bg-white print:overflow-visible print:static print:inset-auto print:block print:w-full print:h-auto"
+      className="fixed inset-0 h-dvh z-60 bg-slate-900/80 backdrop-blur-xs flex flex-col overflow-hidden print:p-0 print:bg-white print:overflow-visible print:static print:inset-auto print:block print:w-full print:h-auto"
       dir="rtl"
     >
       {/* إعدادات الطباعة A4 Portrait مع عمودين متجاورين لتوفير الورق */}
@@ -156,6 +156,14 @@ export function QuickFieldDeliveryModal({
                 color: black !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
+              }
+              #quick-delivery-modal-root {
+                position: static !important;
+                height: auto !important;
+                overflow: visible !important;
+                display: block !important;
+                background: white !important;
+                padding: 0 !important;
               }
               .no-print {
                 display: none !important;
@@ -180,91 +188,109 @@ export function QuickFieldDeliveryModal({
         }}
       />
 
-      {/* شريط التحكم للشاشة فقط */}
-      <div className="no-print w-full max-w-4xl bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden mb-3 sticky top-2 z-70">
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <span>كشف الصرف الميداني للباحث</span>
-              <span className="text-[11px] bg-white border border-slate-200 text-slate-700 px-2.5 py-0.5 rounded-md font-semibold">
-                {items.length} حالة · A4
-              </span>
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              قائمة مختصرة مقسمة على عمودين لسهولة الطباعة والحركة الميدانية
-            </p>
-          </div>
+      {/* شريط التحكم الثابت للشاشة فقط */}
+      <div className="no-print shrink-0 w-full bg-white border-b border-slate-200 sm:border-none sm:bg-transparent sm:px-4 sm:pt-4 z-10">
+        <div className="w-full sm:max-w-4xl sm:mx-auto bg-white sm:rounded-2xl sm:border sm:border-slate-200 sm:shadow-xl overflow-hidden pt-[env(safe-area-inset-top,0px)] sm:pt-0">
+          <div className="px-4 py-3 sm:px-6 sm:py-4 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2 flex-wrap">
+                  <span className="truncate">كشف الصرف الميداني للباحث</span>
+                  <span className="text-[11px] bg-white border border-slate-200 text-slate-700 px-2 py-0.5 rounded-md font-semibold shrink-0 tabular-nums">
+                    {items.length} حالة · A4
+                  </span>
+                </h2>
+                <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 sm:mt-1 truncate">
+                  قائمة مختصرة مقسمة على عمودين لسهولة الطباعة والحركة الميدانية
+                </p>
+              </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="px-4 py-2 bg-[#005756] hover:bg-[#004241] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Printer size={15} />
-              <span>طباعة كشف الصرف (Ctrl + P)</span>
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
-              title="إغلاق النافذة"
-              aria-label="إغلاق"
-            >
-              <X size={20} />
-            </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="sm:hidden min-w-[44px] min-h-[44px] -mt-1 -ml-1.5 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer shrink-0"
+                title="إغلاق النافذة"
+                aria-label="إغلاق"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="w-full sm:w-auto min-h-[44px] sm:min-h-0 px-4 py-2 bg-[#005756] hover:bg-[#004241] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <Printer size={15} className="shrink-0" />
+                <span>
+                  طباعة كشف الصرف <span className="hidden sm:inline">(Ctrl + P)</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="hidden sm:flex min-w-[40px] min-h-[40px] items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer shrink-0"
+                title="إغلاق النافذة"
+                aria-label="إغلاق"
+              >
+                <X size={20} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ورقة الكشف الميداني الفعلية A4 */}
-      <div className="print-sheet w-full max-w-4xl bg-white rounded-2xl shadow-xl border border-slate-200 p-5 sm:p-6 space-y-3 text-slate-900">
-        {/* 1. الترويسة العلوية العريضة والمباشرة */}
-        <div className="border-b-2 border-slate-900 pb-2 text-center">
-          <h1 className="text-lg sm:text-xl font-black text-slate-950 tracking-tight">
-            {batchTitle} - {scopeLabel} - إجمالي: {totalCustody.toLocaleString('ar-EG')} ج.م
-          </h1>
-          <div className="text-xs font-bold text-slate-700 mt-1 flex items-center justify-center gap-2 flex-wrap">
-            <span>الباحث المسؤول: {researcherName === 'all' ? 'كافة الباحثين' : researcherName}</span>
-            <span>·</span>
-            <span>تاريخ التوزيع: {executionDate}</span>
-            <span>·</span>
-            <span>عدد الحالات: {items.length} حالة</span>
-          </div>
-        </div>
-
-        {/* 2. جدول الحالات على عمودين متجاورين (Two-column split) */}
-        {items.length === 0 ? (
-          <div className="py-12 text-center text-slate-400 font-bold text-xs">
-            لا توجد حالات مستحقة للصرف مطابقة للمحددات المختارة
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-3.5 print:gap-2.5 items-start">
-            {/* العمود الأول */}
-            <div className="overflow-hidden">
-              {renderTableColumn(col1Items, 0)}
-            </div>
-
-            {/* العمود الثاني */}
-            <div className="overflow-hidden">
-              {col2Items.length > 0 ? (
-                renderTableColumn(col2Items, col1Items.length)
-              ) : (
-                <div className="p-4 text-center text-slate-400 text-xs border border-dashed border-slate-300 rounded-xl print:hidden">
-                  (اكتمال الحالات في العمود الأول)
-                </div>
-              )}
+      {/* حاوية التمرير المستقلة لورقة الكشف الميداني A4 */}
+      <div className="flex-1 overflow-y-auto overscroll-contain w-full px-2.5 py-3 sm:p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] print:overflow-visible print:h-auto print:flex-none print:p-0">
+        <div className="print-sheet w-full max-w-4xl mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 p-4 sm:p-6 space-y-3 text-slate-900">
+          {/* 1. الترويسة العلوية العريضة والمباشرة */}
+          <div className="border-b-2 border-slate-900 pb-2 text-center">
+            <h1 className="text-lg sm:text-xl font-black text-slate-950 tracking-tight">
+              {batchTitle} - {scopeLabel} - إجمالي: {totalCustody.toLocaleString('ar-EG')} ج.م
+            </h1>
+            <div className="text-xs font-bold text-slate-700 mt-1 flex items-center justify-center gap-2 flex-wrap">
+              <span>الباحث المسؤول: {researcherName === 'all' ? 'كافة الباحثين' : researcherName}</span>
+              <span>·</span>
+              <span>تاريخ التوزيع: {executionDate}</span>
+              <span>·</span>
+              <span>عدد الحالات: {items.length} حالة</span>
             </div>
           </div>
-        )}
 
-        {/* 3. شريط ملخص سفلي نظيف بدون إقرارات أو خانات بصمة */}
-        <div className="border-t-2 border-slate-900 pt-2 flex items-center justify-between text-xs font-black text-slate-950 mt-2">
-          <div>
-            إجمالي الحالات: <span className="font-mono">{items.length}</span> حالة
-          </div>
-          <div className="text-left font-mono">
-            إجمالي المبلغ: {totalCustody.toLocaleString('ar-EG')} ج.م ({tafqeetNumberToArabicWords(totalCustody)})
+          {/* 2. جدول الحالات على عمودين متجاورين (Two-column split) */}
+          {items.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 font-bold text-xs">
+              لا توجد حالات مستحقة للصرف مطابقة للمحددات المختارة
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-3.5 print:gap-2.5 items-start">
+              {/* العمود الأول */}
+              <div className="overflow-hidden">
+                {renderTableColumn(col1Items, 0)}
+              </div>
+
+              {/* العمود الثاني */}
+              <div className="overflow-hidden">
+                {col2Items.length > 0 ? (
+                  renderTableColumn(col2Items, col1Items.length)
+                ) : (
+                  <div className="p-4 text-center text-slate-400 text-xs border border-dashed border-slate-300 rounded-xl print:hidden">
+                    (اكتمال الحالات في العمود الأول)
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 3. شريط ملخص سفلي نظيف بدون إقرارات أو خانات بصمة */}
+          <div className="border-t-2 border-slate-900 pt-2 flex items-center justify-between text-xs font-black text-slate-950 mt-2">
+            <div>
+              إجمالي الحالات: <span className="font-mono">{items.length}</span> حالة
+            </div>
+            <div className="text-left font-mono">
+              إجمالي المبلغ: {totalCustody.toLocaleString('ar-EG')} ج.م ({tafqeetNumberToArabicWords(totalCustody)})
+            </div>
           </div>
         </div>
       </div>

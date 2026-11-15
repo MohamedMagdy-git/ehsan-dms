@@ -112,7 +112,7 @@ export function CustodyPrintModal({
   const modalJSX = (
     <div
       id="custody-modal-root"
-      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/80 backdrop-blur-xs flex flex-col items-center justify-start p-2 sm:p-4 print:p-0 print:bg-white print:overflow-visible print:static print:inset-auto print:block print:w-full print:h-auto"
+      className="fixed inset-0 h-dvh z-50 bg-slate-900/80 backdrop-blur-xs flex flex-col overflow-hidden print:p-0 print:bg-white print:overflow-visible print:static print:inset-auto print:block print:w-full print:h-auto"
       dir="rtl"
     >
       {/* Dynamic Print Style per tab (Landscape for Ledger, Portrait for Slips) */}
@@ -124,104 +124,133 @@ export function CustodyPrintModal({
                 size: ${activeTab === 'ledger' ? 'A4 landscape' : 'A4 portrait'};
                 margin: ${activeTab === 'ledger' ? '5mm 6mm 5mm 6mm' : '5mm 6mm 5mm 6mm'};
               }
+              #custody-modal-root {
+                position: static !important;
+                height: auto !important;
+                overflow: visible !important;
+                display: block !important;
+                background: white !important;
+                padding: 0 !important;
+              }
             }
           `,
         }}
       />
 
-      {/* Screen-Only Control Toolbar */}
-      <div className="no-print w-full max-w-6xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden mb-3 flex flex-col sticky top-2 z-60">
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <span>طباعة كشوف الصرف والتسليم (A4)</span>
-              <span className="text-[11px] bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-semibold">
-                نماذج معتمدة
-              </span>
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              نماذج جاهزة للطباعة الورقية أو التصدير لملف PDF بمقاس A4
-            </p>
-          </div>
+      {/* Screen-Only Fixed Control Toolbar */}
+      <div className="no-print shrink-0 w-full bg-white border-b border-slate-200 sm:border-none sm:bg-transparent sm:px-4 sm:pt-4 z-10">
+        <div className="w-full sm:max-w-6xl sm:mx-auto bg-white sm:rounded-2xl sm:shadow-xl sm:border sm:border-slate-200 overflow-hidden flex flex-col pt-[env(safe-area-inset-top,0px)] sm:pt-0">
+          <div className="px-4 py-3 sm:px-6 sm:py-4 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-2.5 sm:gap-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2 flex-wrap">
+                  <span className="truncate">طباعة كشوف الصرف والتسليم (A4)</span>
+                  <span className="text-[11px] bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-semibold shrink-0">
+                    نماذج معتمدة
+                  </span>
+                </h2>
+                <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 sm:mt-1 truncate">
+                  نماذج جاهزة للطباعة الورقية أو التصدير لملف PDF بمقاس A4
+                </p>
+              </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="px-4 py-2 bg-[#005756] hover:bg-[#004342] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Printer size={15} />
-              <span>طباعة النموذج المختار (Ctrl + P)</span>
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
-              title="إغلاق النافذة"
-              aria-label="إغلاق"
-            >
-              <X size={20} />
-            </button>
-          </div>
-        </div>
-
-        <div className="p-3.5 space-y-2.5">
-
-        {/* Tab Switcher & Filter Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          {/* Tabs */}
-          <div className="grid grid-cols-2 sm:flex sm:items-center gap-1 p-1 bg-slate-100 rounded-xl text-xs font-bold w-full sm:w-auto">
-            <button
-              onClick={() => setActiveTab('ledger')}
-              className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg transition-all cursor-pointer ${
-                activeTab === 'ledger'
-                  ? 'bg-white text-teal-900 shadow-xs font-black'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <FileText size={14} className="shrink-0" />
-              <span className="sm:hidden">كشف العهدة</span>
-              <span className="hidden sm:inline">1. كشف تسوية العهدة الإداري (A4 Landscape)</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('slips')}
-              className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg transition-all cursor-pointer ${
-                activeTab === 'slips'
-                  ? 'bg-white text-teal-900 shadow-xs font-black'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Scissors size={14} className="shrink-0" />
-              <span className="sm:hidden">قسائم الاستلام</span>
-              <span className="hidden sm:inline">2. قسائم إقرار الاستلام الفردية (A4 Portrait · 3 بالورقة)</span>
-            </button>
-          </div>
-
-          {/* Researcher Filter */}
-          <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
-            <span className="text-xs text-slate-500 font-medium shrink-0">الباحث:</span>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 flex-1 sm:flex-initial">
-              <User size={13} className="text-slate-400 shrink-0" />
-              <select
-                value={selectedResearcher}
-                onChange={(e) => setSelectedResearcher(e.target.value)}
-                className="bg-transparent focus:outline-hidden cursor-pointer text-xs font-bold text-slate-800 w-full sm:w-auto"
+              <button
+                type="button"
+                onClick={onClose}
+                className="md:hidden min-w-[44px] min-h-[44px] -mt-1 -ml-1.5 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer shrink-0"
+                title="إغلاق النافذة"
+                aria-label="إغلاق"
               >
-                <option value="all">كافة الباحثين (الكشف الشامل)</option>
-                {researchers.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="w-full md:w-auto min-h-[42px] md:min-h-0 px-4 py-2 bg-[#005756] hover:bg-[#004342] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <Printer size={15} className="shrink-0" />
+                <span>
+                  طباعة النموذج المختار <span className="hidden sm:inline">(Ctrl + P)</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="hidden md:flex min-w-[40px] min-h-[40px] items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer shrink-0"
+                title="إغلاق النافذة"
+                aria-label="إغلاق"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+
+          <div className="px-4 py-2.5 sm:p-3.5">
+            {/* Tab Switcher & Filter Controls */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              {/* Tabs */}
+              <div className="grid grid-cols-2 sm:flex sm:items-center gap-1 p-1 bg-slate-100 rounded-xl text-xs font-bold w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('ledger')}
+                  className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg transition-all cursor-pointer ${
+                    activeTab === 'ledger'
+                      ? 'bg-white text-teal-900 shadow-xs font-black'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <FileText size={14} className="shrink-0" />
+                  <span className="sm:hidden">كشف العهدة</span>
+                  <span className="hidden sm:inline">1. كشف تسوية العهدة الإداري (A4 Landscape)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('slips')}
+                  className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg transition-all cursor-pointer ${
+                    activeTab === 'slips'
+                      ? 'bg-white text-teal-900 shadow-xs font-black'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Scissors size={14} className="shrink-0" />
+                  <span className="sm:hidden">قسائم الاستلام</span>
+                  <span className="hidden sm:inline">2. قسائم إقرار الاستلام الفردية (A4 Portrait · 3 بالورقة)</span>
+                </button>
+              </div>
+
+              {/* Researcher Filter */}
+              <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
+                <span className="text-xs text-slate-500 font-medium shrink-0">الباحث:</span>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 flex-1 sm:flex-initial">
+                  <User size={13} className="text-slate-400 shrink-0" />
+                  <select
+                    value={selectedResearcher}
+                    onChange={(e) => setSelectedResearcher(e.target.value)}
+                    className="bg-transparent focus:outline-hidden cursor-pointer text-xs font-bold text-slate-800 w-full sm:w-auto"
+                  >
+                    <option value="all">كافة الباحثين (الكشف الشامل)</option>
+                    {researchers.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Informational Notice */}
-        <div className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-xl p-2 text-[11px] text-slate-600">
+      {/* Scrollable Printable Area Container */}
+      <div className="flex-1 overflow-y-auto overscroll-contain w-full px-2.5 py-3 sm:p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] print:overflow-visible print:h-auto print:flex-none print:p-0">
+        {/* Informational Notice placed inside scrollable region to preserve mobile viewport height */}
+        <div className="no-print w-full max-w-6xl mx-auto mb-3 flex items-start gap-2 bg-white/95 border border-slate-200 rounded-xl p-2.5 text-[11px] text-slate-600 shadow-xs">
           <Info size={14} className="text-slate-400 shrink-0 mt-0.5" />
           <div className="leading-relaxed">
             {activeTab === 'ledger' ? (
@@ -235,18 +264,16 @@ export function CustodyPrintModal({
             )}
           </div>
         </div>
-        </div>
-      </div>
 
-      {/* Printable Area Container */}
-      <div
-        id="printable-area"
-        className={`w-full bg-white transition-all text-slate-900 ${
-          activeTab === 'ledger'
-            ? 'max-w-[297mm] shadow-lg rounded-xl print:shadow-none print:rounded-none p-5 print:p-0 print:max-w-none'
-            : 'max-w-[210mm] shadow-lg rounded-xl print:shadow-none print:rounded-none p-4 print:p-0 print:max-w-none'
-        }`}
-      >
+        {/* Printable Area Container */}
+        <div
+          id="printable-area"
+          className={`w-full mx-auto bg-white transition-all text-slate-900 ${
+            activeTab === 'ledger'
+              ? 'max-w-[297mm] shadow-lg rounded-xl print:shadow-none print:rounded-none p-5 print:p-0 print:max-w-none'
+              : 'max-w-[210mm] shadow-lg rounded-xl print:shadow-none print:rounded-none p-4 print:p-0 print:max-w-none'
+          }`}
+        >
         {/* ========================================================================= */}
         {/* TAB 1: كشف تسوية العهدة الإداري (A4 Landscape)                            */}
         {/* ========================================================================= */}
@@ -627,6 +654,7 @@ export function CustodyPrintModal({
             )}
           </div>
         )}
+      </div>
       </div>
     </div>
   );
