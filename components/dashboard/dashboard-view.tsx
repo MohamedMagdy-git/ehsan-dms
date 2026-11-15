@@ -21,6 +21,38 @@ import { InfoTooltip } from '@/components/common/info-tooltip';
 import { RoleInspirationalCard } from '@/components/common/role-inspirational-card';
 import { MoneyDisplay } from '@/components/common/money-display';
 
+function describeDonutSector(
+  cx: number,
+  cy: number,
+  rInner: number,
+  rOuter: number,
+  startAngleDeg: number,
+  endAngleDeg: number
+): string {
+  const toRad = (deg: number) => ((deg - 90) * Math.PI) / 180;
+  const point = (r: number, deg: number) => {
+    const rad = toRad(deg);
+    return {
+      x: Number((cx + r * Math.cos(rad)).toFixed(3)),
+      y: Number((cy + r * Math.sin(rad)).toFixed(3)),
+    };
+  };
+
+  const outerStart = point(rOuter, startAngleDeg);
+  const outerEnd = point(rOuter, endAngleDeg);
+  const innerEnd = point(rInner, endAngleDeg);
+  const innerStart = point(rInner, startAngleDeg);
+  const largeArc = endAngleDeg - startAngleDeg > 180 ? 1 : 0;
+
+  return [
+    `M ${outerStart.x} ${outerStart.y}`,
+    `A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${outerEnd.x} ${outerEnd.y}`,
+    `L ${innerEnd.x} ${innerEnd.y}`,
+    `A ${rInner} ${rInner} 0 ${largeArc} 0 ${innerStart.x} ${innerStart.y}`,
+    'Z',
+  ].join(' ');
+}
+
 export function DashboardView() {
   const {
     metrics,
@@ -929,34 +961,72 @@ export function DashboardView() {
             </p>
           </div>
 
-          {/* Interactive SVG Donut Ring Chart */}
+          {/* Interactive SVG Donut Ring Chart (Exact Non-Overlapping Annular Sectors) */}
           <div className="py-2 flex flex-col items-center justify-center">
-            <div className="relative w-44 h-44 flex items-center justify-center">
-              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90 transform">
+            <div
+              className="relative w-44 h-44 flex items-center justify-center"
+              onMouseLeave={() => setHoveredSliceIndex(null)}
+            >
+              <svg
+                viewBox="0 0 100 100"
+                className="w-full h-full overflow-visible"
+                onMouseLeave={() => setHoveredSliceIndex(null)}
+              >
                 {(() => {
-                  let cumulativePercent = 0;
+                  const nonZeroSlicesCount = priorityCounts.filter((s) => s.value > 0).length;
+                  let currentAngle = 0;
+
                   return priorityCounts.map((slice, i) => {
-                    const percent = (slice.value / totalPriorityCases) * 100;
-                    const strokeDasharray = `${percent} ${100 - percent}`;
-                    const strokeDashoffset = -cumulativePercent;
-                    cumulativePercent += percent;
+                    if (slice.value <= 0) return null;
+
+                    const angleSpan = (slice.value / totalPriorityCases) * 360;
+                    const startAngle = currentAngle;
+                    const endAngle = currentAngle + angleSpan;
+                    currentAngle = endAngle;
+
                     const isActive = hoveredSliceIndex === i;
                     const isDimmed = hoveredSliceIndex !== null && !isActive;
 
+                    // Handle single 100% slice cleanly without zero-length arc collapse
+                    if (angleSpan >= 359.9) {
+                      return (
+                        <circle
+                          key={slice.name}
+                          cx="50"
+                          cy="50"
+                          r="37"
+                          fill="none"
+                          stroke={slice.color}
+                          strokeWidth={isActive ? 17 : 14}
+                          pointerEvents="stroke"
+                          opacity={isDimmed ? 0.35 : 1}
+                          className="transition-all duration-150 cursor-pointer outline-none"
+                          onMouseEnter={() => setHoveredSliceIndex(i)}
+                          onMouseLeave={() => setHoveredSliceIndex(null)}
+                          onFocus={() => setHoveredSliceIndex(i)}
+                          onBlur={() => setHoveredSliceIndex(null)}
+                        />
+                      );
+                    }
+
+                    const gap = nonZeroSlicesCount > 1 && angleSpan > 3 ? 1.4 : 0;
+                    const sectorPath = describeDonutSector(
+                      50,
+                      50,
+                      isActive ? 29 : 30.5,
+                      isActive ? 47 : 44.5,
+                      startAngle + gap / 2,
+                      endAngle - gap / 2
+                    );
+
                     return (
-                      <circle
+                      <path
                         key={slice.name}
-                        cx="50"
-                        cy="50"
-                        r="38"
-                        fill="transparent"
-                        stroke={slice.color}
-                        strokeWidth={isActive ? 19 : 15}
-                        strokeDasharray={strokeDasharray}
-                        strokeDashoffset={strokeDashoffset}
-                        pathLength="100"
+                        d={sectorPath}
+                        fill={slice.color}
+                        pointerEvents="fill"
                         opacity={isDimmed ? 0.35 : 1}
-                        className="transition-all duration-200 cursor-pointer outline-none"
+                        className="transition-all duration-150 cursor-pointer outline-none"
                         onMouseEnter={() => setHoveredSliceIndex(i)}
                         onMouseLeave={() => setHoveredSliceIndex(null)}
                         onFocus={() => setHoveredSliceIndex(i)}
@@ -971,32 +1041,37 @@ export function DashboardView() {
                 {activePrioritySlice ? (
                   <>
                     <span
-                      className={`text-2xl font-bold leading-none tabular-nums tracking-tight ${
+                      className={`text-2xl font-bold leading-none tabular-nums tracking-tight pointer-events-none ${
                         activePrioritySlice.isCritical ? 'text-rose-600' : 'text-slate-900'
                       }`}
                     >
                       {activePrioritySlice.value}
                     </span>
-                    <span className="text-[11px] font-semibold text-slate-700 mt-1">
+                    <span className="text-[11px] font-semibold text-slate-700 mt-1 pointer-events-none">
                       {activePrioritySlice.name}
                     </span>
-                    <span className="text-[10px] font-medium text-slate-400 tabular-nums mt-0.5">
+                    <span className="text-[10px] font-medium text-slate-400 tabular-nums mt-0.5 pointer-events-none">
                       {activePriorityPercent}% من الإجمالي
                     </span>
                   </>
                 ) : (
                   <>
-                    <span className="text-2xl font-bold text-slate-900 leading-none tabular-nums tracking-tight">
+                    <span className="text-2xl font-bold text-slate-900 leading-none tabular-nums tracking-tight pointer-events-none">
                       {cases.length}
                     </span>
-                    <span className="text-[11px] text-slate-500 mt-1 font-medium">كل الحالات</span>
+                    <span className="text-[11px] text-slate-500 mt-1 font-medium pointer-events-none">
+                      كل الحالات
+                    </span>
                   </>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-100 text-xs">
+          <div
+            className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-100 text-xs"
+            onMouseLeave={() => setHoveredSliceIndex(null)}
+          >
             {priorityCounts.map((p, idx) => {
               const percent = Math.round((p.value / totalPriorityCases) * 100);
               const isActive = hoveredSliceIndex === idx;
