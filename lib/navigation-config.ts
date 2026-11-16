@@ -51,10 +51,10 @@ export const NAVIGATION_SECTIONS: Record<string, SectionMeta> = {
   },
   donations: {
     id: 'donations',
-    sidebarLabel: 'إدارة التبرعات',
-    mobileTitle: 'إدارة التبرعات',
-    headerTitle: 'حركة التبرعات والمصارف',
-    headerDescription: 'متابعة الصناديق والمحفظة وحصيلة أموال الصدقات والزكاة.',
+    sidebarLabel: 'سجل التبرعات',
+    mobileTitle: 'سجل التبرعات',
+    headerTitle: 'سجل التبرعات',
+    headerDescription: 'متابعة التبرعات المستلمة والتعهدات المسجلة في الخزينة.',
   },
   'fast-track': {
     id: 'fast-track',

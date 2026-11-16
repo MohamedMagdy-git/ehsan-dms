@@ -3,22 +3,14 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/app-context';
 import {
-  HeartHandshake,
-  Coins,
-  Lock,
-  Unlock,
   Plus,
   Search,
-  Filter,
   CheckCircle2,
   Clock,
-  ArrowUpRight,
-  User,
-  ShieldCheck,
   ChevronDown,
+  RotateCcw,
 } from 'lucide-react';
-import { DonationRestriction, DonationChannel } from '@/types';
-import { InfoTooltip } from '@/components/common/info-tooltip';
+import { DonationChannel } from '@/types';
 import { MoneyDisplay } from '@/components/common/money-display';
 
 interface DonationsViewProps {
@@ -26,288 +18,267 @@ interface DonationsViewProps {
 }
 
 export function DonationsView({ onOpenNewDonation }: DonationsViewProps) {
-  const { donations, metrics, shariaCategories } = useApp();
+  const { donations, metrics } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [restrictionFilter, setRestrictionFilter] = useState<string>('all');
   const [channelFilter, setChannelFilter] = useState<string>('all');
-  const [shariaFilter, setShariaFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  const receivedCount = donations.filter((d) => d.status === 'received').length;
+  const pledgedCount = donations.filter((d) => d.status === 'pledged').length;
+
+  const hasActiveFilters =
+    searchQuery.trim() !== '' || channelFilter !== 'all' || statusFilter !== 'all';
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setChannelFilter('all');
+    setStatusFilter('all');
+  };
 
   const filteredDonations = donations.filter((d) => {
+    const query = searchQuery.trim().toLowerCase();
     const matchesSearch =
-      searchQuery === '' ||
-      d.donorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.donorReference.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (d.manualReceiptNo && d.manualReceiptNo.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (d.designatedCaseName && d.designatedCaseName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (d.shariaCategoryName && d.shariaCategoryName.toLowerCase().includes(searchQuery.toLowerCase()));
-
-    const matchesRestriction =
-      restrictionFilter === 'all' || d.restrictionType === restrictionFilter;
+      query === '' ||
+      d.donorName.toLowerCase().includes(query) ||
+      d.donorReference.toLowerCase().includes(query) ||
+      (d.manualReceiptNo && d.manualReceiptNo.toLowerCase().includes(query)) ||
+      (d.notes && d.notes.toLowerCase().includes(query));
 
     const matchesChannel = channelFilter === 'all' || d.channel === channelFilter;
+    const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
 
-    const matchesSharia =
-      shariaFilter === 'all' ||
-      d.shariaCategoryId === shariaFilter ||
-      d.shariaCategoryName === shariaFilter;
-
-    return matchesSearch && matchesRestriction && matchesChannel && matchesSharia;
+    return matchesSearch && matchesChannel && matchesStatus;
   });
 
   const getChannelLabel = (channel: DonationChannel) => {
     switch (channel) {
-      case 'bank_transfer': return 'تحويل بنكي';
-      case 'instapay': return 'إنستاباي (InstaPay)';
-      case 'vodafone_cash': return 'فودافون كاش ومحافظ إلكترونية';
-      case 'cash_hand': return 'نقدي يدوي بالإيصال';
-      case 'cheque': return 'شيك بنكي';
+      case 'bank_transfer':
+        return 'تحويل بنكي';
+      case 'instapay':
+        return 'إنستاباي (InstaPay)';
+      case 'vodafone_cash':
+        return 'فودافون كاش أو محفظة إلكترونية';
+      case 'cash_hand':
+        return 'نقدي بإيصال';
+      case 'cheque':
+        return 'شيك بنكي';
     }
-  };
-
-  const getRestrictionLabel = (restriction: DonationRestriction) => {
-    switch (restriction) {
-      case 'unrestricted': return 'عام غير مقيد (مساعدات شهرية عامة)';
-      case 'restricted_purpose': return 'مقيد بغرض محدد (علاج/أيتام/سكن)';
-      case 'restricted_case': return 'مقيد بالاسم لحالة معينة';
-    }
-  };
-
-  const getShariaCategoryBadge = (shariaCategoryId?: string, shariaCategoryName?: string) => {
-    if (!shariaCategoryId && !shariaCategoryName) {
-      return <span className="text-slate-400 text-[11px]">-</span>;
-    }
-    const cat = shariaCategories.find((c) => c.id === shariaCategoryId);
-    const name = cat?.name || shariaCategoryName || 'مصرف عام';
-    const color = cat?.color || 'teal';
-
-    const colorMap: Record<string, string> = {
-      emerald: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-      purple: 'bg-purple-50 text-purple-800 border-purple-200',
-      rose: 'bg-rose-50 text-rose-800 border-rose-200',
-      teal: 'bg-teal-50 text-teal-800 border-teal-200',
-      amber: 'bg-amber-50 text-amber-800 border-amber-200',
-      cyan: 'bg-cyan-50 text-cyan-800 border-cyan-200',
-      indigo: 'bg-indigo-50 text-indigo-800 border-indigo-200',
-    };
-
-    return (
-      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold border ${colorMap[color] || colorMap.teal}`}>
-        <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80" />
-        <span>{name}</span>
-      </span>
-    );
   };
 
   return (
     <div className="space-y-6">
-      {/* Top Header & Metrics */}
+      {/* Top Summary Bar & Primary Action */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-bold text-slate-900">حركة التبرعات والمصارف</h2>
-          <p className="text-xs text-slate-500">
-            متابعة الصناديق والمحفظة وحصيلة أموال الصدقات والزكاة.
-          </p>
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <span className="font-semibold text-slate-700">ملخص الخزينة</span>
+          <span className="text-slate-300" aria-hidden="true">·</span>
+          <span>بالجنيه المصري (ج.م)</span>
         </div>
 
         <button
+          type="button"
           onClick={onOpenNewDonation}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#005756] hover:bg-[#004241] text-white text-xs font-bold rounded-lg shadow-xs transition-colors"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#005756] hover:bg-[#004241] text-white text-xs font-bold rounded-xl transition-colors cursor-pointer shrink-0 whitespace-nowrap"
         >
           <Plus size={16} />
           <span>تسجيل تبرع جديد</span>
         </button>
       </div>
 
-      {/* Funds Balance Cards */}
+      {/* Top KPI Cards (3 Unified Calm White Cards) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Unrestricted Fund */}
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+        {/* Card 1: Received in Treasury */}
+        <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between hover:border-slate-300 transition-colors">
           <div>
-            <div className="flex items-center gap-1.5 text-xs text-teal-800 font-bold">
-              <Unlock size={14} className="text-[#76B837]" />
-              <span>الصندوق العام (غير المقيد)</span>
-              <InfoTooltip
-                title="الصندوق العام المتاح"
-                badge="غير مقيد"
-                badgeColor="teal"
-                icon="help"
-                iconSize={13}
-                content={
-                  <p>
-                    أموال تبرعات غير مقيدة بشرط من المتبرع، يحق لإدارة الجمعية توجيهها لسد فجوة أي أسرة مستحقة وفقاً لأولويات البحث الاجتماعي.
-                  </p>
-                }
-              />
-            </div>
-            <div className="mt-1.5">
-              <MoneyDisplay
-                amount={metrics.unrestrictedDonationsBalance}
-                size="xl"
-                variant="neutral"
-              />
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1">متاح لتوزيع المساعدات الشهرية وفق الأولوية</p>
+            <span className="text-xs font-semibold text-slate-700 block">
+              المستلم بالخزينة
+            </span>
+            <span className="text-[11px] text-slate-500 block mt-0.5">
+              تبرعات دخلت الخزينة فعلياً
+            </span>
           </div>
-          <div className="w-11 h-11 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-800 shrink-0">
-            <Coins size={22} />
+          <div className="mt-3">
+            <MoneyDisplay
+              amount={metrics.receivedDonationsTotal}
+              size="xl"
+              variant="neutral"
+            />
+            <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+              <span>حالة السيولة</span>
+              <span className="text-slate-700 font-semibold">خزينة موحدة</span>
+            </div>
           </div>
         </div>
 
-        {/* Restricted Funds */}
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+        {/* Card 2: Pledged Pending Collection */}
+        <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between hover:border-slate-300 transition-colors">
           <div>
-            <div className="flex items-center gap-1.5 text-xs text-indigo-900 font-bold">
-              <Lock size={14} className="text-indigo-600" />
-              <span>أرصدة التبرعات المقيدة</span>
-              <InfoTooltip
-                title="التبرعات المشروطة بالأغراض والحالات"
-                badge="مقيدة"
-                badgeColor="indigo"
-                icon="help"
-                iconSize={13}
-                content={
-                  <p>
-                    أموال التزم المتبرع بتخصيصها لمصارف محددة أو حالات بعينها. مفصولة محاسبياً وتغذي شاشة الصرف الفوري والأذونات الموجهة دون الخلط بالميزانية العامة.
-                  </p>
-                }
-              />
-            </div>
-            <div className="mt-1.5">
-              <MoneyDisplay
-                amount={metrics.restrictedDonationsBalance}
-                size="xl"
-                variant="neutral"
-              />
-            </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-1 flex-wrap">
-              <span className="text-indigo-700 font-medium">أغراض: {metrics.restrictedPurposeBalance.toLocaleString('ar-EG')} ج.م</span>
-              <span className="text-slate-300">•</span>
-              <span className="text-amber-700 font-medium">حالات محددة: {metrics.restrictedCaseBalance.toLocaleString('ar-EG')} ج.م</span>
-            </div>
+            <span className="text-xs font-semibold text-slate-700 block">
+              تعهدات قيد التحصيل
+            </span>
+            <span className="text-[11px] text-slate-500 block mt-0.5">
+              مبالغ منتظرة لم تُودع بعد
+            </span>
           </div>
-          <div className="w-11 h-11 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 shrink-0">
-            <HeartHandshake size={22} />
+          <div className="mt-3">
+            <MoneyDisplay
+              amount={metrics.pledgedDonationsTotal}
+              size="xl"
+              variant="neutral"
+            />
+            <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+              <span>الإدراج بالصرف</span>
+              <span className="text-slate-600 font-medium">بعد الإيداع الفعلي</span>
+            </div>
           </div>
         </div>
 
-        {/* Pledged Funds */}
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+        {/* Card 3: Total Recorded Transactions */}
+        <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between hover:border-slate-300 transition-colors">
           <div>
-            <div className="flex items-center gap-1.5 text-xs text-slate-600 font-bold">
-              <Clock size={14} className="text-amber-600" />
-              <span>تعهدات تحت التحصيل</span>
-              <InfoTooltip
-                title="تعهدات تحت التحصيل"
-                badge="قيد الانتظار"
-                badgeColor="amber"
-                icon="help"
-                iconSize={13}
-                content={
-                  <p>
-                    وعود وتعهدات بالتبرع أبلغ بها المتبرعون لكن لم تُودع نقدياً بالخزينة بعد، فلا تُحسب في السيولة المتاحة حتى تمام الإيداع الفعلي.
-                  </p>
-                }
-              />
-            </div>
-            <div className="mt-1.5">
-              <MoneyDisplay
-                amount={metrics.pledgedDonationsTotal}
-                size="xl"
-                variant="gap"
-              />
-            </div>
-            <p className="text-[11px] text-amber-700 mt-1 font-medium">لا تُدرج بالميزانية حتى تمام الإيداع</p>
+            <span className="text-xs font-semibold text-slate-700 block">
+              عدد حركات التبرع
+            </span>
+            <span className="text-[11px] text-slate-500 block mt-0.5">
+              إجمالي السجلات المسجلة
+            </span>
           </div>
-          <div className="w-11 h-11 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-700 shrink-0">
-            <Clock size={22} />
+          <div className="mt-3">
+            <div className="flex items-baseline gap-1.5 tabular-nums">
+              <span className="text-2xl font-bold tracking-tight text-slate-900">
+                {donations.length}
+              </span>
+              <span className="text-xs text-slate-500 font-normal">حركة</span>
+            </div>
+            <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 tabular-nums">
+              <span>تفصيل السجلات</span>
+              <span className="text-slate-700 font-semibold">
+                {receivedCount} مستلمة · {pledgedCount} قيد التحصيل
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Filter Toolbar */}
-      <div className="p-4 bg-white rounded-xl border border-slate-200/70 shadow-none space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+      {/* Streamlined Filter Toolbar (3 Filters) */}
+      <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* Search Input */}
           <div className="relative">
-            <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <Search
+              size={15}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+            />
             <input
               type="text"
-              placeholder="البحث بالمتبرع، الكود المرجعي، أو اسم الحالة..."
+              placeholder="ابحث باسم المتبرع، الكود، أو رقم الإيصال..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-10 pr-9 pl-3 py-2 text-sm font-medium border border-slate-200 rounded-xl focus:outline-hidden focus:border-teal-600 focus:ring-1 focus:ring-teal-600 bg-slate-50/50"
+              className="w-full h-10 pr-9 pl-3 py-2 text-xs font-medium text-slate-900 placeholder:text-slate-400 bg-white border border-slate-200/80 rounded-xl focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 transition-colors"
             />
           </div>
 
-          <div className="relative">
-            <select
-              value={shariaFilter}
-              onChange={(e) => setShariaFilter(e.target.value)}
-              className="w-full h-10 px-3 py-2 text-sm font-medium border border-slate-200 rounded-xl focus:outline-hidden focus:border-teal-600 bg-slate-50/50 pr-3 pl-8 appearance-none text-slate-800"
-            >
-              <option value="all">كل المصارف الشرعية</option>
-              {shariaCategories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-
-          <div className="relative">
-            <select
-              value={restrictionFilter}
-              onChange={(e) => setRestrictionFilter(e.target.value)}
-              className="w-full h-10 px-3 py-2 text-sm font-medium border border-slate-200 rounded-xl focus:outline-hidden focus:border-teal-600 bg-slate-50/50 pr-3 pl-8 appearance-none text-slate-800"
-            >
-              <option value="all">كل قيود التبرعات</option>
-              <option value="unrestricted">عام غير مقيد (الصندوق العام)</option>
-              <option value="restricted_purpose">مقيد بغرض محدد (طبي/أيتام/سكن)</option>
-              <option value="restricted_case">مقيد بالاسم لحالة معينة</option>
-            </select>
-            <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-
+          {/* Payment Channel Filter */}
           <div className="relative">
             <select
               value={channelFilter}
               onChange={(e) => setChannelFilter(e.target.value)}
-              className="w-full h-10 px-3 py-2 text-sm font-medium border border-slate-200 rounded-xl focus:outline-hidden focus:border-teal-600 bg-slate-50/50 pr-3 pl-8 appearance-none text-slate-800"
+              aria-label="تصفية حسب طريقة الدفع"
+              className="w-full h-10 px-3 py-2 text-xs font-medium text-slate-800 bg-white border border-slate-200/80 rounded-xl focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 pr-3 pl-8 appearance-none transition-colors cursor-pointer"
             >
-              <option value="all">كل قنوات الدفع والتحصيل</option>
+              <option value="all">كل طرق الدفع</option>
               <option value="bank_transfer">تحويل بنكي</option>
               <option value="instapay">إنستاباي (InstaPay)</option>
-              <option value="vodafone_cash">فودافون كاش</option>
+              <option value="vodafone_cash">فودافون كاش أو محفظة إلكترونية</option>
               <option value="cheque">شيك بنكي</option>
-              <option value="cash_hand">نقدي يدوي</option>
+              <option value="cash_hand">نقدي بإيصال</option>
+            </select>
+            <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+
+          {/* Donation Status Filter */}
+          <div className="relative">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              aria-label="تصفية حسب حالة المبلغ"
+              className="w-full h-10 px-3 py-2 text-xs font-medium text-slate-800 bg-white border border-slate-200/80 rounded-xl focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 pr-3 pl-8 appearance-none transition-colors cursor-pointer"
+            >
+              <option value="all">كل الحالات</option>
+              <option value="received">مستلم بالخزينة</option>
+              <option value="pledged">تعهد قيد التحصيل</option>
             </select>
             <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
+
+        {hasActiveFilters && (
+          <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px] text-slate-500">
+            <span className="tabular-nums">
+              عرض {filteredDonations.length} من أصل {donations.length} حركة
+            </span>
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="inline-flex items-center gap-1 text-[#005756] font-semibold hover:underline cursor-pointer"
+            >
+              <RotateCcw size={12} />
+              <span>مسح الفلاتر</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Donations View: Responsive Cards on Mobile + Table on Desktop */}
-      <div className="bg-white rounded-xl border border-slate-200/70 shadow-none overflow-hidden">
-        {/* Mobile View: Responsive Card List (360px - 430px) */}
+      {/* Donations Ledger: Responsive Mobile Cards + 6-Column Desktop Table */}
+      <div className="bg-white rounded-xl border border-slate-200/80 shadow-none overflow-hidden">
+        {/* Mobile View: Clean White Card List */}
         <div className="block md:hidden divide-y divide-slate-100">
           {filteredDonations.length === 0 ? (
-            <div className="py-10 text-center text-slate-500 px-4">
-              لا توجد تبرعات مسجلة تطابق البحث
+            <div className="py-10 px-4 text-center space-y-2.5">
+              <p className="text-xs text-slate-500">
+                {donations.length === 0
+                  ? 'لا توجد تبرعات مسجلة حتى الآن'
+                  : 'لا توجد تبرعات تطابق اختيارات البحث'}
+              </p>
+              {hasActiveFilters ? (
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="text-xs font-semibold text-[#005756] hover:underline cursor-pointer"
+                >
+                  عرض كل التبرعات
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onOpenNewDonation}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#005756] text-white text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  <Plus size={14} />
+                  <span>تسجيل أول تبرع</span>
+                </button>
+              )}
             </div>
           ) : (
             filteredDonations.map((d) => (
-              <div key={d.id} className="p-3.5 space-y-2 hover:bg-slate-50/70 transition-colors">
-                {/* Header Row: Donor & Amount */}
-                <div className="flex items-start justify-between gap-2">
+              <div
+                key={d.id}
+                className="p-4 space-y-2.5 hover:bg-slate-50/70 transition-colors"
+              >
+                {/* Row 1: Donor + Receipt Metadata & Amount */}
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="font-bold text-slate-900 text-sm truncate">{d.donorName}</div>
-                    <div className="flex items-center gap-1.5 flex-wrap text-[11px] font-mono text-slate-500 mt-0.5">
-                      <span>كود: {d.donorReference}</span>
+                    <div className="font-semibold text-slate-900 text-sm truncate">
+                      {d.donorName}
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap text-[11px] font-mono tabular-nums text-slate-500 mt-0.5">
+                      <span>{d.donorReference}</span>
                       {d.manualReceiptNo && (
-                        <span className="text-teal-900 bg-teal-50 px-1.5 py-0.2 rounded border border-teal-200/80 font-bold">
-                          سند: {d.manualReceiptNo}
-                        </span>
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span>إيصال {d.manualReceiptNo}</span>
+                        </>
                       )}
                     </div>
                   </div>
@@ -316,53 +287,35 @@ export function DonationsView({ onOpenNewDonation }: DonationsViewProps) {
                   </div>
                 </div>
 
-                {/* Sharia & Channel Row */}
-                <div className="flex items-center justify-between gap-2 text-xs pt-1 border-t border-slate-100">
-                  <div>
-                    {getShariaCategoryBadge(d.shariaCategoryId, d.shariaCategoryName)}
-                  </div>
-                  <div className="text-[11px] text-slate-500 font-mono">
-                    {d.receivedDate} · {getChannelLabel(d.channel)}
-                  </div>
-                </div>
-
-                {/* Restriction & Status Row */}
-                <div className="flex items-center justify-between gap-2 text-xs">
-                  <div className="min-w-0 flex-1">
-                    {d.restrictionType === 'unrestricted' && (
-                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-50 text-teal-800 border border-teal-200">
-                        الصندوق العام
-                      </span>
-                    )}
-                    {d.restrictionType === 'restricted_purpose' && (
-                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200 truncate max-w-[200px]">
-                        مقيد لغرض: {d.designatedPurpose === 'medical' ? 'علاج طبي' : d.designatedPurpose === 'orphan_sponsorship' ? 'كفالة أيتام' : d.designatedPurpose === 'housing_repair' ? 'ترميم' : 'غذائي'}
-                      </span>
-                    )}
-                    {d.restrictionType === 'restricted_case' && (
-                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 truncate max-w-[200px]">
-                        لحالة: {d.designatedCaseName}
-                      </span>
-                    )}
+                {/* Row 2: Payment Method, Date & Status */}
+                <div className="flex items-center justify-between gap-2 text-[11px] pt-2 border-t border-slate-100">
+                  <div className="text-slate-600 flex items-center gap-1.5 min-w-0 truncate">
+                    <span className="truncate">{getChannelLabel(d.channel)}</span>
+                    <span aria-hidden="true" className="text-slate-300">
+                      ·
+                    </span>
+                    <span className="font-mono tabular-nums text-slate-500 shrink-0">
+                      {d.receivedDate}
+                    </span>
                   </div>
 
                   <div className="shrink-0">
                     {d.status === 'received' ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        <CheckCircle2 size={11} />
-                        <span>محصل</span>
+                      <span className="inline-flex items-center gap-1 font-semibold text-[#005756]">
+                        <CheckCircle2 size={13} className="shrink-0" />
+                        <span>مستلم بالخزينة</span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                        <Clock size={11} />
-                        <span>تعهد</span>
+                      <span className="inline-flex items-center gap-1 font-medium text-slate-500">
+                        <Clock size={13} className="text-slate-400 shrink-0" />
+                        <span>قيد التحصيل</span>
                       </span>
                     )}
                   </div>
                 </div>
 
                 {d.notes && (
-                  <p className="text-[10px] text-slate-500 bg-slate-50 p-2 rounded-lg leading-relaxed">
+                  <p className="text-xs text-slate-600 text-right pt-1 leading-relaxed">
                     {d.notes}
                   </p>
                 )}
@@ -371,105 +324,102 @@ export function DonationsView({ onOpenNewDonation }: DonationsViewProps) {
           )}
         </div>
 
-        {/* Desktop View: Full Data Table (md and up) */}
+        {/* Desktop View: 6-Column Clean Table */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-right border-collapse text-xs">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
-                <th className="py-3 px-4">كود التبرع والمتبرع</th>
-                <th className="py-3 px-3">المبلغ المحصل</th>
-                <th className="py-3 px-3">المصرف الشرعي</th>
+              <tr className="bg-slate-50 border-b border-slate-200/80 text-slate-600 font-bold">
+                <th className="py-3 px-4">المتبرع وبيانات السند</th>
+                <th className="py-3 px-3">المبلغ (ج.م)</th>
+                <th className="py-3 px-3">طريقة الدفع</th>
                 <th className="py-3 px-3">تاريخ الاستلام</th>
-                <th className="py-3 px-3">قناة التحصيل</th>
-                <th className="py-3 px-3">طبيعة القيد والتخصيص</th>
-                <th className="py-3 px-3">الحالة المالية</th>
-                <th className="py-3 px-4">ملاحظات والتزام الصرف</th>
+                <th className="py-3 px-3">حالة المبلغ</th>
+                <th className="py-3 px-4 text-right">ملاحظات أو شرط المتبرع</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredDonations.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center text-slate-500">
-                    لا توجد تبرعات مسجلة تطابق البحث
+                  <td colSpan={6} className="py-12 px-4 text-center">
+                    <div className="space-y-2.5">
+                      <p className="text-xs text-slate-500">
+                        {donations.length === 0
+                          ? 'لا توجد تبرعات مسجلة حتى الآن'
+                          : 'لا توجد تبرعات تطابق اختيارات البحث'}
+                      </p>
+                      {hasActiveFilters ? (
+                        <button
+                          type="button"
+                          onClick={handleResetFilters}
+                          className="text-xs font-semibold text-[#005756] hover:underline cursor-pointer"
+                        >
+                          مسح الفلاتر وعرض كل التبرعات
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={onOpenNewDonation}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#005756] hover:bg-[#004241] text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                        >
+                          <Plus size={14} />
+                          <span>تسجيل أول تبرع</span>
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (
                 filteredDonations.map((d) => (
-                  <tr key={d.id} className="hover:bg-slate-50/60 transition-colors">
-                    {/* Code & Donor */}
-                    <td className="py-3 px-4">
-                      <div className="font-bold text-slate-900">{d.donorName}</div>
-                      <div className="flex items-center gap-1.5 flex-wrap text-[11px] font-mono mt-0.5">
-                        <span className="text-slate-400">كود: {d.donorReference}</span>
+                  <tr key={d.id} className="hover:bg-slate-50/70 transition-colors">
+                    {/* Donor & Receipt Metadata */}
+                    <td className="py-3.5 px-4">
+                      <div className="font-semibold text-slate-900">{d.donorName}</div>
+                      <div className="flex items-center gap-1.5 flex-wrap text-[11px] font-mono tabular-nums text-slate-500 mt-0.5">
+                        <span>{d.donorReference}</span>
                         {d.manualReceiptNo && (
-                          <span className="text-teal-900 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200/80 font-bold">
-                            سند دفتري: {d.manualReceiptNo}
-                          </span>
+                          <>
+                            <span aria-hidden="true" className="text-slate-300">
+                              ·
+                            </span>
+                            <span>إيصال {d.manualReceiptNo}</span>
+                          </>
                         )}
                       </div>
                     </td>
 
                     {/* Amount */}
-                    <td className="py-3 px-3">
-                      <MoneyDisplay amount={d.amount} size="md" variant="neutral" />
+                    <td className="py-3.5 px-3">
+                      <MoneyDisplay amount={d.amount} size="sm" variant="neutral" />
                     </td>
 
-                    {/* Sharia Category */}
-                    <td className="py-3 px-3">
-                      {getShariaCategoryBadge(d.shariaCategoryId, d.shariaCategoryName)}
-                    </td>
-
-                    {/* Date */}
-                    <td className="py-3 px-3 font-mono text-slate-700">
-                      {d.receivedDate}
-                    </td>
-
-                    {/* Channel */}
-                    <td className="py-3 px-3 text-slate-700">
+                    {/* Payment Method */}
+                    <td className="py-3.5 px-3 text-slate-700">
                       {getChannelLabel(d.channel)}
                     </td>
 
-                    {/* Restriction */}
-                    <td className="py-3 px-3">
-                      {d.restrictionType === 'unrestricted' && (
-                        <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-200">
-                          الصندوق العام المفتوح
-                        </span>
-                      )}
-                      {d.restrictionType === 'restricted_purpose' && (
-                        <div className="space-y-0.5">
-                          <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200">
-                            مقيد لغرض: {d.designatedPurpose === 'medical' ? 'علاج طبي وأدوية' : d.designatedPurpose === 'orphan_sponsorship' ? 'كفالة أيتام' : d.designatedPurpose === 'housing_repair' ? 'ترميم منازل' : 'مواد غذائية'}
-                          </span>
-                        </div>
-                      )}
-                      {d.restrictionType === 'restricted_case' && (
-                        <div className="space-y-0.5">
-                          <span className="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                            مقيد بالاسم: {d.designatedCaseName}
-                          </span>
-                        </div>
-                      )}
+                    {/* Date */}
+                    <td className="py-3.5 px-3 font-mono tabular-nums text-slate-600">
+                      {d.receivedDate}
                     </td>
 
                     {/* Status */}
-                    <td className="py-3 px-3">
+                    <td className="py-3.5 px-3">
                       {d.status === 'received' ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                          <CheckCircle2 size={12} />
-                          <span>محصل ومتاح</span>
+                        <span className="inline-flex items-center gap-1.5 font-semibold text-[#005756]">
+                          <CheckCircle2 size={14} className="shrink-0" />
+                          <span>مستلم بالخزينة</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                          <Clock size={12} />
-                          <span>تعهد مؤكد</span>
+                        <span className="inline-flex items-center gap-1.5 font-medium text-slate-500">
+                          <Clock size={14} className="text-slate-400 shrink-0" />
+                          <span>تعهد قيد التحصيل</span>
                         </span>
                       )}
                     </td>
 
                     {/* Notes */}
-                    <td className="py-3 px-4 text-slate-600 text-[11px] max-w-[220px]">
-                      {d.notes || 'لا توجد ملاحظات إضافية'}
+                    <td className="py-3.5 px-4 text-right text-xs text-slate-600 max-w-[260px] leading-relaxed">
+                      {d.notes ? d.notes : <span className="text-slate-400">—</span>}
                     </td>
                   </tr>
                 ))
