@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useApp } from '@/context/app-context';
+import { useToast } from '@/context/toast-context';
 import {
   CheckCircle2,
   RotateCcw,
@@ -15,12 +16,11 @@ import {
   MapPin,
   LayoutGrid,
   List,
-  X,
   ChevronDown,
 } from 'lucide-react';
 import { BeneficiaryCase, PriorityLevel } from '@/types';
 import { CaseReviewApprovalModal } from './case-review-approval-modal';
-import { calculateFieldSurveyCompleteness } from '@/lib/survey-completeness';
+import { calculateFieldSurveyCompleteness, getCoreDocumentsStats } from '@/lib/survey-completeness';
 import { ResearcherVoicePlayer } from '@/components/common/researcher-voice-player';
 
 /* Circular Progress Gauge for Survey Completeness */
@@ -75,6 +75,7 @@ function CircularProgressGauge({
 
 export function CaseReviewApprovalView() {
   const { cases, approveCaseReview, setActiveSection } = useApp();
+  const { toast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
@@ -82,15 +83,15 @@ export function CaseReviewApprovalView() {
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [auditCase, setAuditCase] = useState<BeneficiaryCase | null>(null);
   const [auditInitialAction, setAuditInitialAction] = useState<'none' | 'return' | 'approve'>('none');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const handleReturnSuccess = (message: string) => {
-    setToastMessage(message);
+  const handleDirectApprove = (caseId: string) => {
+    approveCaseReview(caseId);
+    toast.success('تم اعتماد الحالة وإدراجها في كشوف الصرف بنجاح');
+  };
+
+  const handleReturnSuccess = () => {
     setAuditCase(null);
     setAuditInitialAction('none');
-    setTimeout(() => {
-      setToastMessage((prev) => (prev === message ? null : prev));
-    }, 4500);
   };
 
   // Filter cases with status 'pending_review' or 'needs_revision'
@@ -146,7 +147,7 @@ export function CaseReviewApprovalView() {
     if (pendingCases.length === 0) return 100;
     const totalPossible = pendingCases.length * 4;
     const totalActual = pendingCases.reduce(
-      (acc, c) => acc + Math.min(c.attachments?.length || 0, 4),
+      (acc, c) => acc + getCoreDocumentsStats(c).completed,
       0
     );
     return Math.round((totalActual / totalPossible) * 100);
@@ -392,8 +393,9 @@ export function CaseReviewApprovalView() {
           <div className={`space-y-4 ${viewMode === 'table' ? 'lg:hidden' : 'block'}`}>
             {filteredCases.map((c) => {
               const pMeta = getPriorityMeta(c.priority);
-              const attCount = c.attachments?.length || 0;
-              const isAttComplete = attCount >= 4;
+              const docStats = getCoreDocumentsStats(c);
+              const attCount = docStats.completed;
+              const isAttComplete = docStats.isComplete;
               const surveyComp = calculateFieldSurveyCompleteness(c);
               const isFullyReady = surveyComp.isComplete && isAttComplete;
 
@@ -564,7 +566,7 @@ export function CaseReviewApprovalView() {
                         <>
                           <button
                             type="button"
-                            onClick={() => approveCaseReview(c.id)}
+                            onClick={() => handleDirectApprove(c.id)}
                             className="flex-1 xl:flex-initial min-h-[42px] py-2.5 px-4 bg-[#005756] hover:bg-[#004241] text-white rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
                           >
                             <CheckCircle2 size={15} />
@@ -664,8 +666,9 @@ export function CaseReviewApprovalView() {
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
                     {filteredCases.map((c) => {
                       const pMeta = getPriorityMeta(c.priority);
-                      const attCount = c.attachments?.length || 0;
-                      const isAttComplete = attCount >= 4;
+                      const docStats = getCoreDocumentsStats(c);
+                      const attCount = docStats.completed;
+                      const isAttComplete = docStats.isComplete;
                       const surveyComp = calculateFieldSurveyCompleteness(c);
 
                       return (
@@ -749,7 +752,7 @@ export function CaseReviewApprovalView() {
                                 <>
                                   <button
                                     type="button"
-                                    onClick={() => approveCaseReview(c.id)}
+                                    onClick={() => handleDirectApprove(c.id)}
                                     className="px-3 py-1.5 bg-[#005756] hover:bg-[#004241] text-white rounded-lg font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer"
                                     title="اعتماد للصرف فوراً"
                                   >
@@ -810,30 +813,11 @@ export function CaseReviewApprovalView() {
         </>
       )}
 
-      {/* Calm Toast Notification */}
-      {toastMessage && (
-        <div
-          className="fixed top-6 left-1/2 -translate-x-1/2 z-90 flex items-center gap-3 bg-white text-slate-800 px-4 py-3 rounded-xl shadow-lg border border-slate-200/80 animate-in fade-in slide-in-from-top-4 duration-200"
-          dir="rtl"
-        >
-          <CheckCircle2 size={18} className="text-[#005756] shrink-0" />
-          <span className="text-xs sm:text-sm font-semibold text-slate-800">{toastMessage}</span>
-          <button
-            type="button"
-            onClick={() => setToastMessage(null)}
-            className="text-slate-400 hover:text-slate-700 mr-1 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-            aria-label="إغلاق التنبيه"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
       {/* Case Audit Drawer Modal */}
       {auditCase && (
         <CaseReviewApprovalModal
           key={`${auditCase.id}-${auditInitialAction}`}
-          caseItem={auditCase}
+          caseItem={cases.find((c) => c.id === auditCase.id) || auditCase}
           isOpen={auditCase !== null}
           initialAction={auditInitialAction}
           onSuccess={handleReturnSuccess}

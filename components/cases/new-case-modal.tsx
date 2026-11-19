@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useApp } from '@/context/app-context';
+import { useToast } from '@/context/toast-context';
 import {
   X,
   User,
@@ -10,8 +11,11 @@ import {
   ShieldAlert,
   HeartHandshake,
   CheckCircle2,
+  ChevronDown,
 } from 'lucide-react';
 import { AmountInput } from '@/components/common/amount-input';
+import { SearchableSelect } from '@/components/common/searchable-select';
+import { EGYPT_GOVERNORATES, getCitiesByGovernorateName } from '@/lib/egypt-locations';
 import { ResearcherSelect } from './researcher-select';
 
 interface NewCaseModalProps {
@@ -19,8 +23,22 @@ interface NewCaseModalProps {
   onClose: () => void;
 }
 
+const NEED_CATEGORIES = [
+  { id: 'financial_aid', label: 'مساعدة مالية شهرية (معيشة)' },
+  { id: 'medical', label: 'علاج وأدوية / مرض مزمن' },
+  { id: 'orphan', label: 'كفالة أيتام' },
+  { id: 'debts', label: 'سداد ديون / غارمين' },
+  { id: 'housing', label: 'ترميم سكن أو تسقيف' },
+  { id: 'food', label: 'مساعدات غذائية وإطعام' },
+  { id: 'other', label: 'أخرى (تحديد نوع المساعدة)' },
+];
+
+const UNIFIED_INPUT_CLASS =
+  'w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden transition-colors';
+
 export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
   const { addCase, setSelectedCaseId } = useApp();
+  const { toast } = useToast();
 
   const [primaryName, setPrimaryName] = useState('');
   const [secondaryName, setSecondaryName] = useState('');
@@ -31,20 +49,56 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
   const [address, setAddress] = useState('');
   const [assignedResearcher, setAssignedResearcher] = useState('أ. هبة الشامي');
   const [initialNeedType, setInitialNeedType] = useState<string>('financial_aid');
+  const [customNeedType, setCustomNeedType] = useState('');
   const [estimatedInitialAmount, setEstimatedInitialAmount] = useState<number>(2000);
   const [intakeNotes, setIntakeNotes] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
+  const governorateOptions = useMemo(
+    () =>
+      EGYPT_GOVERNORATES.map((gov) => ({
+        value: gov.nameAr,
+        label: gov.nameAr,
+        secondaryLabel: gov.nameEn,
+      })),
+    []
+  );
+
+  const districtOptions = useMemo(
+    () =>
+      getCitiesByGovernorateName(governorate).map((city) => ({
+        value: city.nameAr,
+        label: city.nameAr,
+        secondaryLabel: city.nameEn,
+      })),
+    [governorate]
+  );
+
   if (!isOpen) return null;
 
-  const NEED_CATEGORIES = [
-    { id: 'financial_aid', label: 'مساعدة مالية شهرية (معيشة)' },
-    { id: 'medical', label: 'علاج وأدوية / مرض مزمن' },
-    { id: 'orphan', label: 'كفالة أيتام' },
-    { id: 'debts', label: 'سداد ديون / غارمين' },
-    { id: 'housing', label: 'ترميم سكن أو تسقيف' },
-    { id: 'food', label: 'مساعدات غذائية وإطعام' },
-  ];
+  const handleGovernorateChange = (nextGovernorate: string) => {
+    setGovernorate(nextGovernorate);
+    const validCities = getCitiesByGovernorateName(nextGovernorate);
+    if (district && !validCities.some((city) => city.nameAr === district)) {
+      setDistrict('');
+    }
+  };
+
+  const resetForm = () => {
+    setPrimaryName('');
+    setSecondaryName('');
+    setNationalId('');
+    setPhone('');
+    setGovernorate('القاهرة');
+    setDistrict('');
+    setAddress('');
+    setAssignedResearcher('أ. هبة الشامي');
+    setInitialNeedType('financial_aid');
+    setCustomNeedType('');
+    setEstimatedInitialAmount(2000);
+    setIntakeNotes('');
+    setErrorMessage('');
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,10 +116,20 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
       setErrorMessage('من فضلك اكتب رقم الموبايل عشان الباحث يتواصل مع الحالة');
       return;
     }
+    if (!governorate.trim()) {
+      setErrorMessage('من فضلك اختر المحافظة');
+      return;
+    }
+    if (initialNeedType === 'other' && !customNeedType.trim()) {
+      setErrorMessage('من فضلك اكتب نوع المساعدة المطلوبة عند اختيار «أخرى»');
+      return;
+    }
 
     const today = new Date().toISOString().split('T')[0];
     const initialNeedLabel =
-      NEED_CATEGORIES.find((n) => n.id === initialNeedType)?.label || 'مساعدة عامة';
+      initialNeedType === 'other'
+        ? customNeedType.trim()
+        : NEED_CATEGORIES.find((n) => n.id === initialNeedType)?.label || 'مساعدة عامة';
 
     const result = addCase({
       primaryName: primaryName.trim(),
@@ -129,6 +193,8 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
     if (result.caseId) {
       setSelectedCaseId(result.caseId);
     }
+    toast.success('تم تسجيل الحالة بنجاح وإضافتها لقائمة الانتظار');
+    resetForm();
     onClose();
   };
 
@@ -175,8 +241,8 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-700">
+              <div className="space-y-1.5">
+                <label className="font-semibold text-slate-700 block">
                   الاسم رباعي <span className="text-rose-600">*</span>
                 </label>
                 <input
@@ -185,12 +251,12 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
                   placeholder="الاسم الرباعي من البطاقة..."
                   value={primaryName}
                   onChange={(e) => setPrimaryName(e.target.value)}
-                  className="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
+                  className={UNIFIED_INPUT_CLASS}
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-700">
+              <div className="space-y-1.5">
+                <label className="font-semibold text-slate-700 block">
                   اسم الشهرة <span className="text-slate-400 font-normal">(اختياري)</span>
                 </label>
                 <input
@@ -198,40 +264,44 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
                   placeholder="مثال: أبو عمر، أم زياد..."
                   value={secondaryName}
                   onChange={(e) => setSecondaryName(e.target.value)}
-                  className="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
+                  className={UNIFIED_INPUT_CLASS}
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-700">
+              <div className="space-y-1.5">
+                <label className="font-semibold text-slate-700 block">
                   الرقم القومي (14 رقم) <span className="text-rose-600">*</span>
                 </label>
                 <input
                   type="text"
                   required
+                  dir="ltr"
                   maxLength={14}
                   placeholder="2950101..."
                   value={nationalId}
                   onChange={(e) => setNationalId(e.target.value.replace(/\D/g, ''))}
-                  className="w-full p-2.5 border border-slate-200 rounded-lg font-mono text-xs bg-white focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
+                  className={`${UNIFIED_INPUT_CLASS} font-mono tabular-nums text-right`}
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-700">
+              <div className="space-y-1.5">
+                <label className="font-semibold text-slate-700 block">
                   رقم الموبايل للتواصل <span className="text-rose-600">*</span>
                 </label>
-                <div className="relative">
-                  <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <div className="flex items-center h-10 bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#005756] focus-within:ring-2 focus-within:ring-[#005756]/15 transition-colors">
+                  <span className="h-full px-3 flex items-center justify-center text-slate-400 border-l border-slate-100 bg-slate-50/50 shrink-0">
+                    <Phone size={14} />
+                  </span>
                   <input
                     type="tel"
                     required
+                    dir="ltr"
                     placeholder="01012345678"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 rounded-lg font-mono text-xs bg-white focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
+                    className="w-full h-full px-3 bg-transparent font-mono tabular-nums text-xs text-slate-900 text-right placeholder:text-slate-400 focus:outline-hidden"
                   />
                 </div>
               </div>
@@ -246,44 +316,48 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-700">المحافظة</label>
-                <select
+              <div className="space-y-1.5">
+                <label className="font-semibold text-slate-700 block">المحافظة</label>
+                <SearchableSelect
                   value={governorate}
-                  onChange={(e) => setGovernorate(e.target.value)}
-                  className="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
-                >
-                  <option value="القاهرة">القاهرة</option>
-                  <option value="الجيزة">الجيزة</option>
-                  <option value="القليوبية">القليوبية</option>
-                  <option value="الإسكندرية">الإسكندرية</option>
-                  <option value="الفيوم">الفيوم</option>
-                  <option value="بني سويف">بني سويف</option>
-                  <option value="الشرقية">الشرقية</option>
-                  <option value="الدقهلية">الدقهلية</option>
-                </select>
+                  onChange={handleGovernorateChange}
+                  options={governorateOptions}
+                  placeholder="اختر المحافظة..."
+                  searchPlaceholder="ابحث عن المحافظة..."
+                  emptyMessage="لا توجد محافظة مطابقة"
+                  ariaLabel="المحافظة"
+                />
               </div>
 
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-700">المنطقة / المركز / القرية</label>
-                <input
-                  type="text"
-                  placeholder="مثال: منشأة ناصر، بولاق الدكرور..."
+              <div className="space-y-1.5">
+                <label className="font-semibold text-slate-700 block">
+                  المنطقة / المركز / القرية
+                </label>
+                <SearchableSelect
                   value={district}
-                  onChange={(e) => setDistrict(e.target.value)}
-                  className="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
+                  onChange={setDistrict}
+                  options={districtOptions}
+                  placeholder="اختر المركز أو الحي..."
+                  searchPlaceholder="ابحث أو اكتب اسماً غير مدرج..."
+                  emptyMessage="لا توجد مراكز مطابقة — اكتب الاسم لاعتماده يدوياً"
+                  allowCustom
+                  clearable
+                  customHintLabel="اعتماد منطقة مخصصة"
+                  ariaLabel="المنطقة / المركز / القرية"
                 />
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="font-semibold text-slate-700">العنوان بالتفصيل وعلامة مميزة</label>
+            <div className="space-y-1.5">
+              <label className="font-semibold text-slate-700 block">
+                العنوان بالتفصيل وعلامة مميزة
+              </label>
               <input
                 type="text"
                 placeholder="اسم الشارع، رقم البيت، الدور، أو أقرب علامة معروفة..."
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                className="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
+                className={UNIFIED_INPUT_CLASS}
               />
             </div>
           </div>
@@ -296,48 +370,78 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-700">نوع المساعدة المبدئية</label>
-                <select
-                  value={initialNeedType}
-                  onChange={(e) => setInitialNeedType(e.target.value)}
-                  className="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
-                >
-                  {NEED_CATEGORIES.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.label}
-                    </option>
-                  ))}
-                </select>
+              <div className="space-y-1.5">
+                <label className="font-semibold text-slate-700 block">نوع المساعدة المبدئية</label>
+                <div className="relative">
+                  <select
+                    value={initialNeedType}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setInitialNeedType(next);
+                      if (next !== 'other') setCustomNeedType('');
+                    }}
+                    className="w-full h-10 pr-3 pl-8 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 bg-white appearance-none cursor-pointer focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden transition-colors"
+                  >
+                    {NEED_CATEGORIES.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={15}
+                    className="text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                  />
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-700">المبلغ التقديري المبدئي</label>
+              <div className="space-y-1.5">
+                <label className="font-semibold text-slate-700 block">
+                  المبلغ التقديري المبدئي
+                </label>
                 <AmountInput
                   value={estimatedInitialAmount}
                   onChange={setEstimatedInitialAmount}
                   min={500}
                   step={200}
-                  className="w-full"
+                  className="w-full h-10 rounded-xl border-slate-200"
                 />
               </div>
             </div>
+
+            {initialNeedType === 'other' && (
+              <div className="space-y-1.5 animate-in fade-in duration-150">
+                <label className="font-semibold text-slate-700 block">
+                  تحديد نوع المساعدة المطلوبة <span className="text-rose-600">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="مثال: توفير أجهزة تعويضية، سداد مصروفات دراسية، جهاز عرائس..."
+                  value={customNeedType}
+                  onChange={(e) => setCustomNeedType(e.target.value)}
+                  className={UNIFIED_INPUT_CLASS}
+                />
+              </div>
+            )}
 
             <ResearcherSelect
               value={assignedResearcher}
               onChange={setAssignedResearcher}
               label="الباحث المسؤول عن الزيارة"
+              labelClassName="text-slate-700"
+              selectClassName="border-slate-200 text-xs shadow-none"
               required
             />
 
-            <div className="space-y-1">
-              <label className="font-semibold text-slate-700">ملاحظات الاستقبال</label>
+            <div className="space-y-1.5">
+              <label className="font-semibold text-slate-700 block">ملاحظات الاستقبال</label>
               <textarea
                 rows={2}
                 placeholder="ملخص الحالة، سبب الطلب، أو أي أوراق شفتها مبدئياً..."
                 value={intakeNotes}
                 onChange={(e) => setIntakeNotes(e.target.value)}
-                className="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
+                className="w-full p-3 border border-slate-200 rounded-xl text-xs bg-white text-slate-900 placeholder:text-slate-400 focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden transition-colors"
               />
             </div>
           </div>
@@ -347,13 +451,13 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg transition-colors cursor-pointer text-xs"
+              className="h-10 px-4 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl transition-colors cursor-pointer text-xs"
             >
               إلغاء
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-[#005756] hover:bg-[#004241] text-white font-bold rounded-lg transition-all shadow-xs flex items-center gap-2 cursor-pointer text-xs"
+              className="h-10 px-5 bg-[#005756] hover:bg-[#004241] text-white font-bold rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer text-xs"
             >
               <CheckCircle2 size={15} />
               <span>حفظ وإضافة لقائمة الانتظار</span>

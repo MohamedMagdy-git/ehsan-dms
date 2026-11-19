@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { sanitizeNumericInput, parseSafeNumber } from '@/lib/number-utils';
+import { cn } from '@/lib/utils';
 
 export interface AmountInputProps {
   value: number | undefined | null;
@@ -102,9 +103,11 @@ export function AmountInput({
 
   return (
     <div
-      className={`relative flex items-center bg-white border border-slate-200 rounded-lg focus-within:border-teal-600 focus-within:ring-1 focus-within:ring-teal-600/20 transition-all ${
-        disabled ? 'bg-slate-100 opacity-60 cursor-not-allowed' : ''
-      } ${className}`}
+      className={cn(
+        'relative flex items-center bg-white border border-slate-200 rounded-lg focus-within:border-teal-600 focus-within:ring-1 focus-within:ring-teal-600/20 transition-all',
+        disabled && 'bg-slate-100 opacity-60 cursor-not-allowed',
+        className
+      )}
       dir="rtl"
     >
       <input

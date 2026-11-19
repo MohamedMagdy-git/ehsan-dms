@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import { motion, MotionConfig, useMotionValue, animate } from 'motion/react';
 import { useApp } from '@/context/app-context';
 import {
   X,
@@ -29,6 +30,8 @@ import {
   CheckCircle2,
   ArrowUpDown,
   MessageSquare,
+  Wallet,
+  MessageSquareText,
 } from 'lucide-react';
 import { calculateCaseAssessment, getPriorityLabel, getStatusLabel } from '@/services/scoring-engine';
 import { CaseStatus } from '@/types';
@@ -67,6 +70,129 @@ export function CaseDetailsModal() {
   const [attachmentFileName, setAttachmentFileName] = useState('');
   const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
   const [ledgerFilter, setLedgerFilter] = useState<'all' | 'periodic' | 'fast_track'>('all');
+
+  // Mobile Bottom Sheet interactive drag & snap state
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 639px)').matches : false
+  );
+  const [viewportHeight, setViewportHeight] = useState(() =>
+    typeof window !== 'undefined' ? window.innerHeight : 800
+  );
+  const [sheetSnap, setSheetSnap] = useState<'half' | 'full'>('half');
+  const [isClosing, setIsClosing] = useState(false);
+  const [dragState, setDragState] = useState<{ isDragging: boolean; deltaY: number }>({
+    isDragging: false,
+    deltaY: 0,
+  });
+  const dragStartRef = useRef<{
+    pointerId: number;
+    startY: number;
+    lastY: number;
+    lastTime: number;
+    prevY: number;
+    prevTime: number;
+  } | null>(null);
+
+  const tabListRef = useRef<HTMLDivElement | null>(null);
+  const tabButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const hasPlacedIndicatorRef = useRef(false);
+  const activeTabRef = useRef(activeTab);
+  const indicatorX = useMotionValue(0);
+  const indicatorWidth = useMotionValue(0);
+  const indicatorOpacity = useMotionValue(0);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const updateViewport = () => {
+      setIsMobileViewport(mq.matches);
+      setViewportHeight(window.innerHeight);
+    };
+    mq.addEventListener('change', updateViewport);
+    window.addEventListener('resize', updateViewport);
+    return () => {
+      mq.removeEventListener('change', updateViewport);
+      window.removeEventListener('resize', updateViewport);
+    };
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    hasPlacedIndicatorRef.current = false;
+    indicatorOpacity.jump(0);
+    setDragState({ isDragging: false, deltaY: 0 });
+    setSheetSnap('half');
+    setIsClosing(false);
+    setSelectedCaseId(null);
+  }, [setSelectedCaseId, indicatorOpacity]);
+
+  const handleSheetPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isMobileViewport || isClosing) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const now = performance.now();
+    dragStartRef.current = {
+      pointerId: e.pointerId,
+      startY: e.clientY,
+      lastY: e.clientY,
+      lastTime: now,
+      prevY: e.clientY,
+      prevTime: now,
+    };
+    setDragState({ isDragging: true, deltaY: 0 });
+  };
+
+  const handleSheetPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragStartRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const now = performance.now();
+    if (now - drag.lastTime > 16) {
+      drag.prevY = drag.lastY;
+      drag.prevTime = drag.lastTime;
+      drag.lastY = e.clientY;
+      drag.lastTime = now;
+    }
+    setDragState({ isDragging: true, deltaY: e.clientY - drag.startY });
+  };
+
+  const handleSheetPointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragStartRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    dragStartRef.current = null;
+
+    const deltaY = e.clientY - drag.startY;
+    const dt = Math.max(16, performance.now() - drag.prevTime);
+    const velocityY = (e.clientY - drag.prevY) / dt;
+
+    if (Math.abs(deltaY) < 6) {
+      setDragState({ isDragging: false, deltaY: 0 });
+      setSheetSnap((prev) => (prev === 'half' ? 'full' : 'half'));
+      return;
+    }
+
+    if (sheetSnap === 'half') {
+      if (deltaY < -50 || velocityY < -0.45) {
+        setSheetSnap('full');
+        setDragState({ isDragging: false, deltaY: 0 });
+      } else if (deltaY > 110 || velocityY > 0.55) {
+        setDragState({ isDragging: false, deltaY: 0 });
+        setIsClosing(true);
+      } else {
+        setDragState({ isDragging: false, deltaY: 0 });
+      }
+    } else {
+      const closeThreshold = Math.max(240, viewportHeight * 0.36);
+      if (deltaY > closeThreshold || (deltaY > 120 && velocityY > 0.75)) {
+        setDragState({ isDragging: false, deltaY: 0 });
+        setIsClosing(true);
+      } else if (deltaY > 55 || velocityY > 0.45) {
+        setSheetSnap('half');
+        setDragState({ isDragging: false, deltaY: 0 });
+      } else {
+        setDragState({ isDragging: false, deltaY: 0 });
+      }
+    }
+  };
 
   const currentCase = useMemo(() => {
     return selectedCaseId ? cases.find((c) => c.id === selectedCaseId) : undefined;
@@ -230,6 +356,93 @@ export function CaseDetailsModal() {
     setTimeout(() => setDownloadNotice(null), 3500);
   };
 
+  useLayoutEffect(() => {
+    activeTabRef.current = activeTab;
+
+    if (!selectedCaseId || !currentCase) {
+      hasPlacedIndicatorRef.current = false;
+      indicatorOpacity.jump(0);
+      return;
+    }
+
+    const activeBtn = tabButtonRefs.current[activeTab];
+    if (!activeBtn) return;
+
+    const targetX = activeBtn.offsetLeft;
+    const targetWidth = activeBtn.offsetWidth;
+    if (targetWidth === 0) return;
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const isInitialOrSamePosition =
+      !hasPlacedIndicatorRef.current ||
+      prefersReducedMotion ||
+      indicatorWidth.get() === 0 ||
+      (indicatorX.get() === targetX && indicatorWidth.get() === targetWidth);
+
+    if (isInitialOrSamePosition) {
+      indicatorX.jump(targetX);
+      indicatorWidth.jump(targetWidth);
+      indicatorOpacity.jump(1);
+      hasPlacedIndicatorRef.current = true;
+      return;
+    }
+
+    const springTransition = {
+      type: 'spring' as const,
+      stiffness: 460,
+      damping: 36,
+      mass: 0.65,
+    };
+
+    const xAnim = animate(indicatorX, targetX, springTransition);
+    const widthAnim = animate(indicatorWidth, targetWidth, springTransition);
+    indicatorOpacity.jump(1);
+
+    activeBtn.scrollIntoView({
+      behavior: 'smooth',
+      inline: 'nearest',
+      block: 'nearest',
+    });
+
+    return () => {
+      xAnim.stop();
+      widthAnim.stop();
+    };
+  }, [
+    selectedCaseId,
+    currentCase,
+    activeTab,
+    caseVisits.length,
+    thisCaseNotes.length,
+    indicatorX,
+    indicatorWidth,
+    indicatorOpacity,
+  ]);
+
+  useEffect(() => {
+    if (!selectedCaseId || !currentCase) return;
+    const tabList = tabListRef.current;
+    if (!tabList) return;
+
+    let lastObservedWidth = tabList.getBoundingClientRect().width;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entryWidth = entries[0]?.contentRect.width ?? tabList.getBoundingClientRect().width;
+      if (Math.abs(entryWidth - lastObservedWidth) < 0.5) return;
+      lastObservedWidth = entryWidth;
+
+      const activeBtn = tabButtonRefs.current[activeTabRef.current];
+      if (!activeBtn || activeBtn.offsetWidth === 0) return;
+
+      indicatorX.jump(activeBtn.offsetLeft);
+      indicatorWidth.jump(activeBtn.offsetWidth);
+      indicatorOpacity.jump(1);
+    });
+
+    resizeObserver.observe(tabList);
+    return () => resizeObserver.disconnect();
+  }, [selectedCaseId, currentCase, indicatorX, indicatorWidth, indicatorOpacity]);
+
   if (!selectedCaseId || !currentCase) return null;
 
   const assessment = calculateCaseAssessment(currentCase);
@@ -252,40 +465,123 @@ export function CaseDetailsModal() {
     setNewResearcherInput('');
   };
 
+  const halfHeight = Math.round(viewportHeight * 0.82);
+  const fullHeight = viewportHeight;
+  const maxShrinkDelta = Math.max(0, fullHeight - halfHeight);
+
+  let mobileHeight = sheetSnap === 'full' ? fullHeight : halfHeight;
+  let mobileTranslateY = 0;
+
+  if (dragState.isDragging) {
+    if (sheetSnap === 'half') {
+      if (dragState.deltaY < 0) {
+        mobileHeight = Math.min(fullHeight, halfHeight - dragState.deltaY);
+      } else {
+        mobileTranslateY = dragState.deltaY;
+      }
+    } else if (dragState.deltaY > 0) {
+      if (dragState.deltaY <= maxShrinkDelta) {
+        mobileHeight = fullHeight - dragState.deltaY;
+      } else {
+        mobileHeight = halfHeight;
+        mobileTranslateY = dragState.deltaY - maxShrinkDelta;
+      }
+    }
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92dvh] sm:max-h-[90vh] flex flex-col overflow-hidden border-t sm:border border-slate-200/80 animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-2 duration-200">
-        {/* Mobile bottom-sheet handle indicator */}
-        <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
-
-        {/* Header - Full-Width Layout */}
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 shrink-0">
-          {/* Top row: Case Code & Status Badges on Start, Close button (X) on End */}
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <div className="flex items-center gap-2 flex-wrap min-w-0">
-              <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 font-mono text-[11px] font-semibold">
-                {currentCase.code}
-              </span>
-              <span
-                className={`text-[11px] px-2.5 py-0.5 rounded-md font-semibold border ${
-                  currentCase.status === 'pending_field_research'
-                    ? 'bg-slate-100 text-slate-700 border-slate-200'
-                    : 'bg-slate-100 text-slate-700 border-slate-200'
-                }`}
-              >
-                {getStatusLabel(currentCase.status)}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setSelectedCaseId(null)}
-              className="p-1.5 min-h-[38px] min-w-[38px] flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 active:scale-95 transition-all cursor-pointer"
-              aria-label="إغلاق النافذة"
-            >
-              <X size={20} />
-            </button>
+    <MotionConfig reducedMotion="user">
+      <div
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            if (isMobileViewport) {
+              setIsClosing(true);
+            } else {
+              handleCloseModal();
+            }
+          }
+        }}
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs"
+      >
+        <motion.div
+          key={currentCase.id}
+          initial={false}
+          animate={
+            isMobileViewport
+              ? {
+                  y: isClosing ? fullHeight : mobileTranslateY,
+                  height: mobileHeight,
+                }
+              : { y: 0, height: 'auto' }
+          }
+          transition={
+            isMobileViewport && !dragState.isDragging
+              ? { type: 'spring', stiffness: 360, damping: 34, mass: 0.85 }
+              : { duration: 0 }
+          }
+          onAnimationComplete={() => {
+            if (isClosing) {
+              handleCloseModal();
+            }
+          }}
+          className={`bg-white ${
+            isMobileViewport && sheetSnap === 'full' && !dragState.isDragging
+              ? 'rounded-t-none'
+              : 'rounded-t-2xl'
+          } sm:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden border-t sm:border border-slate-200/80`}
+        >
+          {/* Mobile bottom-sheet interactive drag handle */}
+          <div
+            role="slider"
+            tabIndex={0}
+            aria-label="اسحب الشريط لفوق لتوسيع النافذة أو لتحت لتصغيرها أو قفلها"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={sheetSnap === 'full' ? 100 : 82}
+            onPointerDown={handleSheetPointerDown}
+            onPointerMove={handleSheetPointerMove}
+            onPointerUp={handleSheetPointerEnd}
+            onPointerCancel={handleSheetPointerEnd}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowUp') setSheetSnap('full');
+              if (e.key === 'ArrowDown') {
+                if (sheetSnap === 'full') setSheetSnap('half');
+                else setIsClosing(true);
+              }
+            }}
+            className="sm:hidden w-full pt-3 pb-2 flex items-center justify-center shrink-0 touch-none select-none cursor-grab active:cursor-grabbing bg-slate-50"
+          >
+            <div className="w-12 h-1.5 bg-slate-300 rounded-full" />
           </div>
+
+          {/* Header - Full-Width Layout */}
+          <div className="px-4 sm:px-6 pt-1 pb-4 sm:py-4 bg-slate-50 border-b border-slate-200 shrink-0">
+            {/* Top row: Case Code & Status Badges on Start, Close button (X) on End */}
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 font-mono text-[11px] font-semibold">
+                  {currentCase.code}
+                </span>
+                <span className="text-[11px] px-2.5 py-0.5 rounded-md font-semibold border bg-slate-100 text-slate-700 border-slate-200">
+                  {getStatusLabel(currentCase.status)}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (isMobileViewport) {
+                    setIsClosing(true);
+                  } else {
+                    handleCloseModal();
+                  }
+                }}
+                className="p-1.5 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 active:scale-95 transition-all cursor-pointer"
+                aria-label="إغلاق النافذة"
+              >
+                <X size={20} />
+              </button>
+            </div>
 
           {/* Beneficiary Name Row - Full width with zero squishing */}
           <div className="w-full">
@@ -327,7 +623,7 @@ export function CaseDetailsModal() {
                 type="button"
                 onClick={() => {
                   openFieldSurvey(currentCase.id);
-                  setSelectedCaseId(null);
+                  handleCloseModal();
                 }}
                 className={`min-h-[44px] px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-150 flex items-center justify-center gap-2 shadow-xs cursor-pointer active:scale-[0.98] ${
                   currentCase.status === 'pending_field_research'
@@ -380,110 +676,102 @@ export function CaseDetailsModal() {
           </div>
         )}
 
-        {/* Tab Navigation - Smooth Horizontal Scroll */}
-        <div className="bg-white border-b border-slate-200 shrink-0 px-3 sm:px-6">
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-2 text-xs font-semibold -mb-px">
-            <button
-              type="button"
-              onClick={() => setActiveTab('profile')}
-              className={`min-h-[38px] px-3.5 py-2 rounded-lg whitespace-nowrap shrink-0 transition-all cursor-pointer ${
-                activeTab === 'profile'
-                  ? 'bg-teal-50 text-teal-800 font-bold border border-teal-200/80 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
+        {/* Tab Navigation - Calm UI Constrained Sliding Underline */}
+        <div className="bg-white border-b border-slate-200/80 shrink-0 px-3 sm:px-6 overflow-hidden">
+          <div className="overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div
+              ref={tabListRef}
+              role="tablist"
+              aria-label="أقسام ملف الحالة"
+              className="relative flex w-max min-w-full items-center gap-1 text-xs"
             >
-              ملخص الحالة والتقييم
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('financials')}
-              className={`min-h-[38px] px-3.5 py-2 rounded-lg whitespace-nowrap shrink-0 transition-all cursor-pointer ${
-                activeTab === 'financials'
-                  ? 'bg-teal-50 text-teal-800 font-bold border border-teal-200/80 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-            >
-              الدخل والمصروفات
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('visits')}
-              className={`min-h-[38px] px-3.5 py-2 rounded-lg whitespace-nowrap shrink-0 transition-all cursor-pointer ${
-                activeTab === 'visits'
-                  ? 'bg-teal-50 text-teal-800 font-bold border border-teal-200/80 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-            >
-              الزيارات الميدانية ({caseVisits.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('documents')}
-              className={`min-h-[38px] px-3.5 py-2 rounded-lg whitespace-nowrap shrink-0 transition-all cursor-pointer ${
-                activeTab === 'documents'
-                  ? 'bg-teal-50 text-teal-800 font-bold border border-teal-200/80 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-            >
-              المستندات ({currentCase.attachments.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('notes')}
-              className={`min-h-[38px] px-3.5 py-2 rounded-lg whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'notes'
-                  ? 'bg-teal-50 text-teal-800 font-bold border border-teal-200/80 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-            >
-              <MessageSquare size={14} className={activeTab === 'notes' ? 'text-teal-700' : 'text-slate-400'} />
-              <span>الملاحظات والسجل</span>
-              <span
-                className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold font-mono ${
-                  activeTab === 'notes' ? 'bg-teal-200 text-teal-900' : 'bg-slate-200 text-slate-700'
-                }`}
+              {[
+                { id: 'profile' as const, label: 'ملخص الحالة', icon: UserCheck },
+                { id: 'financials' as const, label: 'الدخل والمصروفات', icon: Wallet },
+                { id: 'visits' as const, label: `الزيارات (${caseVisits.length})`, icon: MapPin },
+                { id: 'documents' as const, label: `المستندات (${currentCase.attachments.length})`, icon: FileCheck },
+                { id: 'notes' as const, label: `الملاحظات (${thisCaseNotes.length})`, icon: MessageSquareText },
+              ].map((tab) => {
+                const isActive = activeTab === tab.id;
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    ref={(el) => {
+                      tabButtonRefs.current[tab.id] = el;
+                    }}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`relative min-h-[44px] px-3.5 py-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 font-semibold transition-colors duration-150 cursor-pointer tabular-nums ${
+                      isActive
+                        ? 'text-[#005756]'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <Icon
+                      className={`w-4 h-4 shrink-0 transition-colors duration-150 ${
+                        isActive ? 'text-[#005756]' : 'text-slate-400'
+                      }`}
+                    />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] overflow-hidden"
               >
-                {thisCaseNotes.length}
-              </span>
-            </button>
+                <motion.span
+                  style={{
+                    x: indicatorX,
+                    width: indicatorWidth,
+                    opacity: indicatorOpacity,
+                  }}
+                  className="block absolute top-0 left-0 h-full bg-[#005756] rounded-full will-change-transform"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Modal Body */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1 text-xs pb-8 sm:pb-6">
+        <div className="p-4 sm:p-6 overflow-y-auto overscroll-contain min-h-0 space-y-6 flex-1 text-xs pb-8 sm:pb-6">
           {activeTab === 'profile' && (
             <div className="space-y-6">
               {/* Score and Priority Explainability Card */}
-              <div className="p-4 rounded-xl bg-teal-50/50 border border-teal-200 space-y-3">
-                <div className="flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-900 text-sm">درجة الاحتياج:</span>
-                    <span className="font-mono text-base font-extrabold text-teal-900">
+                    <span className="font-mono tabular-nums text-base font-extrabold text-[#005756]">
                       {assessment.totalScore} من 100
                     </span>
-                    <span className="text-teal-800 font-semibold mr-2">
+                    <span className="text-slate-600 font-semibold mr-1">
                       ({getPriorityLabel(currentCase.priority)})
                     </span>
                   </div>
-                  <span className="text-[11px] text-teal-700 font-medium">
+                  <span className="text-[11px] text-slate-500 font-medium">
                     تقييم تلقائي حسب الحالة
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-teal-200/60 font-mono text-[11px]">
-                  <div className="p-2 bg-white rounded-lg border border-teal-100">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-200/70 font-mono text-[11px]">
+                  <div className="p-2 bg-white rounded-lg border border-slate-200/80">
                     <span className="text-slate-500 block font-sans">عجز الدخل الشهري:</span>
                     <strong className="text-slate-900">{assessment.financialGapScore} نقطة</strong>
                   </div>
-                  <div className="p-2 bg-white rounded-lg border border-teal-100">
+                  <div className="p-2 bg-white rounded-lg border border-slate-200/80">
                     <span className="text-slate-500 block font-sans">الحالة الصحية والعلاج:</span>
                     <strong className="text-slate-900">{assessment.medicalUrgencyScore} نقطة</strong>
                   </div>
-                  <div className="p-2 bg-white rounded-lg border border-teal-100">
+                  <div className="p-2 bg-white rounded-lg border border-slate-200/80">
                     <span className="text-slate-500 block font-sans">الأيتام وعدد الأفراد:</span>
                     <strong className="text-slate-900">{assessment.orphanDependentsScore} نقطة</strong>
                   </div>
-                  <div className="p-2 bg-white rounded-lg border border-teal-100">
+                  <div className="p-2 bg-white rounded-lg border border-slate-200/80">
                     <span className="text-slate-500 block font-sans">ظروف السكن:</span>
                     <strong className="text-slate-900">{assessment.housingInsecurityScore} نقطة</strong>
                   </div>
@@ -635,10 +923,10 @@ export function CaseDetailsModal() {
                   <button
                     type="button"
                     onClick={() => setActiveTab('notes')}
-                    className="px-3 py-1.5 bg-teal-800 hover:bg-teal-900 text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-95"
+                    className="px-3 py-1.5 bg-[#005756] hover:bg-[#004241] text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
                   >
                     <MessageSquare size={13} />
-                    <span>عرض الملاحظات والسجل ({thisCaseNotes.length})</span>
+                    <span>عرض الملاحظات ({thisCaseNotes.length})</span>
                   </button>
                 </div>
               </div>
@@ -1110,18 +1398,25 @@ export function CaseDetailsModal() {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+        <div className="px-4 sm:px-6 pt-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] sm:py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
           <span className="text-slate-500 text-xs font-mono">
             كود الحالة: {currentCase.code}
           </span>
           <button
-            onClick={() => setSelectedCaseId(null)}
-            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold text-xs transition-colors"
+            type="button"
+            onClick={() => {
+              if (isMobileViewport) {
+                setIsClosing(true);
+              } else {
+                handleCloseModal();
+              }
+            }}
+            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-semibold text-xs transition-colors cursor-pointer"
           >
             إغلاق
           </button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Exception Approval Sub-Dialog */}
       {showExceptionDialog && (
@@ -1309,6 +1604,7 @@ export function CaseDetailsModal() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </MotionConfig>
   );
 }

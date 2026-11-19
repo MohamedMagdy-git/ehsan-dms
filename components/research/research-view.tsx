@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
+import { motion, MotionConfig } from 'motion/react';
 import { useApp } from '@/context/app-context';
+import { useToast } from '@/context/toast-context';
 import { FieldVisit } from '@/types';
 import {
   Clock,
@@ -14,6 +16,7 @@ import {
   MapPin,
   Volume2,
   RotateCcw,
+  UserPlus,
   X,
 } from 'lucide-react';
 import { RoleInspirationalCard } from '@/components/common/role-inspirational-card';
@@ -25,7 +28,7 @@ function getVisitStatusLabel(status: FieldVisit['status']): string {
     case 'scheduled':
       return 'بانتظار النزول';
     case 'overdue':
-      return 'زيارة متأخرة';
+      return 'متأخرة عن موعدها';
   }
 }
 
@@ -37,8 +40,9 @@ export function ResearchView() {
     setSelectedCaseId,
     openFieldSurvey,
   } = useApp();
+  const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<'revision' | 'overdue' | 'all'>('overdue');
+  const [activeTab, setActiveTab] = useState<'first_visit' | 'overdue' | 'revision' | 'all'>('first_visit');
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewVisitModal, setShowNewVisitModal] = useState(false);
 
@@ -49,15 +53,34 @@ export function ResearchView() {
   const [observations, setObservations] = useState('');
   const [recommendedChanges, setRecommendedChanges] = useState('');
 
-  const overdueCases = cases.filter((c) => c.isVisitOverdue);
+  // الحالات الجديدة التي لم يسبق لها إجراء زيارة ميدانية أولى
+  const firstVisitCases = cases.filter(
+    (c) =>
+      c.status === 'pending_field_research' ||
+      (!c.lastVisitDate &&
+        c.status !== 'needs_revision' &&
+        c.status !== 'pending_review' &&
+        c.status !== 'closed')
+  );
+
+  // المتابعة الدورية فقط: الحالات التي لها زيارة سابقة وتجاوزت 6 شهور
+  const overdueCases = cases.filter(
+    (c) =>
+      c.isVisitOverdue &&
+      Boolean(c.lastVisitDate) &&
+      c.status !== 'pending_field_research' &&
+      c.status !== 'closed'
+  );
   const needsRevisionCases = cases.filter((c) => c.status === 'needs_revision');
 
   const filteredVisits = visits.filter((v) => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
     return (
-      searchQuery === '' ||
-      v.caseName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.caseCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.researcherName.toLowerCase().includes(searchQuery.toLowerCase())
+      v.caseName.toLowerCase().includes(q) ||
+      v.caseCode.toLowerCase().includes(q) ||
+      v.researcherName.toLowerCase().includes(q) ||
+      v.observations.toLowerCase().includes(q)
     );
   });
 
@@ -82,6 +105,7 @@ export function ResearchView() {
       attachmentsCount: 1,
     });
 
+    toast.success('تم تسجيل الزيارة الميدانية وتحديث ملف الحالة بنجاح');
     setShowNewVisitModal(false);
     setObservations('');
     setRecommendedChanges('');
@@ -94,10 +118,14 @@ export function ResearchView() {
         <div className="flex items-center flex-wrap gap-2 text-xs text-slate-500 tabular-nums">
           <span className="font-semibold text-slate-800">ملخص المتابعة</span>
           <span className="text-slate-300" aria-hidden="true">·</span>
+          <span className={firstVisitCases.length > 0 ? 'font-medium text-[#005756]' : ''}>
+            زيارات أولى: {firstVisitCases.length}
+          </span>
+          <span className="text-slate-300" aria-hidden="true">·</span>
           <span>راجِع من الإدارة: {needsRevisionCases.length}</span>
           <span className="text-slate-300" aria-hidden="true">·</span>
           <span className={overdueCases.length > 0 ? 'font-medium text-rose-700' : ''}>
-            زيارات متأخرة: {overdueCases.length}
+            متابعة دورية متأخرة: {overdueCases.length}
           </span>
           <span className="text-slate-300" aria-hidden="true">·</span>
           <span>سجل الزيارات: {visits.length}</span>
@@ -127,55 +155,166 @@ export function ResearchView() {
       <RoleInspirationalCard role="researcher" />
 
       {/* Tabs / Filter Navigation */}
-      <div className="flex items-center gap-1 border-b border-slate-200/80 text-xs font-semibold overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setActiveTab('revision')}
-          className={`min-h-[44px] py-2.5 px-4 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer tabular-nums ${
-            activeTab === 'revision'
-              ? 'border-[#005756] text-[#005756]'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
+      <MotionConfig reducedMotion="user">
+        <motion.div
+          layoutScroll
+          role="tablist"
+          aria-label="تبويبات الزيارات الميدانية"
+          className="relative flex items-center gap-1 border-b border-slate-200/80 text-xs font-semibold overflow-x-auto"
         >
-          <RotateCcw
-            size={15}
-            className={activeTab === 'revision' ? 'text-[#005756]' : 'text-slate-400'}
-          />
-          <span>راجِع من الإدارة ({needsRevisionCases.length})</span>
-        </button>
+          {[
+            {
+              id: 'first_visit' as const,
+              label: `حالات جديدة (زيارة أولى) (${firstVisitCases.length})`,
+              icon: UserPlus,
+            },
+            {
+              id: 'overdue' as const,
+              label: `متابعة دورية (متأخرة عن 6 شهور) (${overdueCases.length})`,
+              icon: Clock,
+            },
+            {
+              id: 'revision' as const,
+              label: `راجِع من الإدارة (${needsRevisionCases.length})`,
+              icon: RotateCcw,
+            },
+            {
+              id: 'all' as const,
+              label: `سجل الزيارات (${visits.length})`,
+              icon: FileText,
+            },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative min-h-[44px] py-2.5 px-4 transition-colors duration-200 flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer tabular-nums ${
+                  isActive
+                    ? 'text-[#005756]'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Icon
+                  size={15}
+                  className={`transition-colors duration-200 ${
+                    isActive ? 'text-[#005756]' : 'text-slate-400'
+                  }`}
+                />
+                <span>{tab.label}</span>
+                {isActive && (
+                  <motion.span
+                    layoutId="research-active-tab-indicator"
+                    aria-hidden="true"
+                    transition={{
+                      type: 'spring',
+                      stiffness: 420,
+                      damping: 36,
+                      mass: 0.7,
+                    }}
+                    className="pointer-events-none absolute bottom-0 inset-x-0 h-[2px] bg-[#005756] rounded-full"
+                  />
+                )}
+              </button>
+            );
+          })}
+        </motion.div>
+      </MotionConfig>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('overdue')}
-          className={`min-h-[44px] py-2.5 px-4 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer tabular-nums ${
-            activeTab === 'overdue'
-              ? 'border-[#005756] text-[#005756]'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Clock
-            size={15}
-            className={activeTab === 'overdue' ? 'text-[#005756]' : 'text-slate-400'}
-          />
-          <span>متأخرة عن 6 شهور ({overdueCases.length})</span>
-        </button>
+      {/* First Visit Cases Tab (New Intake Requests Awaiting Initial Field Research) */}
+      {activeTab === 'first_visit' && (
+        <div className="space-y-4">
+          <div className="p-4 bg-slate-50/80 border border-slate-200/80 rounded-xl text-xs space-y-1">
+            <div className="flex items-center gap-2 font-semibold text-sm text-slate-800">
+              <UserPlus size={16} className="text-[#005756] shrink-0" />
+              <span>حالات جديدة بانتظار الزيارة الميدانية الأولى</span>
+            </div>
+            <p className="text-slate-500 leading-relaxed">
+              الحالات المسجلة حديثاً في الاستقبال ومطلوب النزول لها لأول مرة لعمل البحث الميداني وتقييم الوضع قبل إرسالها للمراجعة والاعتماد.
+            </p>
+          </div>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('all')}
-          className={`min-h-[44px] py-2.5 px-4 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer tabular-nums ${
-            activeTab === 'all'
-              ? 'border-[#005756] text-[#005756]'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <FileText
-            size={15}
-            className={activeTab === 'all' ? 'text-[#005756]' : 'text-slate-400'}
-          />
-          <span>سجل الزيارات ({visits.length})</span>
-        </button>
-      </div>
+          {firstVisitCases.length === 0 ? (
+            <div className="p-8 text-center bg-white rounded-xl border border-slate-200/80 shadow-none text-slate-500">
+              <CheckCircle2 size={28} className="mx-auto text-slate-400 mb-2" />
+              <p className="font-semibold text-sm text-slate-800">مفيش حالات جديدة بانتظار الزيارة الأولى</p>
+              <p className="text-xs text-slate-500 mt-1">تمت زيارة وبحث جميع الطلبات المسجلة حديثاً.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {firstVisitCases.map((c) => (
+                <div
+                  key={c.id}
+                  className="p-5 bg-white rounded-xl border border-slate-200/70 shadow-none space-y-3.5"
+                >
+                  <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center flex-wrap gap-1.5">
+                        <span className="font-bold text-sm text-slate-900">{c.fullName}</span>
+                        <span className="text-slate-300" aria-hidden="true">·</span>
+                        <span className="text-xs font-mono text-slate-500 tabular-nums">
+                          {c.code}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">{c.governorate} · {c.district}</p>
+                    </div>
+
+                    <div className="inline-flex items-center gap-1.5 shrink-0">
+                      <UserPlus size={14} className="text-[#005756] shrink-0" />
+                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100/70 text-xs font-medium text-slate-700 whitespace-nowrap">
+                        حالة جديدة تتطلب زيارة
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50/80 p-3 rounded-lg border border-slate-200/70">
+                    <div>
+                      <span className="text-slate-500 block">تاريخ التسجيل:</span>
+                      <strong className="text-slate-800 font-mono tabular-nums mt-0.5 block">
+                        {c.registrationDate}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">الاحتياج التقديري:</span>
+                      <strong className="text-slate-800 font-mono tabular-nums mt-0.5 block">
+                        {(c.financials?.estimatedAssistanceNeed || 0).toLocaleString('ar-EG')} ج.م
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 text-xs pt-1">
+                    <span className="text-slate-500">
+                      الباحث المسؤول: <strong className="text-slate-800 font-semibold">{c.assignedResearcher || 'مش متحدد'}</strong>
+                    </span>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCaseId(c.id)}
+                        className="px-3 py-1.5 min-h-[36px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors text-xs whitespace-nowrap cursor-pointer"
+                      >
+                        عرض الملف
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openFieldSurvey(c.id)}
+                        className="px-3.5 py-1.5 min-h-[36px] bg-[#005756] hover:bg-[#004241] text-white font-semibold rounded-lg transition-colors flex items-center gap-1.5 text-xs whitespace-nowrap cursor-pointer"
+                      >
+                        <MapPin size={13} />
+                        <span>ابدأ بحث حالة</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Returned Cases for Revision Tab */}
       {activeTab === 'revision' && (
@@ -201,7 +340,7 @@ export function ResearchView() {
               {needsRevisionCases.map((c) => (
                 <div
                   key={c.id}
-                  className="p-5 bg-white rounded-xl border border-slate-200/80 shadow-none space-y-3"
+                  className="p-5 bg-white rounded-xl border border-slate-200/70 shadow-none space-y-3.5"
                 >
                   <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
                     <div className="min-w-0">
@@ -217,17 +356,20 @@ export function ResearchView() {
                       </p>
                     </div>
 
-                    <span className="text-xs font-medium text-slate-500 shrink-0">
-                      راجِع لتكملة بيانات
-                    </span>
+                    <div className="inline-flex items-center gap-1.5 shrink-0">
+                      <RotateCcw size={14} className="text-slate-500 shrink-0" />
+                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100/70 text-xs font-medium text-slate-700 whitespace-nowrap">
+                        راجعة لتعديل البيانات
+                      </span>
+                    </div>
                   </div>
 
                   {/* Notes / Instructions from Management */}
-                  {c.notes && (
-                    <div className="p-3 bg-slate-50/80 border border-slate-200/70 rounded-lg text-xs space-y-1">
-                      <strong className="block text-xs font-semibold text-slate-700">ملاحظات الإدارة:</strong>
-                      <p className="text-slate-600 leading-relaxed whitespace-pre-line text-xs">
-                        {c.notes.split('\n\n')[0]}
+                  {(c.adminRevisionNote || c.notes) && (
+                    <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-lg text-xs space-y-1">
+                      <strong className="block text-xs font-semibold text-amber-950">ملاحظات الإدارة:</strong>
+                      <p className="text-amber-900/90 leading-relaxed whitespace-pre-line text-xs">
+                        {c.adminRevisionNote || c.notes?.split('\n\n')[0]}
                       </p>
                     </div>
                   )}
@@ -286,7 +428,7 @@ export function ResearchView() {
               {overdueCases.map((c) => (
                 <div
                   key={c.id}
-                  className="p-5 bg-white rounded-xl border border-slate-200/80 shadow-none space-y-3"
+                  className="p-5 bg-white rounded-xl border border-slate-200/70 shadow-none space-y-3.5"
                 >
                   <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
                     <div className="min-w-0">
@@ -300,13 +442,15 @@ export function ResearchView() {
                       <p className="text-xs text-slate-500 mt-1">{c.governorate} · {c.district}</p>
                     </div>
 
-                    <span className="text-xs font-semibold text-rose-700 flex items-center gap-1 shrink-0">
-                      <Clock size={13} className="text-rose-600" />
-                      <span>زيارة متأخرة</span>
-                    </span>
+                    <div className="inline-flex items-center gap-1.5 shrink-0">
+                      <Clock size={14} className="text-rose-500 shrink-0" />
+                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100/70 text-xs font-medium text-slate-700 whitespace-nowrap">
+                        متأخرة عن موعدها
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50/80 p-3 rounded-lg border border-slate-200/70">
+                  <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50/70 p-3 rounded-lg border border-slate-200/60">
                     <div>
                       <span className="text-slate-500 block">تاريخ آخر نزول:</span>
                       <strong className="text-slate-800 font-mono tabular-nums mt-0.5 block">
@@ -315,7 +459,7 @@ export function ResearchView() {
                     </div>
                     <div>
                       <span className="text-slate-500 block">معاد التجديد الجاي:</span>
-                      <strong className="text-rose-700 font-mono tabular-nums mt-0.5 block">
+                      <strong className="text-slate-800 font-mono tabular-nums mt-0.5 block">
                         {c.nextVisitDueDate}
                       </strong>
                     </div>
@@ -373,7 +517,12 @@ export function ResearchView() {
             </div>
           ) : (
             <div className="space-y-3">
-              {filteredVisits.map((v) => (
+              {filteredVisits.map((v) => {
+                const linkedCase = cases.find((c) => c.id === v.caseId);
+                const isPendingAdminReview = linkedCase?.status === 'pending_review';
+                const isNeedsRevision = linkedCase?.status === 'needs_revision';
+
+                return (
                 <div
                   key={v.id}
                   className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none space-y-3"
@@ -388,13 +537,25 @@ export function ResearchView() {
                       <span className="text-slate-300" aria-hidden="true">·</span>
                       <span className="text-slate-500 text-xs">الباحث: {v.researcherName}</span>
                       <span className="text-slate-300" aria-hidden="true">·</span>
-                      <span
-                        className={`text-xs font-medium ${
-                          v.status === 'overdue' ? 'text-rose-700 font-semibold' : 'text-slate-600'
-                        }`}
-                      >
-                        {getVisitStatusLabel(v.status)}
-                      </span>
+                      {isPendingAdminReview ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-50 border border-teal-200/70 text-[#005756] text-[11px] font-semibold">
+                          <CheckCircle2 size={12} className="shrink-0" />
+                          <span>مكتمل البحث · بانتظار مراجعة الإدارة</span>
+                        </span>
+                      ) : isNeedsRevision ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200/80 text-amber-800 text-[11px] font-semibold">
+                          <RotateCcw size={12} className="shrink-0" />
+                          <span>مكتمل البحث · راجع للاستكمال</span>
+                        </span>
+                      ) : (
+                        <span
+                          className={`text-xs font-medium ${
+                            v.status === 'overdue' ? 'text-rose-700 font-semibold' : 'text-slate-600'
+                          }`}
+                        >
+                          {getVisitStatusLabel(v.status)}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center flex-wrap gap-2 text-xs font-mono tabular-nums text-slate-500 shrink-0">
@@ -436,7 +597,7 @@ export function ResearchView() {
                   )}
 
                   <div className="text-xs bg-slate-50/80 p-3 rounded-lg border border-slate-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <span className="text-slate-600">
+                    <span className="text-slate-600 whitespace-pre-line leading-relaxed">
                       <strong className="text-slate-800 font-semibold">توصية الباحث:</strong>{' '}
                       {v.recommendedChanges}
                     </span>
@@ -450,7 +611,8 @@ export function ResearchView() {
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

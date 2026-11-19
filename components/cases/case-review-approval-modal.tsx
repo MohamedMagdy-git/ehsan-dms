@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useApp } from '@/context/app-context';
+import { useToast } from '@/context/toast-context';
 import {
   X,
   CheckCircle2,
@@ -23,7 +24,7 @@ import {
   Check,
 } from 'lucide-react';
 import { BeneficiaryCase, PriorityLevel } from '@/types';
-import { calculateFieldSurveyCompleteness } from '@/lib/survey-completeness';
+import { calculateFieldSurveyCompleteness, getCoreDocumentsStats } from '@/lib/survey-completeness';
 import { ResearcherVoicePlayer } from '@/components/common/researcher-voice-player';
 
 interface CaseReviewApprovalModalProps {
@@ -42,6 +43,7 @@ export function CaseReviewApprovalModal({
   initialAction = 'none',
 }: CaseReviewApprovalModalProps) {
   const { approveCaseReview, returnCaseForRevision, rejectCaseReview } = useApp();
+  const { toast } = useToast();
 
   const surveyComp = caseItem ? calculateFieldSurveyCompleteness(caseItem) : null;
 
@@ -71,8 +73,10 @@ export function CaseReviewApprovalModal({
 
   const calculatedGap = caseItem.financials?.netFinancialGap ?? Math.max(0, totalExpenses - totalIncome);
 
-  const totalAttachments = caseItem.attachments?.length || 0;
-  const isAttachmentsComplete = totalAttachments >= 3;
+  const coreDocs = getCoreDocumentsStats(caseItem);
+  const paperAttachments = coreDocs.nonVoiceAttachments;
+  const totalAttachments = coreDocs.completed;
+  const isAttachmentsComplete = coreDocs.isComplete;
 
   const voiceAttachment = caseItem.attachments?.find(
     (a) =>
@@ -89,6 +93,7 @@ export function CaseReviewApprovalModal({
     approveCaseReview(caseItem.id, approvalNotes.trim() || undefined);
     setActiveAction('none');
     setApprovalNotes('');
+    toast.success('تم اعتماد الحالة وإدراجها في كشوف الصرف بنجاح');
     onClose();
   };
 
@@ -97,6 +102,7 @@ export function CaseReviewApprovalModal({
     returnCaseForRevision(caseItem.id, revisionReason.trim());
     setActiveAction('none');
     setRevisionReason('');
+    toast.info('تم إرجاع الحالة للباحث مع الملاحظات المسجلة');
     if (onSuccess) {
       onSuccess('تم إرجاع الحالة بنجاح للباحث مع الملاحظات');
     }
@@ -108,6 +114,7 @@ export function CaseReviewApprovalModal({
     rejectCaseReview(caseItem.id, rejectionReason.trim());
     setActiveAction('none');
     setRejectionReason('');
+    toast.info('تم رفض الحالة وتسجيل السبب في السجل');
     onClose();
   };
 
@@ -347,7 +354,7 @@ export function CaseReviewApprovalModal({
             <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/70">
               <span className="block text-[11px] text-slate-500 font-medium">الأوراق المرفوعة</span>
               <span className="block text-xs sm:text-sm font-bold text-slate-900 font-mono tabular-nums mt-1">
-                {totalAttachments}/4 ({Math.round((Math.min(totalAttachments, 4) / 4) * 100)}%)
+                {totalAttachments}/4 ({coreDocs.percentage}%)
               </span>
             </div>
 
@@ -382,6 +389,8 @@ export function CaseReviewApprovalModal({
                   ? 'إيجار غير مستقر'
                   : caseItem.vulnerability?.housingCondition === 'owned'
                   ? 'سكن ملك'
+                  : caseItem.vulnerability?.housingCondition === 'dilapidated_urgent'
+                  ? 'مأوى غير لائق / آيل للسقوط'
                   : 'إيجار قديم'}
               </span>
             </div>
@@ -444,25 +453,27 @@ export function CaseReviewApprovalModal({
             </div>
 
             {/* Map Link Card */}
-            {caseItem.gpsLocation ? (
+            {typeof caseItem.gpsLocation?.latitude === 'number' &&
+            typeof caseItem.gpsLocation?.longitude === 'number' ? (
               <div className="p-2.5 bg-slate-50/80 border border-slate-200/80 rounded-lg flex items-center justify-between text-xs gap-2 flex-wrap">
                 <div className="flex items-center gap-2 text-slate-700 font-medium">
-                  <MapPin size={15} className="text-slate-400 shrink-0" />
+                  <MapPin size={15} className="text-[#005756] shrink-0" />
                   <span className="font-mono tabular-nums">
                     موقع البيت على الخريطة ({caseItem.gpsLocation.latitude}, {caseItem.gpsLocation.longitude})
                   </span>
                 </div>
-                {caseItem.gpsLocation.mapsUrl && (
-                  <a
-                    href={caseItem.gpsLocation.mapsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#005756] hover:bg-[#004241] text-white rounded-lg text-[11px] font-semibold cursor-pointer"
-                  >
-                    <span>افتح الخريطة</span>
-                    <ExternalLink size={12} />
-                  </a>
-                )}
+                <a
+                  href={
+                    caseItem.gpsLocation.mapsUrl ||
+                    `https://www.google.com/maps?q=${caseItem.gpsLocation.latitude},${caseItem.gpsLocation.longitude}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#005756] hover:bg-[#004241] text-white rounded-lg text-[11px] font-semibold cursor-pointer"
+                >
+                  <span>افتح الخريطة</span>
+                  <ExternalLink size={12} />
+                </a>
               </div>
             ) : (
               <div className="p-2.5 bg-slate-50/80 rounded-lg text-xs text-slate-500 flex items-center gap-2">
@@ -572,14 +583,14 @@ export function CaseReviewApprovalModal({
             <h3 className="text-xs font-bold text-slate-700 flex items-center justify-between border-b border-slate-100 pb-2">
               <span className="flex items-center gap-1.5">
                 <FileCheck size={15} className="text-slate-400" />
-                <span>الأوراق والمستندات المرفوعة ({totalAttachments})</span>
+                <span>الأوراق والمستندات المرفوعة ({paperAttachments.length})</span>
               </span>
               <span className="text-[11px] text-slate-500 font-medium">اضغط للمعاينة</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {caseItem.attachments && caseItem.attachments.length > 0 ? (
-                caseItem.attachments.map((att) => (
+              {paperAttachments.length > 0 ? (
+                paperAttachments.map((att) => (
                   <button
                     key={att.id}
                     type="button"
@@ -606,16 +617,63 @@ export function CaseReviewApprovalModal({
             </div>
           </div>
 
-          {/* Section 5: Case Audit Log & Revision Notes History */}
-          {caseItem.notes && (
-            <div className="p-4 bg-white rounded-xl border border-slate-200/80 space-y-2.5 text-xs">
+          {/* Section 5A: Field Researcher Observations & Recommendation */}
+          {(caseItem.caseSummary || caseItem.researcherRecommendation) && (
+            <div className="p-4 bg-white rounded-xl border border-slate-200/80 space-y-3 text-xs">
               <h3 className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 border-b border-slate-100 pb-2">
-                <FileText size={15} className="text-slate-400" />
-                <span>سجل المراجعات والملاحظات السابقة</span>
+                <User size={15} className="text-[#005756]" />
+                <span>معاينة وتوصية الباحث الميدانية</span>
               </h3>
-              <p className="text-slate-600 leading-relaxed whitespace-pre-line">
-                {caseItem.notes}
-              </p>
+              {caseItem.caseSummary && (
+                <div className="space-y-1">
+                  <span className="block text-[11px] font-semibold text-slate-500">
+                    وصف السكن والمعاينة الميدانية:
+                  </span>
+                  <p className="text-slate-700 leading-relaxed whitespace-pre-line">
+                    {caseItem.caseSummary}
+                  </p>
+                </div>
+              )}
+              {caseItem.researcherRecommendation && (
+                <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200/70 space-y-1">
+                  <span className="block text-[11px] font-semibold text-slate-700">
+                    توصية الباحث الختامية:
+                  </span>
+                  <p className="text-slate-600 leading-relaxed whitespace-pre-line">
+                    {caseItem.researcherRecommendation}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Section 5B: Administrative Review & Revision Audit Log */}
+          {(caseItem.adminRevisionNote || caseItem.notes) && (
+            <div className="p-4 bg-white rounded-xl border border-slate-200/80 space-y-3 text-xs">
+              <h3 className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 border-b border-slate-100 pb-2">
+                <RotateCcw size={15} className="text-slate-400" />
+                <span>سجل المراجعة والإرجاع الإداري</span>
+              </h3>
+              {caseItem.adminRevisionNote && (
+                <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-lg space-y-1">
+                  <span className="block text-[11px] font-semibold text-amber-900">
+                    ملاحظة الاستيفاء الحالية:
+                  </span>
+                  <p className="text-amber-900/90 leading-relaxed whitespace-pre-line">
+                    {caseItem.adminRevisionNote}
+                  </p>
+                </div>
+              )}
+              {caseItem.notes && (
+                <div className="space-y-1">
+                  <span className="block text-[11px] font-semibold text-slate-500">
+                    السجل الزمني للإدارة:
+                  </span>
+                  <p className="text-slate-600 leading-relaxed whitespace-pre-line">
+                    {caseItem.notes}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

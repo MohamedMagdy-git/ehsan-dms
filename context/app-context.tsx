@@ -16,9 +16,12 @@ import {
   CaseStatus,
   MockAttachment,
   ShariaDonationCategory,
+  ChronicDiseaseConfig,
   CaseNote,
   CaseStudyReport,
   FastTrackDisbursementOrder,
+  DocumentsChecklist,
+  HousingCondition,
 } from '@/types';
 import {
   INITIAL_CASES,
@@ -27,6 +30,7 @@ import {
   INITIAL_RESEARCH_REPORTS,
   INITIAL_AUDIT_LOGS,
   DEFAULT_SHARIA_CATEGORIES,
+  DEFAULT_CHRONIC_DISEASES,
   INITIAL_FAST_TRACK_ORDERS,
   INITIAL_CASE_NOTES,
   INITIAL_RESEARCHERS,
@@ -102,6 +106,7 @@ const STORAGE_KEYS = {
   AUDIT: 'ehsan_audit_v4',
   SCORING: 'ehsan_scoring_v4',
   SHARIA_CATEGORIES: 'ehsan_sharia_categories_v1',
+  CHRONIC_DISEASES: 'ehsan_chronic_diseases_v1',
   FAST_TRACK_ORDERS: 'ehsan_fast_track_orders_v1',
   CASE_NOTES: 'ehsan_case_notes_v1',
   RESEARCHERS: 'ehsan_researchers_v1',
@@ -159,6 +164,7 @@ interface AppContextType {
   scoringConfig: ScoringRulesConfig;
   auditLogs: AuditLog[];
   shariaCategories: ShariaDonationCategory[];
+  chronicDiseases: ChronicDiseaseConfig[];
   fastTrackOrders: FastTrackDisbursementOrder[];
   caseNotes: CaseNote[];
   researchers: string[];
@@ -222,6 +228,10 @@ interface AppContextType {
   addShariaCategory: (categoryData: Omit<ShariaDonationCategory, 'id'>) => void;
   updateShariaCategory: (id: string, updates: Partial<ShariaDonationCategory>) => void;
   toggleShariaCategory: (id: string) => void;
+  addChronicDisease: (diseaseData: Omit<ChronicDiseaseConfig, 'id'>) => void;
+  updateChronicDisease: (id: string, updates: Partial<ChronicDiseaseConfig>) => void;
+  toggleChronicDisease: (id: string) => void;
+  deleteChronicDisease: (id: string) => void;
   addVisit: (visitData: Omit<FieldVisit, 'id'>) => void;
   reassignResearcher: (caseId: string, newResearcher: string, reason?: string) => void;
   generateOrRefreshAllocation: (
@@ -341,6 +351,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [scoringConfig, setScoringConfig] = useState<ScoringRulesConfig>(DEFAULT_SCORING_CONFIG);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
   const [shariaCategories, setShariaCategories] = useState<ShariaDonationCategory[]>(DEFAULT_SHARIA_CATEGORIES);
+  const [chronicDiseases, setChronicDiseases] = useState<ChronicDiseaseConfig[]>(DEFAULT_CHRONIC_DISEASES);
   const [fastTrackOrders, setFastTrackOrders] = useState<FastTrackDisbursementOrder[]>(INITIAL_FAST_TRACK_ORDERS);
   const [caseNotes, setCaseNotes] = useState<CaseNote[]>(INITIAL_CASE_NOTES);
   const [researchers, setResearchers] = useState<string[]>(DEFAULT_RESEARCHERS);
@@ -383,7 +394,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const savedCases = localStorage.getItem(STORAGE_KEYS.CASES);
-      if (savedCases) setCases(JSON.parse(savedCases));
+      if (savedCases) {
+        const parsedCases = JSON.parse(savedCases);
+        if (Array.isArray(parsedCases)) {
+          setCases(
+            parsedCases.map((c: BeneficiaryCase) =>
+              !c.lastVisitDate || c.status === 'pending_field_research'
+                ? { ...c, isVisitOverdue: false }
+                : c
+            )
+          );
+        }
+      }
 
       const savedDonations = localStorage.getItem(STORAGE_KEYS.DONATIONS);
       if (savedDonations) setDonations(JSON.parse(savedDonations));
@@ -394,6 +416,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setShariaCategories(JSON.parse(savedCategories));
         } catch (err) {
           console.warn('Failed to parse sharia categories:', err);
+        }
+      }
+
+      const savedChronicDiseases = localStorage.getItem(STORAGE_KEYS.CHRONIC_DISEASES);
+      if (savedChronicDiseases) {
+        try {
+          const parsed = JSON.parse(savedChronicDiseases);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setChronicDiseases(parsed);
+          }
+        } catch (err) {
+          console.warn('Failed to parse chronic diseases:', err);
         }
       }
 
@@ -571,6 +605,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isHydrated) return;
     try {
+      localStorage.setItem(STORAGE_KEYS.CHRONIC_DISEASES, JSON.stringify(chronicDiseases));
+    } catch (e) {
+      console.warn('Failed to save chronic diseases to localStorage:', e);
+    }
+  }, [chronicDiseases, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    try {
       localStorage.setItem(STORAGE_KEYS.FAST_TRACK_ORDERS, JSON.stringify(fastTrackOrders));
     } catch (e) {
       console.warn('Failed to save fast track orders to localStorage:', e);
@@ -603,6 +646,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setScoringConfig(DEFAULT_SCORING_CONFIG);
     setAuditLogs(INITIAL_AUDIT_LOGS);
     setShariaCategories(DEFAULT_SHARIA_CATEGORIES);
+    setChronicDiseases(DEFAULT_CHRONIC_DISEASES);
     setFastTrackOrders(INITIAL_FAST_TRACK_ORDERS);
     setCaseNotes(INITIAL_CASE_NOTES);
     setResearchers(DEFAULT_RESEARCHERS);
@@ -640,6 +684,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem(STORAGE_KEYS.AUDIT);
       localStorage.removeItem(STORAGE_KEYS.SCORING);
       localStorage.removeItem(STORAGE_KEYS.SHARIA_CATEGORIES);
+      localStorage.removeItem(STORAGE_KEYS.CHRONIC_DISEASES);
       localStorage.removeItem(STORAGE_KEYS.FAST_TRACK_ORDERS);
       localStorage.removeItem(STORAGE_KEYS.CASE_NOTES);
       localStorage.removeItem(STORAGE_KEYS.RESEARCHERS);
@@ -681,7 +726,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: `case-${Date.now()}`,
       code: `EHS-${nextNumber}`,
       historicalAssistanceTotal: 0,
-      isVisitOverdue: caseData.status === 'pending_field_research' ? true : false,
+      isVisitOverdue: false,
     };
 
     setCases((prev) => [newCase, ...prev]);
@@ -756,6 +801,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     addAuditLog('تغيير حالة مصرف شرعي', `${nextState ? 'تفعيل' : 'إيقاف'} المصرف الشرعي: ${catName}`);
   };
 
+  const addChronicDisease = (diseaseData: Omit<ChronicDiseaseConfig, 'id'>) => {
+    const newDisease: ChronicDiseaseConfig = {
+      ...diseaseData,
+      id: `cd-${Date.now()}`,
+    };
+    setChronicDiseases((prev) => [...prev, newDisease]);
+    addAuditLog(
+      'إضافة مرض مزمن للإعدادات',
+      `إدراج (${newDisease.name}) بمتوسط تكلفة ${newDisease.defaultMonthlyCost} ج.م شهرياً`
+    );
+  };
+
+  const updateChronicDisease = (id: string, updates: Partial<ChronicDiseaseConfig>) => {
+    setChronicDiseases((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, ...updates } : d))
+    );
+    addAuditLog('تحديث بيانات مرض مزمن', `تم تحديث تكلفة أو مسمى المرض المزمن (${id})`);
+  };
+
+  const toggleChronicDisease = (id: string) => {
+    let diseaseName = id;
+    let nextState = false;
+    setChronicDiseases((prev) =>
+      prev.map((d) => {
+        if (d.id === id) {
+          diseaseName = d.name;
+          nextState = !d.isActive;
+          return { ...d, isActive: !d.isActive };
+        }
+        return d;
+      })
+    );
+    addAuditLog('تغيير حالة مرض مزمن', `${nextState ? 'تفعيل' : 'إيقاف'} المرض المزمن: ${diseaseName}`);
+  };
+
+  const deleteChronicDisease = (id: string) => {
+    const target = chronicDiseases.find((d) => d.id === id);
+    setChronicDiseases((prev) => prev.filter((d) => d.id !== id));
+    if (target) {
+      addAuditLog('حذف مرض مزمن', `تم حذف (${target.name}) من قائمة الأمراض المزمنة`);
+    }
+  };
+
   const addCaseAttachment = (caseId: string, attachment: Omit<MockAttachment, 'id'>) => {
     const newAtt: MockAttachment = {
       ...attachment,
@@ -803,6 +891,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return {
             ...c,
             status: 'active_eligible' as CaseStatus,
+            adminRevisionNote: undefined,
             lastAssessmentDate: now,
             notes: c.notes ? `${entry}\n\n${c.notes}` : entry,
           };
@@ -844,21 +933,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const returnCaseForRevision = (id: string, revisionReason: string) => {
     let caseTitle = id;
     const now = new Date().toISOString().split('T')[0];
+    const cleanReason = revisionReason.trim();
     setCases((prev) =>
       prev.map((c) => {
         if (c.id === id) {
           caseTitle = `${c.primaryName || c.fullName} (${c.code})`;
-          const entry = `[${now}] إعادة للباحث الميداني (${c.assignedResearcher}) للاستيفاء والتعديل: "${revisionReason}"`;
+          const entry = `[${now}] إعادة للباحث الميداني (${c.assignedResearcher}) للاستيفاء والتعديل: "${cleanReason}"`;
           return {
             ...c,
             status: 'needs_revision' as CaseStatus,
+            adminRevisionNote: cleanReason,
             notes: c.notes ? `${entry}\n\n${c.notes}` : entry,
           };
         }
         return c;
       })
     );
-    addAuditLog('إعادة بحث حالة للاستيفاء', `تمت إعادة الحالة (${caseTitle}) للباحث للاستيفاء والتعديل: ${revisionReason}`);
+    addAuditLog('إعادة بحث حالة للاستيفاء', `تمت إعادة الحالة (${caseTitle}) للباحث للاستيفاء والتعديل: ${cleanReason}`);
   };
 
   const rejectCaseReview = (id: string, rejectionReason: string) => {
@@ -872,6 +963,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return {
             ...c,
             status: 'closed' as CaseStatus,
+            adminRevisionNote: undefined,
             notes: c.notes ? `${entry}\n\n${c.notes}` : entry,
           };
         }
@@ -1585,10 +1677,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const assessment = calculateCaseAssessment(c, mergedConfig);
       const newPriority = derivePriorityLevel(assessment.totalScore);
       const visitCheck = checkVisitOverdueStatus(c.lastVisitDate, mergedConfig.overdueVisitMonths);
+      const isPendingFirstVisit = !c.lastVisitDate || c.status === 'pending_field_research';
       return {
         ...c,
         priority: newPriority,
-        isVisitOverdue: visitCheck.isOverdue,
+        isVisitOverdue: isPendingFirstVisit ? false : visitCheck.isOverdue,
       };
     });
     setCases(updatedCases);
@@ -1940,7 +2033,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const submitCaseStudyReport = useCallback(
     (report: CaseStudyReport) => {
       const now = new Date().toISOString().split('T')[0];
+      const visitDateValue = report.visitDate || now;
+      const nextDueObj = new Date(visitDateValue);
+      nextDueObj.setMonth(nextDueObj.getMonth() + 6);
+      const nextDueDateStr = Number.isNaN(nextDueObj.getTime())
+        ? now
+        : nextDueObj.toISOString().split('T')[0];
+
+      const mapHousingStatusToCondition = (status: string): HousingCondition => {
+        if (status === 'owned' || status.includes('ملك')) return 'owned';
+        if (status === 'rent_stable' || status.includes('قديم') || status.includes('شبه مستقر')) {
+          return 'rent_stable';
+        }
+        if (status === 'dilapidated_urgent' || status.includes('آيل للسقوط') || status.includes('غير لائق')) {
+          return 'dilapidated_urgent';
+        }
+        return 'rent_unstable';
+      };
+
       let targetCaseId = report.caseId;
+      const existingTargetCase = targetCaseId
+        ? cases.find((c) => c.id === targetCaseId)
+        : undefined;
+
+      const coreChecklist: DocumentsChecklist = {
+        nationalIdsAdults: Boolean(report.attachments?.nationalIdsAdults),
+        birthCertificatesMinors: Boolean(report.attachments?.birthCertificatesMinors),
+        insurancePrintOut: Boolean(report.attachments?.insurancePrintOut),
+        utilityReceipt: Boolean(report.attachments?.utilityReceipt),
+        leaseContractOrRentReceipt: Boolean(report.attachments?.leaseContractOrRentReceipt),
+        recentMedicalProof: Boolean(report.attachments?.recentMedicalProof),
+        deathOrDivorceCertificates: Boolean(report.attachments?.deathOrDivorceCertificates),
+      };
+
+      const isIncompleteCoreDocs =
+        !coreChecklist.nationalIdsAdults ||
+        !coreChecklist.birthCertificatesMinors ||
+        !coreChecklist.insurancePrintOut ||
+        !coreChecklist.utilityReceipt;
 
       const mappedAttachments: MockAttachment[] = (report.attachments?.uploadedFiles || []).map((f) => ({
         id: f.id,
@@ -1948,45 +2078,101 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         category:
           f.category === 'voiceRecording'
             ? 'voice_memo'
-            : f.category === 'adultIds'
+            : f.category === 'adultIds' || f.category === 'national_id'
             ? 'national_id'
-            : f.category === 'minorCerts'
+            : f.category === 'minorCerts' || f.category === 'family_records'
             ? 'family_records'
-            : f.category === 'medicalProof'
+            : f.category === 'medicalProof' || f.category === 'medical_report'
             ? 'medical_report'
+            : f.category === 'income_proof'
+            ? 'income_proof'
+            : f.category === 'utility_bill'
+            ? 'utility_bill'
             : 'housing_contract',
         fileName: f.fileName,
         fileSize: f.category === 'voiceRecording' ? '320 KB' : '1.4 MB',
-        uploadDate: report.visitDate || now,
+        uploadDate: visitDateValue,
         url: f.url,
         durationSeconds: f.durationSeconds,
       }));
+
+      const nonVoiceAttachmentsCount = mappedAttachments.filter((a) => a.category !== 'voice_memo').length;
+      const mappedHousingCondition = mapHousingStatusToCondition(String(report.housingStatus || ''));
+      const cleanCaseSummary = (report.caseSummary || '').trim();
+      const cleanRecommendation = (report.additionalNotesAndRemarks || '').trim();
+      const recMetaParts: string[] = [];
+      if (report.recommendedAssistanceType?.trim()) {
+        recMetaParts.push(`نوع المساعدة: ${report.recommendedAssistanceType.trim()}`);
+      }
+      if (typeof report.recommendedMonthlyAmount === 'number') {
+        recMetaParts.push(
+          `المبلغ المقترح: ${report.recommendedMonthlyAmount.toLocaleString('ar-EG')} ج.م/شهرياً`
+        );
+      }
+      const recMetaHeader = recMetaParts.join(' · ');
+      const combinedRecommendation = recMetaHeader
+        ? cleanRecommendation
+          ? `${recMetaHeader}\n${cleanRecommendation}`
+          : recMetaHeader
+        : cleanRecommendation;
+      const researcherLabel = report.visitorName || 'أ. هبة الشامي';
+
+      const auditStepLog =
+        existingTargetCase?.status === 'needs_revision'
+          ? `[${visitDateValue}] استكمال وإرسال نواقص البحث الميداني بواسطة (${researcherLabel}) وإعادة إحالة الملف للمراجعة.`
+          : `[${visitDateValue}] إتمام وإرسال استمارة البحث الميداني بواسطة (${researcherLabel}) بانتظار الاعتماد الإداري.`;
+
+      let resolvedCaseCode = existingTargetCase?.code || 'EHS-NEW';
 
       if (targetCaseId) {
         setCases((prev) =>
           prev.map((c) => {
             if (c.id === targetCaseId) {
+              const mergedAttachments =
+                mappedAttachments.length > 0
+                  ? [
+                      ...mappedAttachments,
+                      ...(c.attachments || []).filter(
+                        (existing) => !mappedAttachments.some((m) => m.fileName === existing.fileName)
+                      ),
+                    ]
+                  : c.attachments;
+
               return {
                 ...c,
                 primaryName: report.caseName || c.primaryName,
                 fullName: report.caseName || c.fullName,
                 phone: report.contactPhone || c.phone,
+                secondaryPhone: report.secondaryPhone ?? c.secondaryPhone,
                 address: report.address || c.address,
-                assignedResearcher: report.visitorName || c.assignedResearcher,
+                directionsNote:
+                  report.landmarkAddress !== undefined
+                    ? report.landmarkAddress.trim() || undefined
+                    : c.directionsNote,
+                gpsLocation: report.gpsLocation || c.gpsLocation,
+                referralSource: report.referralSource || c.referralSource,
+                caseSummary: cleanCaseSummary || c.caseSummary,
+                researcherRecommendation: combinedRecommendation || c.researcherRecommendation,
+                recommendedAssistanceType:
+                  report.recommendedAssistanceType?.trim() || c.recommendedAssistanceType,
+                recommendedMonthlyAmount:
+                  typeof report.recommendedMonthlyAmount === 'number'
+                    ? report.recommendedMonthlyAmount
+                    : c.recommendedMonthlyAmount,
+                researcherJustification: cleanRecommendation || c.researcherJustification,
+                adminRevisionNote: undefined,
+                housingFacilities: report.housingFacilities || c.housingFacilities,
+                assignedResearcher: researcherLabel || c.assignedResearcher,
                 status: 'pending_review' as CaseStatus,
                 priority: report.priorityLevel || c.priority,
-                lastVisitDate: report.visitDate || now,
+                lastAssessmentDate: visitDateValue,
+                lastVisitDate: visitDateValue,
+                nextVisitDueDate: nextDueDateStr,
+                isVisitOverdue: false,
                 voiceNoteUrl: report.voiceNoteUrl || c.voiceNoteUrl,
                 voiceNoteDuration: report.voiceNoteDuration || c.voiceNoteDuration,
-                attachments:
-                  mappedAttachments.length > 0
-                    ? [
-                        ...mappedAttachments,
-                        ...(c.attachments || []).filter(
-                          (existing) => !mappedAttachments.some((m) => m.fileName === existing.fileName)
-                        ),
-                      ]
-                    : c.attachments,
+                attachments: mergedAttachments,
+                documentsChecklist: coreChecklist,
                 householdMembers:
                   report.familyMembers && report.familyMembers.length > 0
                     ? report.familyMembers.map((m) => ({
@@ -2010,7 +2196,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   basicExpenses: report.monthlyBasicExpenses || 0,
                   medicalExpenses: report.monthlyMedicalCosts || 0,
                   netFinancialGap: report.netFinancialGap || 0,
-                  estimatedAssistanceNeed: report.netFinancialGap || 0,
+                  estimatedAssistanceNeed:
+                    typeof report.recommendedMonthlyAmount === 'number'
+                      ? report.recommendedMonthlyAmount
+                      : report.netFinancialGap || 0,
                 },
                 vulnerability: {
                   ...c.vulnerability,
@@ -2018,9 +2207,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     report.medicalConditionDescription && report.chronicVerification !== 'لا يوجد'
                   ),
                   chronicIllnessDetails: report.medicalConditionDescription,
-                  housingCondition: (report.housingStatus as any) || c.vulnerability.housingCondition,
+                  housingCondition: mappedHousingCondition,
+                  incompleteDocuments: isIncompleteCoreDocs,
                 },
-                notes: `${c.notes || ''}\n[بحث حالة ميداني - ${report.visitDate}]: ${report.caseSummary || ''}`.trim(),
+                notes: c.notes ? `${auditStepLog}\n\n${c.notes}`.trim() : auditStepLog,
               };
             }
             return c;
@@ -2028,6 +2218,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         );
       } else {
         const newCode = `EHS-${Math.floor(100 + Math.random() * 900)}`;
+        resolvedCaseCode = newCode;
         targetCaseId = `case-${Date.now()}`;
         const newCase: BeneficiaryCase = {
           id: targetCaseId,
@@ -2036,21 +2227,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           fullName: report.caseName,
           nationalId: `${Math.floor(28000000000000 + Math.random() * 900000000000)}`,
           phone: report.contactPhone,
+          secondaryPhone: report.secondaryPhone,
           governorate: 'القاهرة',
           district: report.address.split(' ')[0] || 'المنطقة',
           address: report.address,
-          assignedResearcher: report.visitorName || 'أ. هبة الشامي',
+          directionsNote: report.landmarkAddress?.trim() || undefined,
+          gpsLocation: report.gpsLocation,
+          referralSource: report.referralSource,
+          caseSummary: cleanCaseSummary || undefined,
+          researcherRecommendation: combinedRecommendation || undefined,
+          recommendedAssistanceType: report.recommendedAssistanceType?.trim() || undefined,
+          recommendedMonthlyAmount:
+            typeof report.recommendedMonthlyAmount === 'number'
+              ? report.recommendedMonthlyAmount
+              : undefined,
+          researcherJustification: cleanRecommendation || undefined,
+          housingFacilities: report.housingFacilities,
+          assignedResearcher: researcherLabel,
           registrationDate: now,
           status: 'pending_review' as CaseStatus,
           priority: report.priorityLevel || 'high',
-          lastAssessmentDate: now,
-          lastVisitDate: report.visitDate || now,
-          nextVisitDueDate: now,
+          lastAssessmentDate: visitDateValue,
+          lastVisitDate: visitDateValue,
+          nextVisitDueDate: nextDueDateStr,
           isVisitOverdue: false,
           historicalAssistanceTotal: 0,
           voiceNoteUrl: report.voiceNoteUrl,
           voiceNoteDuration: report.voiceNoteDuration,
           attachments: mappedAttachments,
+          documentsChecklist: coreChecklist,
           householdMembers: (report.familyMembers || []).map((m) => ({
             id: m.id || `m-${Date.now()}-${m.orderNumber}`,
             name: m.name,
@@ -2071,7 +2276,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             medicalExpenses: report.monthlyMedicalCosts || 0,
             externalAid: 0,
             netFinancialGap: report.netFinancialGap || 0,
-            estimatedAssistanceNeed: report.netFinancialGap || 0,
+            estimatedAssistanceNeed:
+              typeof report.recommendedMonthlyAmount === 'number'
+                ? report.recommendedMonthlyAmount
+                : report.netFinancialGap || 0,
           },
           vulnerability: {
             hasChronicIllness: Boolean(
@@ -2081,43 +2289,93 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             isOrphanHousehold: false,
             orphanCount: 0,
             dependentsCount: Math.max(1, (report.familyMembers?.length || 1) - 1),
-            housingCondition: (report.housingStatus as any) || 'rent_unstable',
+            housingCondition: mappedHousingCondition,
             foodInsecurityLevel: 'moderate',
             workCapacity: 'partial',
             confidenceScore: 95,
-            incompleteDocuments: !report.attachments?.nationalIdsAdults || !report.attachments?.insurancePrintOut,
+            incompleteDocuments: isIncompleteCoreDocs,
             exceptionApproved: false,
           },
-          notes: `[بحث حالة ميداني]: ${report.caseSummary || ''}\n${report.additionalNotesAndRemarks || ''}${
-            report.executiveSummary ? `\n[توصية الذكاء الاصطناعي]: ${report.executiveSummary.justificationText}` : ''
-          }`.trim(),
+          notes: auditStepLog,
         };
 
         setCases((prev) => [newCase, ...prev]);
       }
 
+      const cleanObservations =
+        cleanCaseSummary || 'تم إتمام البحث الميداني والمعاينة على الطبيعة.';
+      const cleanRecommendedChanges = report.executiveSummary
+        ? report.executiveSummary.justificationText
+        : combinedRecommendation || 'يوصى بمراجعة الملف واعتماد الاستحقاق المناسب.';
+
       const newReport: CaseResearchReport = {
         id: `rep-${Date.now()}`,
         caseId: targetCaseId,
-        caseCode: report.caseId ? cases.find((c) => c.id === report.caseId)?.code || 'EHS' : 'EHS-NEW',
+        caseCode: resolvedCaseCode,
         caseName: report.caseName,
-        researcherName: report.visitorName,
-        reportDate: report.visitDate,
+        researcherName: researcherLabel,
+        reportDate: visitDateValue,
         visitType: 'initial_field',
-        housingNotes: `${report.housingStatus}: ${report.caseSummary}`,
+        housingNotes: `${report.housingStatus}: ${cleanObservations}`,
         incomeObservations:
           report.basicIncomeSources +
           (report.additionalIncomeSources ? ` - ${report.additionalIncomeSources}` : ''),
         healthObservations: report.medicalConditionDescription,
-        recommendations: report.executiveSummary
-          ? `${report.executiveSummary.justificationText} - ${report.additionalNotesAndRemarks || ''}`
-          : report.additionalNotesAndRemarks || 'يوصى بالمراجعة والاعتماد',
+        recommendations: cleanRecommendedChanges,
         trustScore: 95,
-        documentsStatus: report.attachments?.nationalIdsAdults ? 'complete' : 'incomplete_trusted',
+        documentsStatus: isIncompleteCoreDocs ? 'incomplete_trusted' : 'complete',
         assessedScore: 85,
       };
 
       setResearchReports((prev) => [newReport, ...prev]);
+
+      // تحديث سجل الزيارة لنفس الدورة (أو إنشاء زيارة جديدة إذا لم تُسجل زيارة سابقة لهذه الدورة)
+      const visitPayload: Omit<FieldVisit, 'id'> = {
+        caseId: targetCaseId,
+        caseCode: resolvedCaseCode,
+        caseName: report.caseName,
+        researcherName: researcherLabel,
+        visitDate: visitDateValue,
+        scheduledNextDate: nextDueDateStr,
+        status: 'completed',
+        observations: cleanObservations,
+        recommendedChanges: cleanRecommendedChanges,
+        attachmentsCount: nonVoiceAttachmentsCount,
+        voiceNoteUrl: report.voiceNoteUrl,
+        gpsLocation: report.gpsLocation
+          ? {
+              latitude: report.gpsLocation.latitude,
+              longitude: report.gpsLocation.longitude,
+              mapsUrl: report.gpsLocation.mapsUrl,
+            }
+          : undefined,
+        checklistSummary: { ...coreChecklist },
+      };
+
+      setVisits((prev) => {
+        const isCurrentCycleRevision =
+          existingTargetCase?.status === 'needs_revision' ||
+          existingTargetCase?.status === 'pending_review';
+        const existingIndex = prev.findIndex(
+          (v) =>
+            v.caseId === targetCaseId &&
+            (isCurrentCycleRevision || v.visitDate === visitDateValue)
+        );
+
+        if (existingIndex !== -1) {
+          return prev.map((v, idx) =>
+            idx === existingIndex ? { ...v, ...visitPayload } : v
+          );
+        }
+
+        return [
+          {
+            ...visitPayload,
+            id: `visit-${Date.now()}`,
+          },
+          ...prev,
+        ];
+      });
 
       addAuditLog(
         'تسجيل بحث حالة ميداني',
@@ -2146,7 +2404,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const closedCases = cases.filter((c) => c.status === 'closed').length;
     const excludedOrClosedCases = temporarilyExcludedCases + closedCases;
     const urgentReviewCases = pendingExceptionCases + cases.filter((c) => c.priority === 'critical').length;
-    const overdueVisitsCases = cases.filter((c) => c.isVisitOverdue).length;
+    const overdueVisitsCases = cases.filter(
+      (c) => c.isVisitOverdue && Boolean(c.lastVisitDate) && c.status !== 'pending_field_research'
+    ).length;
     const incompleteDocsCases = cases.filter((c) => c.vulnerability.incompleteDocuments).length;
 
     const receivedDonations = donations.filter((d) => d.status === 'received');
@@ -2293,6 +2553,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         currentAllocation,
         metrics,
         shariaCategories,
+        chronicDiseases,
         fastTrackOrders,
         caseNotes,
         researchers,
@@ -2312,6 +2573,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addShariaCategory,
         updateShariaCategory,
         toggleShariaCategory,
+        addChronicDisease,
+        updateChronicDisease,
+        toggleChronicDisease,
+        deleteChronicDisease,
         addVisit,
         reassignResearcher,
         generateOrRefreshAllocation,

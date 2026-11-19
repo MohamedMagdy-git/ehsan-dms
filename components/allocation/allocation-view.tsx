@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useApp } from '@/context/app-context';
+import { useToast } from '@/context/toast-context';
 import {
   Calendar,
   CheckCircle2,
@@ -81,9 +82,7 @@ export function AllocationView() {
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPriorityFilter, setSelectedPriorityFilter] = useState<string>('all');
-
-  const [recalculateSuccess, setRecalculateSuccess] = useState(false);
-  const [exportSuccess, setExportSuccess] = useState(false);
+  const { toast } = useToast();
 
   // Sync budget input on period change
   const [prevPeriod, setPrevPeriod] = useState(currentPeriod);
@@ -116,6 +115,7 @@ export function AllocationView() {
   const handleConfirmApproval = () => {
     approveAllocation(currentPeriod, approverName);
     setShowApprovalDialog(false);
+    toast.success('تم اعتماد الميزانية الشهرية وقفل الدورة بنجاح');
   };
 
   const handleConfirmUnlock = () => {
@@ -128,16 +128,17 @@ export function AllocationView() {
     setShowUnlockDialog(false);
     setUnlockReasonInput('');
     setUnlockError('');
+    toast.info('تم فتح الدورة استثنائياً للتعديل');
   };
 
   const handleExportExcel = () => {
     if (!currentAllocation) return;
     try {
       exportMonthlyAllocationToExcel(currentAllocation, cases);
-      setExportSuccess(true);
-      setTimeout(() => setExportSuccess(false), 3500);
+      toast.success('تم تصدير ملف الإكسل لكشف الصرف بنجاح');
     } catch (err) {
       console.error('Failed to export excel:', err);
+      toast.error('تعذر تصدير ملف الإكسل، يرجى المحاولة مرة أخرى');
     }
   };
 
@@ -147,8 +148,7 @@ export function AllocationView() {
     generateOrRefreshAllocation(currentPeriod, customBudgetValue, undefined, undefined, {
       strategy: currentStrategy,
     });
-    setRecalculateSuccess(true);
-    setTimeout(() => setRecalculateSuccess(false), 3000);
+    toast.success('تمت إعادة توزيع مقترح الميزانية تلقائياً');
     setIsCustomBudgetOpen(false);
   };
 
@@ -156,8 +156,7 @@ export function AllocationView() {
     generateOrRefreshAllocation(currentPeriod, budgetInput, undefined, undefined, {
       strategy: currentStrategy,
     });
-    setRecalculateSuccess(true);
-    setTimeout(() => setRecalculateSuccess(false), 3000);
+    toast.success('تمت إعادة توزيع مقترح الميزانية تلقائياً');
   };
 
   const totalAllocated = currentAllocation?.summary?.totalAllocated || 0;
@@ -323,21 +322,6 @@ export function AllocationView() {
           )}
         </div>
       </div>
-
-      {/* Calm Inline Notifications */}
-      {recalculateSuccess && (
-        <div className="px-4 py-3 bg-white border border-slate-200/80 rounded-xl flex items-center gap-2 text-xs text-slate-700 font-medium">
-          <CheckCircle2 size={15} className="text-[#005756] shrink-0" />
-          <span>تمت إعادة توزيع مقترح الميزانية تلقائياً.</span>
-        </div>
-      )}
-
-      {exportSuccess && (
-        <div className="px-4 py-3 bg-white border border-slate-200/80 rounded-xl flex items-center gap-2 text-xs text-slate-700 font-medium">
-          <Check size={15} className="text-[#005756] shrink-0" />
-          <span>تم تصدير ملف الإكسل لكشف الصرف بنجاح.</span>
-        </div>
-      )}
 
       {currentAllocation.isExceptionallyUnlocked && !isApproved && (
         <div className="p-3.5 bg-slate-50/80 border border-slate-200/80 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs text-slate-700">
@@ -524,8 +508,7 @@ export function AllocationView() {
                     generateOrRefreshAllocation(currentPeriod, preset.val, undefined, undefined, {
                       strategy: currentStrategy,
                     });
-                    setRecalculateSuccess(true);
-                    setTimeout(() => setRecalculateSuccess(false), 2500);
+                    toast.success('تمت إعادة توزيع مقترح الميزانية تلقائياً');
                   }}
                   className={`px-3 py-1.5 rounded-xl font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
                     budgetInput === preset.val

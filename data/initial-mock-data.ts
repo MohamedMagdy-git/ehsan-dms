@@ -5,9 +5,21 @@ import {
   Donation,
   AuditLog,
   ShariaDonationCategory,
+  ChronicDiseaseConfig,
   FastTrackDisbursementOrder,
   CaseNote,
 } from '@/types';
+
+export const DEFAULT_CHRONIC_DISEASES: ChronicDiseaseConfig[] = [
+  { id: 'cd-diabetes', name: 'السكري', defaultMonthlyCost: 450, isActive: true },
+  { id: 'cd-heart-bp', name: 'ضغط الدم وأمراض القلب', defaultMonthlyCost: 550, isActive: true },
+  { id: 'cd-disc-joints', name: 'انزلاق غضروفي وخشونة المفاصل', defaultMonthlyCost: 400, isActive: true },
+  { id: 'cd-kidney', name: 'فشل كلوي / غسيل كلى', defaultMonthlyCost: 1200, isActive: true },
+  { id: 'cd-oncology', name: 'أورام وعلاج كيميائي', defaultMonthlyCost: 1800, isActive: true },
+  { id: 'cd-chest-asthma', name: 'حساسية صدر وربو مزمن', defaultMonthlyCost: 350, isActive: true },
+  { id: 'cd-liver', name: 'أمراض الكبد المزمنة', defaultMonthlyCost: 650, isActive: true },
+  { id: 'cd-neuro', name: 'إعاقة حركية أو عصبية مزمنة', defaultMonthlyCost: 500, isActive: true },
+];
 
 export const DEFAULT_SHARIA_CATEGORIES: ShariaDonationCategory[] = [
   {
@@ -698,7 +710,7 @@ export const INITIAL_CASES: BeneficiaryCase[] = [
     lastAssessmentDate: '2026-08-01',
     lastVisitDate: '',
     nextVisitDueDate: '2026-10-01',
-    isVisitOverdue: true,
+    isVisitOverdue: false,
     householdMembers: [
       { id: 'm101', name: 'صابر جاد المولى', relation: 'رب الأسرة', age: 56, educationLevel: 'أمية', healthStatus: 'غير معلوم بدقة', workStatus: 'عامل بناء متقطع' },
     ],
@@ -1144,6 +1156,20 @@ export const INITIAL_RESEARCHERS: import('@/types').ResearcherProfile[] = [
     pendingVisitsCount: 0,
     completionRate: 96,
     bio: 'متطوعة متخصصة في حالات التربية الخاصة والدمج التعليمي وأسر رعاية الأيتام.',
+  },
+  {
+    id: 'res-05',
+    name: 'م. كريم عادل',
+    roleTitle: 'باحث ميداني معتمد',
+    phone: '01098765432',
+    email: 'kareem.adel@ehsan-initiative.org',
+    assignedDistricts: ['المطرية', 'عين شمس', 'القاهرة الجديدة'],
+    joinedDate: '2024-09-12',
+    totalVisitsConducted: 24,
+    activeAssignedCasesCount: 0,
+    pendingVisitsCount: 0,
+    completionRate: 96,
+    bio: 'باحث ميداني متطوع مسؤول عن المعاينات السريعة، متابعة ترميم الأسقف والمنازل قبل الشتاء، وتحديث ملفات الأسر.',
   },
 ];
 

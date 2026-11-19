@@ -356,11 +356,15 @@ export function CasesView({ onOpenNewCase }: { onOpenNewCase: () => void }) {
                   {/* Researcher & Visit Warning */}
                   <div className="flex items-center justify-between text-[11px] text-slate-500">
                     <span className="truncate">الباحث: {c.assignedResearcher}</span>
-                    {c.isVisitOverdue && (
-                      <span className="text-rose-600 font-medium shrink-0">
-                        تجاوزت مهلة الزيارة
+                    {c.status === 'pending_field_research' ? (
+                      <span className="text-[#005756] font-medium shrink-0">
+                        حالة جديدة تتطلب زيارة
                       </span>
-                    )}
+                    ) : c.isVisitOverdue ? (
+                      <span className="text-rose-600 font-medium shrink-0">
+                        متأخرة عن موعدها
+                      </span>
+                    ) : null}
                   </div>
 
                   {/* Action Buttons with 44px min touch target */}

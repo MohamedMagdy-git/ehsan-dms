@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/app-context';
+import { useToast } from '@/context/toast-context';
 import {
   X,
   User,
@@ -24,6 +25,7 @@ interface EditCaseModalProps {
 
 export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps) {
   const { updateCase, cases } = useApp();
+  const { toast } = useToast();
 
   const [primaryName, setPrimaryName] = useState('');
   const [secondaryName, setSecondaryName] = useState('');
@@ -185,6 +187,7 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
       notes: notes.trim(),
     });
 
+    toast.success('تم تحديث بيانات الحالة وحفظها بنجاح');
     onClose();
   };
 

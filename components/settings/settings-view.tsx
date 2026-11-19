@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useApp } from '@/context/app-context';
+import { useToast } from '@/context/toast-context';
 import {
   Sliders,
   Save,
@@ -10,13 +11,15 @@ import {
   AlertTriangle,
   Plus,
   Edit2,
+  Trash2,
   Tag,
   BookmarkCheck,
+  Activity,
   X,
 } from 'lucide-react';
 import { DEFAULT_SCORING_CONFIG, checkVisitOverdueStatus } from '@/services/scoring-engine';
 import { AmountInput } from '@/components/common/amount-input';
-import { ShariaCategoryColor, ShariaDonationCategory } from '@/types';
+import { ShariaCategoryColor, ShariaDonationCategory, ChronicDiseaseConfig } from '@/types';
 
 // Preserves downstream Sharia category color compatibility while keeping Settings UI calm
 function getAutoShariaColor(name: string, index = 0): ShariaCategoryColor {
@@ -38,6 +41,9 @@ function clampWeight(val: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.round(val)));
 }
 
+// Temporarily hidden until re-enabled
+const SHOW_SHARIA_TAB: boolean = false;
+
 export function SettingsView() {
   const {
     scoringConfig,
@@ -47,9 +53,15 @@ export function SettingsView() {
     addShariaCategory,
     updateShariaCategory,
     toggleShariaCategory,
+    chronicDiseases,
+    addChronicDisease,
+    updateChronicDisease,
+    toggleChronicDisease,
+    deleteChronicDisease,
   } = useApp();
+  const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<'rules' | 'sharia'>('rules');
+  const [activeTab, setActiveTab] = useState<'rules' | 'sharia' | 'chronic_diseases'>('rules');
 
   const [gapWeight, setGapWeight] = useState(scoringConfig.financialGapWeight);
   const [medicalWeight, setMedicalWeight] = useState(scoringConfig.medicalUrgencyWeight);
@@ -68,6 +80,13 @@ export function SettingsView() {
   const [categoryDesc, setCategoryDesc] = useState('');
   const [categoryError, setCategoryError] = useState('');
 
+  // Chronic disease modal state
+  const [isDiseaseModalOpen, setIsDiseaseModalOpen] = useState(false);
+  const [editingDisease, setEditingDisease] = useState<ChronicDiseaseConfig | null>(null);
+  const [diseaseName, setDiseaseName] = useState('');
+  const [diseaseCost, setDiseaseCost] = useState<number>(400);
+  const [diseaseError, setDiseaseError] = useState('');
+
   // Live preview of overdue cases impacted by visit cadence threshold
   const previewOverdueCases = cases.filter((c) =>
     checkVisitOverdueStatus(c.lastVisitDate, overdueMonths).isOverdue
@@ -85,6 +104,7 @@ export function SettingsView() {
       minAssistanceFloor: Number(minFloor),
     });
     setSavedSuccess(true);
+    toast.success('تم حفظ إعدادات وقواعد التقييم بنجاح');
     setTimeout(() => setSavedSuccess(false), 3500);
   };
 
@@ -98,6 +118,7 @@ export function SettingsView() {
     setMinFloor(DEFAULT_SCORING_CONFIG.minAssistanceFloor);
     updateScoringConfig(DEFAULT_SCORING_CONFIG);
     setSavedSuccess(true);
+    toast.info('تم استعادة قواعد التقييم الافتراضية');
     setTimeout(() => setSavedSuccess(false), 3500);
   };
 
@@ -145,7 +166,58 @@ export function SettingsView() {
     }
 
     setIsCategoryModalOpen(false);
+    toast.success(editingCategory ? 'تم تحديث بيانات المصرف الشرعي' : 'تمت إضافة المصرف الشرعي بنجاح');
   };
+
+  const openNewDiseaseModal = () => {
+    setEditingDisease(null);
+    setDiseaseName('');
+    setDiseaseCost(400);
+    setDiseaseError('');
+    setIsDiseaseModalOpen(true);
+  };
+
+  const openEditDiseaseModal = (d: ChronicDiseaseConfig) => {
+    setEditingDisease(d);
+    setDiseaseName(d.name);
+    setDiseaseCost(d.defaultMonthlyCost);
+    setDiseaseError('');
+    setIsDiseaseModalOpen(true);
+  };
+
+  const handleSaveDisease = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = diseaseName.trim();
+    if (!trimmed) {
+      setDiseaseError('من فضلك اكتب اسم المرض المزمن أولاً.');
+      return;
+    }
+    const costVal = Math.max(0, Number(diseaseCost) || 0);
+    if (editingDisease) {
+      updateChronicDisease(editingDisease.id, {
+        name: trimmed,
+        defaultMonthlyCost: costVal,
+      });
+      toast.success(`تم تحديث بيانات "${trimmed}" بنجاح`);
+    } else {
+      addChronicDisease({
+        name: trimmed,
+        defaultMonthlyCost: costVal,
+        isActive: true,
+      });
+      toast.success(`تمت إضافة "${trimmed}" لقائمة الأمراض المزمنة`);
+    }
+    setIsDiseaseModalOpen(false);
+  };
+
+  const activeDiseasesCount = chronicDiseases.filter((d) => d.isActive).length;
+  const avgDiseaseCost =
+    chronicDiseases.length > 0
+      ? Math.round(
+          chronicDiseases.reduce((sum, d) => sum + (Number(d.defaultMonthlyCost) || 0), 0) /
+            chronicDiseases.length
+        )
+      : 0;
 
   const weightCriteria = [
     {
@@ -216,30 +288,53 @@ export function SettingsView() {
             <span>قواعد التقييم والصرف</span>
           </button>
 
+          {SHOW_SHARIA_TAB && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'sharia'}
+              onClick={() => setActiveTab('sharia')}
+              className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-700 ${
+                activeTab === 'sharia'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Tag
+                size={14}
+                className={activeTab === 'sharia' ? 'text-[#005756]' : 'text-slate-400'}
+              />
+              <span>المصارف الشرعية</span>
+              <span className="tabular-nums text-[11px] font-medium text-slate-500">
+                ({shariaCategories.length})
+              </span>
+            </button>
+          )}
+
           <button
             type="button"
             role="tab"
-            aria-selected={activeTab === 'sharia'}
-            onClick={() => setActiveTab('sharia')}
+            aria-selected={activeTab === 'chronic_diseases'}
+            onClick={() => setActiveTab('chronic_diseases')}
             className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-700 ${
-              activeTab === 'sharia'
+              activeTab === 'chronic_diseases'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Tag
+            <Activity
               size={14}
-              className={activeTab === 'sharia' ? 'text-[#005756]' : 'text-slate-400'}
+              className={activeTab === 'chronic_diseases' ? 'text-[#005756]' : 'text-slate-400'}
             />
-            <span>المصارف الشرعية</span>
+            <span>الأمراض المزمنة والتكاليف</span>
             <span className="tabular-nums text-[11px] font-medium text-slate-500">
-              ({shariaCategories.length})
+              ({chronicDiseases.length})
             </span>
           </button>
         </div>
       </div>
 
-      {activeTab === 'rules' ? (
+      {activeTab === 'rules' && (
         <form onSubmit={handleSaveConfig} className="space-y-6">
           {/* Section 1: Criteria Weights */}
           <div className="p-5 sm:p-6 bg-white rounded-xl border border-slate-200/80 space-y-5">
@@ -474,7 +569,9 @@ export function SettingsView() {
             </div>
           </div>
         </form>
-      ) : (
+      )}
+
+      {SHOW_SHARIA_TAB && activeTab === 'sharia' && (
         /* Tab 2: Sharia Donation Categories Management */
         <div className="space-y-6">
           {/* Header & Primary Action */}
@@ -623,6 +720,162 @@ export function SettingsView() {
         </div>
       )}
 
+      {activeTab === 'chronic_diseases' && (
+        /* Tab 3: Chronic Diseases & Default Monthly Costs Management */
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-slate-800">
+                قائمة الأمراض المزمنة والتكاليف التقديرية
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                إدارة الأمراض التي تظهر تلقائياً في استمارة البحث الميداني (بطاقات أفراد الأسرة) مع متوسط تكلفة العلاج الشهرية.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={openNewDiseaseModal}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-10 px-4 bg-[#005756] hover:bg-[#004746] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer shrink-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2"
+            >
+              <Plus size={16} className="shrink-0" />
+              <span>إضافة مرض مزمن</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 bg-white rounded-xl border border-slate-200/80 flex items-center justify-between gap-3">
+              <div>
+                <span className="text-xs text-slate-500 font-medium">إجمالي الأمراض المسجلة</span>
+                <div className="text-xl font-bold tabular-nums text-slate-900 mt-1">
+                  {chronicDiseases.length}
+                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5">مدرجة بقائمة الاستمارة الميدانية</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-center text-slate-500 shrink-0">
+                <Activity size={18} />
+              </div>
+            </div>
+
+            <div className="p-4 bg-white rounded-xl border border-slate-200/80 flex items-center justify-between gap-3">
+              <div>
+                <span className="text-xs text-slate-500 font-medium">الأمراض المفعّلة</span>
+                <div className="text-xl font-bold tabular-nums text-slate-900 mt-1">
+                  {activeDiseasesCount}
+                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5">متاحة للاختيار الفوري للباحثين</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-center text-[#005756] shrink-0">
+                <CheckCircle2 size={18} />
+              </div>
+            </div>
+
+            <div className="p-4 bg-white rounded-xl border border-slate-200/80 flex items-center justify-between gap-3">
+              <div>
+                <span className="text-xs text-slate-500 font-medium">متوسط التكلفة التقديرية</span>
+                <div className="text-xl font-bold tabular-nums text-slate-900 mt-1">
+                  {avgDiseaseCost.toLocaleString('ar-EG')} ج.م
+                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5">تُملأ تلقائياً مع قابلية التعديل</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-center text-slate-400 shrink-0">
+                <Sliders size={18} />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+              <h3 className="font-bold text-slate-800 text-sm">جدول الأمراض المزمنة وتكاليفها</h3>
+              <span className="text-xs text-slate-500">
+                أي تعديل ينعكس مباشرة في خطوة أفراد الأسرة (س11) داخل البحث الميداني
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-right border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50/70 border-b border-slate-200/80 text-slate-600 font-semibold">
+                    <th className="py-3 px-5 whitespace-nowrap">مسمى المرض / الحالة المزمنة</th>
+                    <th className="py-3 px-4 whitespace-nowrap">متوسط التكلفة الشهرية</th>
+                    <th className="py-3 px-4 whitespace-nowrap">حالة التفعيل</th>
+                    <th className="py-3 px-5 text-center whitespace-nowrap">إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {chronicDiseases.map((d) => (
+                    <tr key={d.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-3.5 px-5 font-semibold text-slate-900 whitespace-nowrap">
+                        {d.name}
+                      </td>
+                      <td className="py-3.5 px-4 font-bold font-mono tabular-nums text-[#005756] whitespace-nowrap">
+                        {d.defaultMonthlyCost.toLocaleString('ar-EG')} ج.م / شهر
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={d.isActive}
+                          onClick={() => {
+                            toggleChronicDisease(d.id);
+                            toast.info(`${d.isActive ? 'تم إيقاف' : 'تم تفعيل'} "${d.name}"`);
+                          }}
+                          className="inline-flex items-center gap-2.5 cursor-pointer rounded-lg p-1 -m-1 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-700"
+                        >
+                          <span
+                            className={`relative inline-flex h-5 w-9 shrink-0 items-center justify-start p-0.5 rounded-full transition-colors duration-150 ${
+                              d.isActive ? 'bg-[#005756]' : 'bg-slate-200'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 rounded-full bg-white shadow-xs transition-transform duration-150 ${
+                                d.isActive ? '-translate-x-4' : 'translate-x-0'
+                              }`}
+                            />
+                          </span>
+                          <span
+                            className={`text-xs font-medium ${
+                              d.isActive ? 'text-slate-800' : 'text-slate-500'
+                            }`}
+                          >
+                            {d.isActive ? 'مفعّل' : 'متوقف'}
+                          </span>
+                        </button>
+                      </td>
+                      <td className="py-3.5 px-5 text-center whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openEditDiseaseModal(d)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200/80 text-slate-700 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                          >
+                            <Edit2 size={13} className="text-slate-400 shrink-0" />
+                            <span>تعديل</span>
+                          </button>
+                          {chronicDiseases.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                deleteChronicDisease(d.id);
+                                toast.info(`تم حذف "${d.name}" من القائمة`);
+                              }}
+                              className="p-1.5 bg-white hover:bg-rose-50 border border-slate-200/80 hover:border-rose-200 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
+                              title="حذف"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Category Add/Edit Modal */}
       {isCategoryModalOpen && (
         <div
@@ -677,7 +930,7 @@ export function SettingsView() {
                     setCategoryError('');
                   }}
                   placeholder="مثال: زكاة فطر / كفالة طالب علم / كفارة يمين"
-                  className="w-full px-3 py-2 text-xs text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-teal-700/20"
+                  className="w-full h-10 px-3 py-2 text-xs text-slate-900 bg-white border border-slate-200 rounded-xl focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-teal-700/20"
                 />
               </div>
 
@@ -695,7 +948,7 @@ export function SettingsView() {
                   value={categoryDesc}
                   onChange={(e) => setCategoryDesc(e.target.value)}
                   placeholder="اكتب باختصار شروط الصرف والأسر المستهدفة من هذا البند..."
-                  className="w-full px-3 py-2 text-xs text-slate-900 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-teal-700/20 resize-none"
+                  className="w-full px-3 py-2 text-xs text-slate-900 bg-white border border-slate-200 rounded-xl focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-teal-700/20 resize-none"
                 />
               </div>
 
@@ -713,6 +966,107 @@ export function SettingsView() {
                   className="h-9 px-5 bg-[#005756] hover:bg-[#004746] text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2"
                 >
                   {editingCategory ? 'حفظ التعديلات' : 'إضافة المصرف'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Chronic Disease Add/Edit Modal */}
+      {isDiseaseModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setIsDiseaseModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl border border-slate-200/80 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white">
+              <div>
+                <h3 className="font-bold text-slate-800 text-base">
+                  {editingDisease ? 'تعديل بيانات المرض المزمن' : 'إضافة مرض مزمن جديد'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  تحديد اسم المرض ومتوسط تكلفة العلاج الشهرية الافتراضية
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDiseaseModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                aria-label="إغلاق"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveDisease} className="p-6 space-y-4">
+              {diseaseError && (
+                <div className="p-3 bg-rose-50/70 border border-rose-200/80 text-rose-600 rounded-lg text-xs font-medium">
+                  {diseaseError}
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="disease-name-input"
+                  className="block text-xs font-semibold text-slate-700"
+                >
+                  اسم المرض أو الحالة المزمنة <span className="text-rose-600">*</span>
+                </label>
+                <input
+                  id="disease-name-input"
+                  type="text"
+                  required
+                  value={diseaseName}
+                  onChange={(e) => {
+                    setDiseaseName(e.target.value);
+                    setDiseaseError('');
+                  }}
+                  placeholder="مثال: ضمور عضلات / غسيل كلى / سكري مزمن"
+                  className="w-full h-10 px-3 py-2 text-xs text-slate-900 bg-white border border-slate-200 rounded-xl focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-teal-700/20"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="disease-cost-input"
+                  className="block text-xs font-semibold text-slate-700"
+                >
+                  متوسط التكلفة الشهرية التقديرية
+                </label>
+                <AmountInput
+                  id="disease-cost-input"
+                  value={diseaseCost}
+                  onChange={setDiseaseCost}
+                  size="md"
+                  min={0}
+                  max={25000}
+                  step={50}
+                  currency="ج.م/شهر"
+                  className="w-full"
+                  inputClassName="font-semibold"
+                />
+                <p className="text-[11px] text-slate-500">
+                  تظهر هذه التكلفة تلقائياً عند اختيار المرض في استمارة البحث الميداني مع إمكانية تعديلها.
+                </p>
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsDiseaseModalOpen(false)}
+                  className="h-9 px-4 bg-white border border-slate-200/80 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="h-9 px-5 bg-[#005756] hover:bg-[#004746] text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  {editingDisease ? 'حفظ التعديلات' : 'إضافة للقائمة'}
                 </button>
               </div>
             </form>

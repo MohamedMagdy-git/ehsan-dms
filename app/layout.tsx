@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ServiceWorkerRegister } from '@/components/common/service-worker-register';
+import { ToastProvider } from '@/context/toast-context';
 
 export const viewport: Viewport = {
   themeColor: '#005756',
@@ -41,8 +42,10 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" className="h-full overflow-x-hidden" suppressHydrationWarning>
       <body className="h-full bg-slate-50 text-slate-900 antialiased selection:bg-teal-700 selection:text-white overflow-x-hidden w-full" suppressHydrationWarning>
-        <ServiceWorkerRegister />
-        {children}
+        <ToastProvider>
+          <ServiceWorkerRegister />
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );

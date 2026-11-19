@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useApp } from '@/context/app-context';
 import { UserCheck, Plus, Check, X, UserPlus, AlertCircle, ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export interface ResearcherSelectProps {
   value: string;
@@ -11,6 +12,8 @@ export interface ResearcherSelectProps {
   required?: boolean;
   disabled?: boolean;
   className?: string;
+  labelClassName?: string;
+  selectClassName?: string;
   placeholder?: string;
   helperText?: string;
 }
@@ -22,6 +25,8 @@ export function ResearcherSelect({
   required = false,
   disabled = false,
   className = '',
+  labelClassName = '',
+  selectClassName = '',
   placeholder = 'اختر الباحث الميداني المسؤول...',
   helperText,
 }: ResearcherSelectProps) {
@@ -97,7 +102,12 @@ export function ResearcherSelect({
     <div className={`space-y-1 ${className}`}>
       {label && (
         <div className="flex items-center justify-between mb-1">
-          <label className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+          <label
+            className={cn(
+              'text-xs font-semibold text-slate-500 flex items-center gap-1.5',
+              labelClassName
+            )}
+          >
             <UserCheck size={14} className="text-[#005756] shrink-0" />
             <span>{label}</span>
             {required && <span className="text-rose-600">*</span>}
@@ -183,7 +193,10 @@ export function ResearcherSelect({
             onChange={handleSelectChange}
             disabled={disabled}
             required={required}
-            className="w-full h-10 px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-[#005756]/20 focus:border-[#005756] focus:outline-hidden font-medium text-slate-800 transition-colors disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer appearance-none pr-3 pl-8 shadow-2xs"
+            className={cn(
+              'w-full h-10 px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-[#005756]/20 focus:border-[#005756] focus:outline-hidden font-medium text-slate-800 transition-colors disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer appearance-none pr-3 pl-8 shadow-2xs',
+              selectClassName
+            )}
           >
             <option value="" disabled={required}>
               {placeholder}

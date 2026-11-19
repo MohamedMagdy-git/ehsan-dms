@@ -169,7 +169,7 @@ export function checkVisitOverdueStatus(
   referenceDateStr: string = '2026-10-18'
 ): { isOverdue: boolean; monthsElapsed: number; daysOverdue: number } {
   if (!lastVisitDate) {
-    return { isOverdue: true, monthsElapsed: 99, daysOverdue: 999 };
+    return { isOverdue: false, monthsElapsed: 0, daysOverdue: 0 };
   }
 
   const visit = new Date(lastVisitDate);

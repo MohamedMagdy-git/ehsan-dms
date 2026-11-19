@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useApp } from '@/context/app-context';
+import { useToast } from '@/context/toast-context';
 import {
   X,
   ArrowRight,
   ArrowLeft,
   CheckCircle2,
-  AlertCircle,
   UploadCloud,
   User,
   Phone,
@@ -37,6 +37,10 @@ import {
   Loader2,
   RotateCcw,
   Volume2,
+  AlertTriangle,
+  Save,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import {
   CaseStudyReport,
@@ -48,8 +52,38 @@ import {
 import { ResearcherSelect } from '@/components/cases/researcher-select';
 import { ResearcherVoicePlayer } from '@/components/common/researcher-voice-player';
 
-const DRAFT_STORAGE_KEY = 'ehsan_case_study_draft_v1';
+const LEGACY_DRAFT_STORAGE_KEY = 'ehsan_case_study_draft_v1';
+const getDraftStorageKey = (caseId: string | null) =>
+  caseId ? `case_study_draft_${caseId}` : 'case_study_draft_general';
 const ENABLE_AI_EXTRACTION_V2 = false; // ميزة التفريغ الآلي بالذكاء الاصطناعي معطلة في الإصدار الأول v1
+
+const ASSISTANCE_TYPE_OPTIONS = [
+  {
+    id: 'كفالة شهرية',
+    label: 'كفالة شهرية',
+    desc: 'دعم مالي شهري منتظم لتغطية أساسيات المعيشة',
+  },
+  {
+    id: 'مساعدة علاجية',
+    label: 'مساعدة علاجية',
+    desc: 'توفير أدوية أو فحوصات أو تدخل طبي',
+  },
+  {
+    id: 'سداد متأخرات إيجار',
+    label: 'سداد متأخرات إيجار',
+    desc: 'سداد إيجار متراكم لحماية الأسرة من الطرد',
+  },
+  {
+    id: 'دعم غذائي',
+    label: 'دعم غذائي',
+    desc: 'شنطة غذائية شهرية أو تموين أساسي للأسرة',
+  },
+  {
+    id: 'مساعدة طارئة',
+    label: 'مساعدة طارئة',
+    desc: 'تدخل سريع لظرف عاجل أو أزمة مؤقتة',
+  },
+] as const;
 
 // SpeechRecognition polyfill interface
 type IWindow = typeof window & {
@@ -74,26 +108,29 @@ export function CaseStudyModal() {
     setIsFieldSurveyModalOpen,
     surveyTargetCaseId,
     cases,
+    chronicDiseases,
     submitCaseStudyReport,
     currentSessionProfile,
     setActiveSection,
   } = useApp();
 
-  // Wizard Step: Single atomic questions (1 to 23)
+  const { showToast: triggerToast, toast } = useToast();
+
+  // Wizard Step: Single atomic questions (1 to 24)
   const [currentQuestion, setCurrentQuestion] = useState<number>(1);
-  const totalQuestions = 23;
+  const totalQuestions = 24;
 
-  // Toast notification state
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const showToast = useCallback((message: string) => {
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    setToastMessage(message);
-    toastTimeoutRef.current = setTimeout(() => {
-      setToastMessage(null);
-    }, 4000);
-  }, []);
+  const showToast = useCallback(
+    (message: string) => {
+      const isPositive =
+        message.startsWith('تم') || message.startsWith('✨');
+      triggerToast({
+        title: message,
+        variant: isPositive ? 'success' : 'info',
+      });
+    },
+    [triggerToast]
+  );
 
   // Completion / Success state
   const [isSuccessSubmitted, setIsSuccessSubmitted] = useState(false);
@@ -104,9 +141,11 @@ export function CaseStudyModal() {
     membersCount: number;
   } | null>(null);
 
-  // Draft restored state
+  // Draft & close-confirmation state
   const [hasDraftAvailable, setHasDraftAvailable] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const isDraftInitializedRef = useRef(false);
 
   // ----------------------------------------------------
   // Form State Fields
@@ -120,10 +159,13 @@ export function CaseStudyModal() {
   const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isCapturingGps, setIsCapturingGps] = useState(false);
   const [referralSource, setReferralSource] = useState('ترشيح من متطوع / باحث ميداني');
+  const [otherReferralSource, setOtherReferralSource] = useState('');
   const [priorityLevel, setPriorityLevel] = useState<PriorityLevel>('high');
   const [housingStatus, setHousingStatus] = useState<string>('إيجار غير مستقر / مهدد بالإخلاء');
   const [caseSummary, setCaseSummary] = useState('');
   const [landmarkAddress, setLandmarkAddress] = useState('');
+  const [adminRevisionNote, setAdminRevisionNote] = useState<string | null>(null);
+  const [isRevisionBannerExpanded, setIsRevisionBannerExpanded] = useState(true);
 
   // مرافق السكن والأجهزة الأساسية
   const [roofType, setRoofType] = useState<'concrete' | 'wood_straw' | 'damaged'>('wood_straw');
@@ -226,9 +268,9 @@ export function CaseStudyModal() {
     deathOrDivorceCertificates: false,
   });
 
-  const [additionalNotesAndRemarks, setAdditionalNotesAndRemarks] = useState(
-    'الحالة مستحقة للدعم المالي الشهري العاجل مع سداد متأخرات الإيجار لتفادي الطرد وتوفير علاج شهري.'
-  );
+  const [recommendedAssistanceType, setRecommendedAssistanceType] = useState<string>('كفالة شهرية');
+  const [recommendedAmountOverride, setRecommendedAmountOverride] = useState<number | null>(null);
+  const [additionalNotesAndRemarks, setAdditionalNotesAndRemarks] = useState('');
 
   // New Custom Document dialog / quick input
   const [isAddingCustomDoc, setIsAddingCustomDoc] = useState(false);
@@ -243,6 +285,8 @@ export function CaseStudyModal() {
     (Number(monthlyDebtsInstallments) || 0) +
     (Number(monthlyMedicalCosts) || 0);
   const netFinancialGap = Math.max(0, totalObligations - totalIncome);
+  const effectiveRecommendedAmount =
+    recommendedAmountOverride !== null ? recommendedAmountOverride : netFinancialGap;
 
   // ----------------------------------------------------
   // Full Voice Recording & AI Auto-fill (MediaRecorder)
@@ -715,59 +759,452 @@ export function CaseStudyModal() {
     );
   };
 
+  // Refs to prevent stale closures & avoid re-initializing on visitorName/cases updates
+  const casesRef = useRef(cases);
+  const profileNameRef = useRef(currentSessionProfile.name);
+  useEffect(() => {
+    casesRef.current = cases;
+  }, [cases]);
+  useEffect(() => {
+    profileNameRef.current = currentSessionProfile.name;
+  }, [currentSessionProfile.name]);
+
+  const resetFormToDefaults = useCallback(() => {
+    setCurrentQuestion(1);
+    setActiveMemberIndex(0);
+    setCaseName('');
+    setVisitorName(profileNameRef.current || 'أ. هبة الشامي');
+    setVisitDate(new Date().toISOString().split('T')[0]);
+    setContactPhone('');
+    setSecondaryPhone('');
+    setAddress('');
+    setGpsLocation(null);
+    setReferralSource('ترشيح من متطوع / باحث ميداني');
+    setOtherReferralSource('');
+    setPriorityLevel('high');
+    setHousingStatus('إيجار غير مستقر / مهدد بالإخلاء');
+    setCaseSummary('');
+    setLandmarkAddress('');
+    setRoofType('wood_straw');
+    setWaterConnection('shared');
+    setElectricityMeter('code_meter');
+    setHasPrivateBathroom(true);
+    setBasicAppliances(['غسالة', 'بوتاجاز']);
+    setFamilyMembers([
+      {
+        id: 'mem-init-1',
+        orderNumber: 1,
+        name: '',
+        relation: 'نفس الحالة (صاحب الملف الأساسي)',
+        maritalStatus: 'متزوج',
+        age: 46,
+        educationLevel: 'ابتدائي',
+        workCapacity: 'عاجز جزئياً أو مسن',
+        currentJob: 'عمالة يومية غير منتظمة',
+        isPrimaryCaregiver: true,
+        chronicIllness: {
+          diseaseId: 'cd-disc-joints',
+          conditionName: 'انزلاق غضروفي وخشونة المفاصل',
+          monthlyCost: 400,
+          isCoveredByStateInsurance: false,
+        },
+      },
+      {
+        id: 'mem-init-2',
+        orderNumber: 2,
+        name: '',
+        relation: 'الزوج / الزوجة',
+        maritalStatus: 'متزوج',
+        age: 41,
+        educationLevel: 'أمية',
+        workCapacity: 'ربة منزل',
+        currentJob: 'ربة منزل',
+        isPrimaryCaregiver: false,
+      },
+    ]);
+    setBasicIncomeAmount(650);
+    setBasicIncomeSources('معاش تكافل وكرامة');
+    setAdditionalIncomeAmount(400);
+    setAdditionalIncomeSources('يوميات غير منتظمة');
+    setFamilyAssets('لا توجد أي أملاك مسجلة');
+    setMonthlyBasicExpenses(2500);
+    setMonthlyDebtsInstallments(600);
+    setDebtsAndObligations('ديون بقالة ومتأخرات إيجار شهرين لصاحب العقار');
+    setMedicalConditionDescription(
+      'رب الأسرة يعاني من انزلاق غضروفي حاد وخشونة بالركبتين تعيقه عن العمل المنتظم'
+    );
+    setChronicVerification('مؤكد بتقارير وفحوصات طبية حديثة');
+    setStateHealthInsurance('غير مشمول بأي تأمين صحي');
+    setMonthlyMedicalCosts(450);
+    setUploadedDocs([
+      {
+        id: 'doc-1',
+        category: 'adultIds',
+        title: 'بطاقات سارية لكامل البالغين (وش وضهر)',
+        fileName: 'national-ids.jpg',
+        fileSize: '1.8 MB',
+        progress: 100,
+        status: 'completed',
+      },
+      {
+        id: 'doc-2',
+        category: 'minorCerts',
+        title: 'شهادات ميلاد أفراد الأسرة القصر',
+        fileName: 'birth-certificates.pdf',
+        fileSize: '950 KB',
+        progress: 100,
+        status: 'completed',
+      },
+    ]);
+    setChecklist({
+      nationalIdsAdults: true,
+      birthCertificatesMinors: true,
+      insurancePrintOut: true,
+      utilityReceipt: true,
+      leaseContractOrRentReceipt: false,
+      recentMedicalProof: true,
+      deathOrDivorceCertificates: false,
+    });
+    setRecommendedAssistanceType('كفالة شهرية');
+    setRecommendedAmountOverride(null);
+    setAdditionalNotesAndRemarks('');
+    setAdminRevisionNote(null);
+    setIsRevisionBannerExpanded(true);
+    setExecutiveSummary(null);
+    setHasDraftAvailable(false);
+    setLastSavedTime(null);
+    setFullAudioUrl(null);
+    setFullAudioDuration(0);
+    setIsPlayingAudio(false);
+  }, []);
+
   // ----------------------------------------------------
-  // Load target case data if modal was opened for an existing case
+  // Load target case data if modal was opened for an existing case (fresh session)
   // ----------------------------------------------------
-  const loadTargetCase = useCallback(
-    (caseId: string) => {
-      const target = cases.find((c) => c.id === caseId);
-      if (!target) return;
+  const loadTargetCase = useCallback((caseId: string) => {
+    const target = casesRef.current.find((c) => c.id === caseId);
+    if (!target) return;
 
-      setCaseName(target.primaryName || target.fullName || '');
-      setVisitorName(target.assignedResearcher || currentSessionProfile.name || 'أ. هبة الشامي');
-      setContactPhone(target.phone || '');
-      setAddress(`${target.governorate || 'القاهرة'} - ${target.district || 'بولاق الدكرور'} - ${target.address || ''}`);
-      setPriorityLevel(target.priority || 'high');
+    setCaseName(target.primaryName || target.fullName || '');
+    setVisitorName(target.assignedResearcher || profileNameRef.current || 'أ. هبة الشامي');
+    setContactPhone(target.phone || '');
+    setSecondaryPhone(target.secondaryPhone || '');
 
-      if (target.householdMembers && target.householdMembers.length > 0) {
-        setFamilyMembers(
-          target.householdMembers.map((m, idx) => ({
-            id: m.id || `mem-${idx}`,
-            orderNumber: idx + 1,
-            name: m.name || '',
-            relation: m.relation || 'الابن / الابنة',
-            maritalStatus: m.maritalStatus || 'أعزب',
-            age: m.age || 20,
-            educationLevel: m.educationLevel || 'إعدادي',
-            workCapacity: m.workCapacity || 'قادر على العمل',
-            currentJob: m.workStatus || 'لا يعمل',
-          }))
-        );
+    const gov = target.governorate || 'القاهرة';
+    const dist = target.district || 'بولاق الدكرور';
+    setAddress(
+      target.address && target.address.startsWith(gov)
+        ? target.address
+        : `${gov} - ${dist} - ${target.address || ''}`
+    );
+    setLandmarkAddress(target.directionsNote || '');
+
+    if (
+      typeof target.gpsLocation?.latitude === 'number' &&
+      typeof target.gpsLocation?.longitude === 'number'
+    ) {
+      setGpsLocation({
+        lat: target.gpsLocation.latitude,
+        lng: target.gpsLocation.longitude,
+      });
+    }
+
+    if (target.referralSource) {
+      if (target.referralSource.startsWith('أخرى:')) {
+        setReferralSource('أخرى (مصدر آخر)');
+        setOtherReferralSource(target.referralSource.replace(/^أخرى:\s*/, ''));
+      } else {
+        setReferralSource(target.referralSource);
       }
+    }
 
-      if (target.financials) {
-        setBasicIncomeAmount(target.financials.directIncome || 600);
-        setAdditionalIncomeAmount(target.financials.indirectIncome || 400);
-        setMonthlyBasicExpenses(target.financials.basicExpenses || 2400);
-        setMonthlyMedicalCosts(target.financials.medicalExpenses || 450);
-      }
+    setPriorityLevel(target.priority || 'high');
 
-      if (target.notes) {
-        setCaseSummary(target.notes.slice(0, 200));
-        setAdditionalNotesAndRemarks(target.notes);
+    if (target.vulnerability?.housingCondition) {
+      const cond = target.vulnerability.housingCondition;
+      if (cond === 'owned') {
+        setHousingStatus('ملك للأسرة / ورثة');
+      } else if (cond === 'rent_stable') {
+        setHousingStatus('إيجار قديم أو شبه مستقر');
+      } else if (cond === 'dilapidated_urgent') {
+        setHousingStatus('مأوى غير لائق / آيل للسقوط');
+      } else {
+        setHousingStatus('إيجار غير مستقر / مهدد بالإخلاء');
       }
-    },
-    [cases, currentSessionProfile.name]
+    }
+
+    if (target.housingFacilities) {
+      setRoofType(target.housingFacilities.roofType);
+      setWaterConnection(target.housingFacilities.waterConnection);
+      setElectricityMeter(target.housingFacilities.electricityMeter);
+      setHasPrivateBathroom(target.housingFacilities.hasPrivateBathroom);
+      setBasicAppliances(target.housingFacilities.basicAppliancesAvailable || []);
+    }
+
+    if (target.householdMembers && target.householdMembers.length > 0) {
+      setFamilyMembers(
+        target.householdMembers.map((m, idx) => ({
+          id: m.id || `mem-${idx}`,
+          orderNumber: idx + 1,
+          name: m.name || '',
+          relation: m.relation || 'الابن / الابنة',
+          maritalStatus: m.maritalStatus || 'أعزب',
+          age: m.age || 20,
+          educationLevel: m.educationLevel || 'إعدادي',
+          workCapacity: m.workCapacity || 'قادر على العمل',
+          currentJob: m.workStatus || 'لا يعمل',
+        }))
+      );
+    }
+
+    if (target.financials) {
+      setBasicIncomeAmount(target.financials.directIncome || 0);
+      setAdditionalIncomeAmount(target.financials.indirectIncome || 0);
+      setMonthlyBasicExpenses(target.financials.basicExpenses || 0);
+      setMonthlyMedicalCosts(target.financials.medicalExpenses || 0);
+    }
+
+    if (target.vulnerability?.chronicIllnessDetails) {
+      setMedicalConditionDescription(target.vulnerability.chronicIllnessDetails);
+    }
+
+    if (target.documentsChecklist) {
+      setChecklist(target.documentsChecklist);
+    } else if (target.attachments && target.attachments.length > 0) {
+      const nonVoice = target.attachments.filter((a) => a.category !== 'voice_memo');
+      setChecklist((prev) => ({
+        ...prev,
+        nationalIdsAdults: nonVoice.some((a) => a.category === 'national_id') || prev.nationalIdsAdults,
+        birthCertificatesMinors: nonVoice.some((a) => a.category === 'family_records') || prev.birthCertificatesMinors,
+        insurancePrintOut: nonVoice.some((a) => a.category === 'income_proof') || prev.insurancePrintOut,
+        utilityReceipt: nonVoice.some((a) => a.category === 'utility_bill' || a.category === 'housing_contract') || prev.utilityReceipt,
+        recentMedicalProof: nonVoice.some((a) => a.category === 'medical_report') || prev.recentMedicalProof,
+      }));
+    }
+
+    if (target.attachments && target.attachments.length > 0) {
+      const restoredDocs: AttachmentItem[] = target.attachments
+        .filter((a) => a.category !== 'voice_memo')
+        .map((a) => ({
+          id: a.id,
+          category:
+            a.category === 'national_id'
+              ? 'adultIds'
+              : a.category === 'family_records'
+              ? 'minorCerts'
+              : a.category === 'medical_report'
+              ? 'medicalProof'
+              : 'customExtra',
+          title: a.title,
+          fileName: a.fileName,
+          fileSize: a.fileSize || '1.2 MB',
+          progress: 100,
+          status: 'completed',
+        }));
+      if (restoredDocs.length > 0) {
+        setUploadedDocs(restoredDocs);
+      }
+    }
+
+    if (target.voiceNoteUrl) {
+      setFullAudioUrl(target.voiceNoteUrl);
+      if (target.voiceNoteDuration) {
+        setFullAudioDuration(target.voiceNoteDuration);
+      }
+    }
+
+    setCaseSummary(target.caseSummary || '');
+    setRecommendedAssistanceType(target.recommendedAssistanceType || 'كفالة شهرية');
+    setRecommendedAmountOverride(
+      typeof target.recommendedMonthlyAmount === 'number'
+        ? target.recommendedMonthlyAmount
+        : null
+    );
+    setAdditionalNotesAndRemarks(
+      target.researcherJustification ||
+        (!target.recommendedAssistanceType && target.researcherRecommendation
+          ? target.researcherRecommendation
+          : '')
+    );
+
+    if (target.status === 'needs_revision') {
+      const revisionText =
+        target.adminRevisionNote?.trim() ||
+        (target.notes ? target.notes.split('\n\n')[0].trim() : '');
+      setAdminRevisionNote(revisionText || null);
+      setIsRevisionBannerExpanded(true);
+    } else {
+      setAdminRevisionNote(null);
+    }
+  }, []);
+
+  const applyDraftObject = useCallback((d: any) => {
+    if (d.caseName !== undefined) setCaseName(d.caseName);
+    if (d.visitorName !== undefined) setVisitorName(d.visitorName);
+    if (d.visitDate !== undefined) setVisitDate(d.visitDate);
+    if (d.contactPhone !== undefined) setContactPhone(d.contactPhone);
+    if (d.secondaryPhone !== undefined) setSecondaryPhone(d.secondaryPhone);
+    if (d.address !== undefined) setAddress(d.address);
+    if (d.gpsLocation !== undefined) setGpsLocation(d.gpsLocation);
+    if (d.referralSource !== undefined) setReferralSource(d.referralSource);
+    if (d.otherReferralSource !== undefined) setOtherReferralSource(d.otherReferralSource);
+    if (d.priorityLevel !== undefined) setPriorityLevel(d.priorityLevel);
+    if (d.housingStatus !== undefined) setHousingStatus(d.housingStatus);
+    if (d.caseSummary !== undefined) setCaseSummary(d.caseSummary);
+    if (d.landmarkAddress !== undefined) setLandmarkAddress(d.landmarkAddress);
+    if (d.roofType !== undefined) setRoofType(d.roofType);
+    if (d.waterConnection !== undefined) setWaterConnection(d.waterConnection);
+    if (d.electricityMeter !== undefined) setElectricityMeter(d.electricityMeter);
+    if (d.hasPrivateBathroom !== undefined) setHasPrivateBathroom(d.hasPrivateBathroom);
+    if (Array.isArray(d.basicAppliances)) setBasicAppliances(d.basicAppliances);
+    if (d.checklist) setChecklist((prev) => ({ ...prev, ...d.checklist }));
+    if (Array.isArray(d.familyMembers) && d.familyMembers.length > 0) setFamilyMembers(d.familyMembers);
+    if (d.activeMemberIndex !== undefined) setActiveMemberIndex(d.activeMemberIndex);
+    if (d.basicIncomeAmount !== undefined) setBasicIncomeAmount(d.basicIncomeAmount);
+    if (d.basicIncomeSources !== undefined) setBasicIncomeSources(d.basicIncomeSources);
+    if (d.additionalIncomeAmount !== undefined) setAdditionalIncomeAmount(d.additionalIncomeAmount);
+    if (d.additionalIncomeSources !== undefined) setAdditionalIncomeSources(d.additionalIncomeSources);
+    if (d.familyAssets !== undefined) setFamilyAssets(d.familyAssets);
+    if (d.monthlyBasicExpenses !== undefined) setMonthlyBasicExpenses(d.monthlyBasicExpenses);
+    if (d.monthlyDebtsInstallments !== undefined) setMonthlyDebtsInstallments(d.monthlyDebtsInstallments);
+    if (d.debtsAndObligations !== undefined) setDebtsAndObligations(d.debtsAndObligations);
+    if (d.medicalConditionDescription !== undefined) setMedicalConditionDescription(d.medicalConditionDescription);
+    if (d.chronicVerification !== undefined) setChronicVerification(d.chronicVerification);
+    if (d.stateHealthInsurance !== undefined) setStateHealthInsurance(d.stateHealthInsurance);
+    if (d.monthlyMedicalCosts !== undefined) setMonthlyMedicalCosts(d.monthlyMedicalCosts);
+    if (Array.isArray(d.uploadedDocs)) setUploadedDocs(d.uploadedDocs);
+    if (d.recommendedAssistanceType !== undefined) setRecommendedAssistanceType(d.recommendedAssistanceType);
+    if (d.recommendedAmountOverride !== undefined) setRecommendedAmountOverride(d.recommendedAmountOverride);
+    if (d.additionalNotesAndRemarks !== undefined) setAdditionalNotesAndRemarks(d.additionalNotesAndRemarks);
+    if (d.executiveSummary !== undefined) setExecutiveSummary(d.executiveSummary);
+    if (typeof d.currentQuestion === 'number' && d.currentQuestion >= 1 && d.currentQuestion <= 24) {
+      setCurrentQuestion(d.currentQuestion);
+    }
+    setLastSavedTime(
+      d.savedAt
+        ? new Date(d.savedAt).toLocaleTimeString('ar-EG', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : null
+    );
+  }, []);
+
+  // Build current draft snapshot (kept fresh via ref for flush on visibilitychange / pagehide / close)
+  const buildDraftPayload = useCallback(
+    () => ({
+      savedAt: new Date().toISOString(),
+      caseId: surveyTargetCaseId || 'general',
+      currentQuestion,
+      activeMemberIndex,
+      caseName,
+      visitorName,
+      visitDate,
+      contactPhone,
+      secondaryPhone,
+      address,
+      gpsLocation,
+      referralSource,
+      otherReferralSource,
+      priorityLevel,
+      housingStatus,
+      caseSummary,
+      landmarkAddress,
+      roofType,
+      waterConnection,
+      electricityMeter,
+      hasPrivateBathroom,
+      basicAppliances,
+      checklist,
+      familyMembers,
+      basicIncomeAmount,
+      basicIncomeSources,
+      additionalIncomeAmount,
+      additionalIncomeSources,
+      familyAssets,
+      monthlyBasicExpenses,
+      monthlyDebtsInstallments,
+      debtsAndObligations,
+      medicalConditionDescription,
+      chronicVerification,
+      stateHealthInsurance,
+      monthlyMedicalCosts,
+      uploadedDocs,
+      recommendedAssistanceType,
+      recommendedAmountOverride,
+      additionalNotesAndRemarks,
+      executiveSummary,
+    }),
+    [
+      surveyTargetCaseId,
+      currentQuestion,
+      activeMemberIndex,
+      caseName,
+      visitorName,
+      visitDate,
+      contactPhone,
+      secondaryPhone,
+      address,
+      gpsLocation,
+      referralSource,
+      otherReferralSource,
+      priorityLevel,
+      housingStatus,
+      caseSummary,
+      landmarkAddress,
+      roofType,
+      waterConnection,
+      electricityMeter,
+      hasPrivateBathroom,
+      basicAppliances,
+      checklist,
+      familyMembers,
+      basicIncomeAmount,
+      basicIncomeSources,
+      additionalIncomeAmount,
+      additionalIncomeSources,
+      familyAssets,
+      monthlyBasicExpenses,
+      monthlyDebtsInstallments,
+      debtsAndObligations,
+      medicalConditionDescription,
+      chronicVerification,
+      stateHealthInsurance,
+      monthlyMedicalCosts,
+      uploadedDocs,
+      recommendedAssistanceType,
+      recommendedAmountOverride,
+      additionalNotesAndRemarks,
+      executiveSummary,
+    ]
   );
 
-  // Initialize modal state on mount or open
+  const saveDraftNow = useCallback(() => {
+    if (!isFieldSurveyModalOpen || isSuccessSubmitted || !isDraftInitializedRef.current) return;
+    try {
+      const key = getDraftStorageKey(surveyTargetCaseId);
+      localStorage.setItem(key, JSON.stringify(buildDraftPayload()));
+      setLastSavedTime(
+        new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+      );
+    } catch {
+      // ignore storage quota errors
+    }
+  }, [isFieldSurveyModalOpen, isSuccessSubmitted, surveyTargetCaseId, buildDraftPayload]);
+
+  const saveDraftNowRef = useRef(saveDraftNow);
+  useEffect(() => {
+    saveDraftNowRef.current = saveDraftNow;
+  }, [saveDraftNow]);
+
+  // Initialize modal state ONLY when modal opens or surveyTargetCaseId changes
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!isFieldSurveyModalOpen) {
+      isDraftInitializedRef.current = false;
       setIsSuccessSubmitted(false);
       setSubmittedSummary(null);
-      setCurrentQuestion(1);
-      setActiveMemberIndex(0);
+      setShowCloseConfirm(false);
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -779,73 +1216,68 @@ export function CaseStudyModal() {
       return;
     }
 
-    if (surveyTargetCaseId) {
-      loadTargetCase(surveyTargetCaseId);
-    } else {
-      try {
-        const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
-        if (savedDraft) {
-          const parsed = JSON.parse(savedDraft);
-          if (parsed && parsed.caseName) {
-            setHasDraftAvailable(true);
-            setLastSavedTime(
-              parsed.savedAt
-                ? new Date(parsed.savedAt).toLocaleTimeString('ar-EG', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })
-                : null
-            );
-          }
-        }
-      } catch {
-        // ignore
-      }
+    isDraftInitializedRef.current = false;
+    setShowCloseConfirm(false);
 
-      if (!visitorName) {
-        setVisitorName(currentSessionProfile.name || 'أ. هبة الشامي');
+    const draftKey = getDraftStorageKey(surveyTargetCaseId);
+    let restored = false;
+
+    try {
+      const savedDraft =
+        localStorage.getItem(draftKey) ||
+        (!surveyTargetCaseId ? localStorage.getItem(LEGACY_DRAFT_STORAGE_KEY) : null);
+
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft);
+        if (parsed && typeof parsed === 'object') {
+          resetFormToDefaults();
+          applyDraftObject(parsed);
+          restored = true;
+          const resumedStep = Number(parsed.currentQuestion) || 1;
+          toast.info(`تم استرجاع مسودة البحث الميداني تلقائياً (الخطوة ${resumedStep} من ${totalQuestions})`);
+        }
+      }
+    } catch {
+      // ignore parse failures and fallback to fresh load
+    }
+
+    if (!restored) {
+      resetFormToDefaults();
+      if (surveyTargetCaseId) {
+        loadTargetCase(surveyTargetCaseId);
+      }
+    } else if (surveyTargetCaseId) {
+      const target = casesRef.current.find((c) => c.id === surveyTargetCaseId);
+      if (target?.status === 'needs_revision') {
+        const revisionText =
+          target.adminRevisionNote?.trim() ||
+          (target.notes ? target.notes.split('\n\n')[0].trim() : '');
+        setAdminRevisionNote(revisionText || null);
+        setIsRevisionBannerExpanded(true);
+      } else {
+        setAdminRevisionNote(null);
       }
     }
-  }, [isFieldSurveyModalOpen, surveyTargetCaseId, loadTargetCase, currentSessionProfile.name, visitorName]);
 
-  // Restore draft
+    // Mark initialized on next tick after React commits restored state
+    const rafId = window.requestAnimationFrame(() => {
+      isDraftInitializedRef.current = true;
+    });
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+    };
+  }, [isFieldSurveyModalOpen, surveyTargetCaseId, resetFormToDefaults, applyDraftObject, loadTargetCase, toast, totalQuestions]);
+
+  // Keep handleRestoreDraft / handleDiscardDraft compatible if triggered
   const handleRestoreDraft = () => {
     try {
-      const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
+      const saved =
+        localStorage.getItem(getDraftStorageKey(surveyTargetCaseId)) ||
+        (!surveyTargetCaseId ? localStorage.getItem(LEGACY_DRAFT_STORAGE_KEY) : null);
       if (!saved) return;
       const d = JSON.parse(saved);
-      if (d.caseName) setCaseName(d.caseName);
-      if (d.visitorName) setVisitorName(d.visitorName);
-      if (d.contactPhone) setContactPhone(d.contactPhone);
-      if (d.secondaryPhone) setSecondaryPhone(d.secondaryPhone);
-      if (d.address) setAddress(d.address);
-      if (d.referralSource) setReferralSource(d.referralSource);
-      if (d.priorityLevel) setPriorityLevel(d.priorityLevel);
-      if (d.housingStatus) setHousingStatus(d.housingStatus);
-      if (d.caseSummary) setCaseSummary(d.caseSummary);
-      if (d.landmarkAddress) setLandmarkAddress(d.landmarkAddress);
-      if (d.roofType) setRoofType(d.roofType);
-      if (d.waterConnection) setWaterConnection(d.waterConnection);
-      if (d.electricityMeter) setElectricityMeter(d.electricityMeter);
-      if (d.hasPrivateBathroom !== undefined) setHasPrivateBathroom(d.hasPrivateBathroom);
-      if (d.basicAppliances && Array.isArray(d.basicAppliances)) setBasicAppliances(d.basicAppliances);
-      if (d.checklist) setChecklist((prev) => ({ ...prev, ...d.checklist }));
-      if (d.familyMembers && Array.isArray(d.familyMembers)) setFamilyMembers(d.familyMembers);
-      if (d.basicIncomeAmount !== undefined) setBasicIncomeAmount(d.basicIncomeAmount);
-      if (d.additionalIncomeAmount !== undefined) setAdditionalIncomeAmount(d.additionalIncomeAmount);
-      if (d.additionalIncomeSources) setAdditionalIncomeSources(d.additionalIncomeSources);
-      if (d.familyAssets) setFamilyAssets(d.familyAssets);
-      if (d.monthlyBasicExpenses !== undefined) setMonthlyBasicExpenses(d.monthlyBasicExpenses);
-      if (d.monthlyDebtsInstallments !== undefined) setMonthlyDebtsInstallments(d.monthlyDebtsInstallments);
-      if (d.debtsAndObligations) setDebtsAndObligations(d.debtsAndObligations);
-      if (d.medicalConditionDescription) setMedicalConditionDescription(d.medicalConditionDescription);
-      if (d.chronicVerification) setChronicVerification(d.chronicVerification);
-      if (d.stateHealthInsurance) setStateHealthInsurance(d.stateHealthInsurance);
-      if (d.monthlyMedicalCosts !== undefined) setMonthlyMedicalCosts(d.monthlyMedicalCosts);
-      if (d.uploadedDocs && Array.isArray(d.uploadedDocs)) setUploadedDocs(d.uploadedDocs);
-      if (d.additionalNotesAndRemarks) setAdditionalNotesAndRemarks(d.additionalNotesAndRemarks);
-      if (d.executiveSummary) setExecutiveSummary(d.executiveSummary);
-      if (d.currentQuestion) setCurrentQuestion(d.currentQuestion);
+      applyDraftObject(d);
       setHasDraftAvailable(false);
       showToast('تم استرجاع مسودة بحث الحالة بنجاح');
     } catch {
@@ -854,98 +1286,78 @@ export function CaseStudyModal() {
   };
 
   const handleDiscardDraft = () => {
-    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    localStorage.removeItem(getDraftStorageKey(surveyTargetCaseId));
+    if (!surveyTargetCaseId) {
+      localStorage.removeItem(LEGACY_DRAFT_STORAGE_KEY);
+    }
     setHasDraftAvailable(false);
   };
 
-  // Auto-Save Draft to LocalStorage
+  // Immediate Auto-Save Draft on every field or step change (Zero Data Loss)
+  useEffect(() => {
+    if (!isFieldSurveyModalOpen || isSuccessSubmitted || !isDraftInitializedRef.current) return;
+    saveDraftNow();
+  }, [isFieldSurveyModalOpen, isSuccessSubmitted, saveDraftNow]);
+
+  // Flush draft immediately on tab switch / pagehide / blur WITHOUT EVER closing the modal
   useEffect(() => {
     if (!isFieldSurveyModalOpen || isSuccessSubmitted) return;
-    if (!caseName && !caseSummary && !contactPhone) return;
 
-    const timer = setTimeout(() => {
-      try {
-        const draftData = {
-          savedAt: new Date().toISOString(),
-          currentQuestion,
-          caseName,
-          visitorName,
-          visitDate,
-          contactPhone,
-          secondaryPhone,
-          address,
-          referralSource,
-          priorityLevel,
-          housingStatus,
-          caseSummary,
-          landmarkAddress,
-          roofType,
-          waterConnection,
-          electricityMeter,
-          hasPrivateBathroom,
-          basicAppliances,
-          checklist,
-          familyMembers,
-          basicIncomeAmount,
-          additionalIncomeAmount,
-          familyAssets,
-          monthlyBasicExpenses,
-          monthlyDebtsInstallments,
-          debtsAndObligations,
-          medicalConditionDescription,
-          chronicVerification,
-          stateHealthInsurance,
-          monthlyMedicalCosts,
-          uploadedDocs,
-          additionalNotesAndRemarks,
-          executiveSummary,
-        };
-        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draftData));
-        setLastSavedTime(
-          new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
-        );
-      } catch {
-        // ignore
+    const handleVisibilityOrHide = () => {
+      if (document.visibilityState === 'hidden') {
+        saveDraftNowRef.current();
       }
-    }, 500);
+    };
+    const handlePageHideOrBlur = () => {
+      saveDraftNowRef.current();
+    };
+    const handleEscapeKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        saveDraftNowRef.current();
+        setShowCloseConfirm((prev) => !prev);
+      }
+    };
 
-    return () => clearTimeout(timer);
-  }, [
-    isFieldSurveyModalOpen,
-    isSuccessSubmitted,
-    currentQuestion,
-    caseName,
-    visitorName,
-    visitDate,
-    contactPhone,
-    secondaryPhone,
-    address,
-    referralSource,
-    priorityLevel,
-    housingStatus,
-    caseSummary,
-    landmarkAddress,
-    roofType,
-    waterConnection,
-    electricityMeter,
-    hasPrivateBathroom,
-    basicAppliances,
-    checklist,
-    familyMembers,
-    basicIncomeAmount,
-    additionalIncomeAmount,
-    familyAssets,
-    monthlyBasicExpenses,
-    monthlyDebtsInstallments,
-    debtsAndObligations,
-    medicalConditionDescription,
-    chronicVerification,
-    stateHealthInsurance,
-    monthlyMedicalCosts,
-    uploadedDocs,
-    additionalNotesAndRemarks,
-    executiveSummary,
-  ]);
+    document.addEventListener('visibilitychange', handleVisibilityOrHide);
+    window.addEventListener('pagehide', handlePageHideOrBlur);
+    window.addEventListener('blur', handlePageHideOrBlur);
+    window.addEventListener('keydown', handleEscapeKey, true);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityOrHide);
+      window.removeEventListener('pagehide', handlePageHideOrBlur);
+      window.removeEventListener('blur', handlePageHideOrBlur);
+      window.removeEventListener('keydown', handleEscapeKey, true);
+    };
+  }, [isFieldSurveyModalOpen, isSuccessSubmitted]);
+
+  const handleRequestClose = () => {
+    if (isSuccessSubmitted) {
+      setIsFieldSurveyModalOpen(false);
+      return;
+    }
+    saveDraftNow();
+    setShowCloseConfirm(true);
+  };
+
+  const handleConfirmSaveAndClose = () => {
+    saveDraftNow();
+    setShowCloseConfirm(false);
+    toast.info(`تم حفظ مسودة البحث في الخطوة ${currentQuestion} بنجاح`);
+    setIsFieldSurveyModalOpen(false);
+  };
+
+  const handleDiscardDraftAndClose = () => {
+    localStorage.removeItem(getDraftStorageKey(surveyTargetCaseId));
+    if (!surveyTargetCaseId) {
+      localStorage.removeItem(LEGACY_DRAFT_STORAGE_KEY);
+    }
+    setShowCloseConfirm(false);
+    isDraftInitializedRef.current = false;
+    setIsFieldSurveyModalOpen(false);
+  };
 
   // Family Member handlers
   const currentMember = familyMembers[activeMemberIndex] || familyMembers[0];
@@ -998,6 +1410,9 @@ export function CaseStudyModal() {
       case 5:
         return address.trim().length > 0;
       case 6:
+        if (referralSource === 'أخرى (مصدر آخر)') {
+          return otherReferralSource.trim().length > 0;
+        }
         return referralSource.trim().length > 0;
       case 7:
         return priorityLevel.trim().length > 0;
@@ -1033,6 +1448,8 @@ export function CaseStudyModal() {
       case 22:
         return uploadedDocs.length > 0; // Attachments
       case 23:
+        return recommendedAssistanceType.trim().length > 0 && effectiveRecommendedAmount >= 0;
+      case 24:
         return true; // Final review slide
       default:
         return true;
@@ -1154,6 +1571,11 @@ export function CaseStudyModal() {
       return;
     }
 
+    const finalReferralSource =
+      referralSource === 'أخرى (مصدر آخر)'
+        ? `أخرى: ${otherReferralSource.trim()}`
+        : referralSource;
+
     const reportPayload: CaseStudyReport = {
       id: `csr-${Date.now()}`,
       caseId: surveyTargetCaseId || undefined,
@@ -1163,11 +1585,18 @@ export function CaseStudyModal() {
       contactPhone: contactPhone.trim(),
       secondaryPhone: secondaryPhone.trim() || undefined,
       address: address.trim(),
-      referralSource,
+      referralSource: finalReferralSource,
       priorityLevel,
       housingStatus,
       caseSummary: caseSummary.trim(),
       landmarkAddress: landmarkAddress.trim() || undefined,
+      gpsLocation: gpsLocation
+        ? {
+            latitude: gpsLocation.lat,
+            longitude: gpsLocation.lng,
+            mapsUrl: `https://www.google.com/maps?q=${gpsLocation.lat},${gpsLocation.lng}`,
+          }
+        : undefined,
       housingFacilities: {
         roofType,
         waterConnection,
@@ -1210,7 +1639,9 @@ export function CaseStudyModal() {
             (d.category as string) === 'voiceRecording' ? fullAudioDuration || 15 : undefined,
         })),
       },
-      additionalNotesAndRemarks,
+      recommendedAssistanceType: recommendedAssistanceType.trim(),
+      recommendedMonthlyAmount: Number(effectiveRecommendedAmount) || 0,
+      additionalNotesAndRemarks: additionalNotesAndRemarks.trim(),
       voiceNoteUrl: fullAudioUrl || undefined,
       voiceNoteDuration: fullAudioDuration || undefined,
       executiveSummary: executiveSummary || undefined,
@@ -1220,7 +1651,11 @@ export function CaseStudyModal() {
     };
 
     submitCaseStudyReport(reportPayload);
-    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    localStorage.removeItem(getDraftStorageKey(surveyTargetCaseId));
+    if (!surveyTargetCaseId) {
+      localStorage.removeItem(LEGACY_DRAFT_STORAGE_KEY);
+    }
+    toast.success('تم إرسال تقرير البحث الميداني للمراجعة والاعتماد بنجاح');
 
     setSubmittedSummary({
       caseName: caseName.trim(),
@@ -1239,6 +1674,10 @@ export function CaseStudyModal() {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-0 sm:p-4 select-none"
       dir="rtl"
+      onClick={(e) => {
+        // Disable auto-dismiss on backdrop click (Zero Data Loss)
+        e.stopPropagation();
+      }}
     >
       {/* Hidden File / Camera Inputs */}
       <input
@@ -1257,27 +1696,11 @@ export function CaseStudyModal() {
         onChange={(e) => handleFileUpload(e, 'customExtra', 'مستند إضافي مرفوع')}
       />
 
-      {/* Floating Toast Notification */}
-      {toastMessage && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-60 w-[92%] max-w-sm animate-in fade-in slide-in-from-top-4 duration-200">
-          <div className="bg-white text-slate-800 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 border border-slate-200">
-            <AlertCircle size={18} className="text-slate-400 shrink-0" />
-            <span className="text-xs sm:text-sm font-bold flex-1 leading-snug">
-              {toastMessage}
-            </span>
-            <button
-              type="button"
-              onClick={() => setToastMessage(null)}
-              className="text-slate-400 hover:text-slate-700 p-1 rounded-lg cursor-pointer"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* STRICT ZERO-SCROLL MOBILE CONTAINER */}
-      <div className="relative w-full max-w-md h-[100dvh] sm:h-[90vh] sm:max-h-[820px] bg-white sm:rounded-2xl shadow-xl overflow-hidden flex flex-col justify-between border border-slate-200">
+      <div
+        className="relative w-full max-w-md h-[100dvh] sm:h-[90vh] sm:max-h-[820px] bg-white sm:rounded-2xl shadow-xl overflow-hidden flex flex-col justify-between border border-slate-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* ==================================================== */}
         {/* 1. HEADER (Fixed height, shrink-0)                    */}
@@ -1292,16 +1715,18 @@ export function CaseStudyModal() {
               <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#005756]" />
                 <span>متصل · حفظ تلقائي</span>
-                <span className="text-slate-300">·</span>
-                <span className="font-mono" suppressHydrationWarning>
-                  {new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
-                </span>
+                {lastSavedTime && (
+                  <>
+                    <span className="text-slate-300">·</span>
+                    <span className="text-[#005756] font-medium">حُفظ {lastSavedTime}</span>
+                  </>
+                )}
               </div>
             </div>
 
             <button
               type="button"
-              onClick={() => setIsFieldSurveyModalOpen(false)}
+              onClick={handleRequestClose}
               className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
               title="إغلاق"
               aria-label="إغلاق"
@@ -1332,6 +1757,33 @@ export function CaseStudyModal() {
                   تجاهل
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Read-only Admin Revision Notice Banner */}
+          {!isSuccessSubmitted && adminRevisionNote && (
+            <div className="px-5 py-2.5 bg-amber-50/70 border-b border-amber-200/80 text-right">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <AlertTriangle size={14} className="text-amber-700 shrink-0" />
+                  <span className="text-xs font-bold text-amber-950 truncate">
+                    مطلوب استكمال من الإدارة
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsRevisionBannerExpanded((prev) => !prev)}
+                  className="text-[11px] font-semibold text-amber-800 hover:text-amber-950 flex items-center gap-0.5 shrink-0 cursor-pointer"
+                >
+                  <span>{isRevisionBannerExpanded ? 'إخفاء' : 'عرض التفاصيل'}</span>
+                  {isRevisionBannerExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                </button>
+              </div>
+              {isRevisionBannerExpanded && (
+                <p className="mt-1.5 text-[11px] text-amber-900/90 leading-relaxed whitespace-pre-line max-h-20 overflow-y-auto pr-0.5">
+                  {adminRevisionNote}
+                </p>
+              )}
             </div>
           )}
 
@@ -1493,17 +1945,32 @@ export function CaseStudyModal() {
         {/* ==================================================== */}
         {/* 2. CENTER BODY (Single Question Flow)                 */}
         {/* ==================================================== */}
-        <div className="flex-1 flex flex-col px-4 sm:px-6 py-3 overflow-y-auto overscroll-contain">
+        <div className="flex-1 min-h-0 flex flex-col px-4 sm:px-6 py-3 overflow-y-auto overscroll-contain">
           {isSuccessSubmitted ? (
             /* Success Screen */
             <div className="text-center space-y-4 animate-in zoom-in-95 duration-200">
               <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-inner">
                 <CheckCircle2 size={36} />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <h3 className="text-xl font-black text-slate-900">
                   تم اعتماد استمارة «بحث حالة» بنجاح!
                 </h3>
+
+                {/* Calm UI Gratitude & Dua Card for Field Researcher */}
+                <div className="px-4 py-3 bg-teal-50/60 border border-teal-200/70 rounded-2xl text-center">
+                  <p className="text-xs sm:text-sm font-semibold text-teal-900 leading-relaxed flex items-center justify-center gap-2">
+                    <HeartHandshake size={16} className="text-[#005756] shrink-0" />
+                    <span>
+                      جزاك الله خيراً{' '}
+                      <span className="font-bold text-[#005756]">
+                        {submittedSummary?.researcher || visitorName || 'أ. هبة الشامي'}
+                      </span>{' '}
+                      على جهدك الميداني المبارك، كُتب سعيك في ميزان حسناتك.
+                    </span>
+                  </p>
+                </div>
+
                 <p className="text-xs text-slate-600">
                   أُحيلت الحالة إلى وضع «قيد المراجعة» للاعتماد المالي والإداري
                 </p>
@@ -1546,7 +2013,11 @@ export function CaseStudyModal() {
           ) : (
             <div
               className={`space-y-3.5 animate-in fade-in duration-200 ${
-                currentQuestion === 22 ? 'flex-1 flex flex-col min-h-0' : 'my-auto'
+                currentQuestion === 22
+                  ? 'flex-1 flex flex-col min-h-0'
+                  : currentQuestion >= 23
+                  ? 'w-full pb-6'
+                  : 'my-auto'
               }`}
             >
               
@@ -1750,33 +2221,69 @@ export function CaseStudyModal() {
                       'التقدم بمقر الجمعية',
                       'مسح وبحث ميداني دوري',
                       'إحالة من جهة أو مؤسسة شريكة',
-                    ].map((src) => (
-                      <button
-                        key={src}
-                        type="button"
-                        onClick={() => {
-                          setReferralSource(src);
-                          setTimeout(handleNext, 150);
-                        }}
-                        className={`w-full p-3.5 rounded-2xl border-2 text-right text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-between ${
-                          referralSource === src
-                            ? 'bg-teal-50 border-teal-700 text-teal-950 ring-1 ring-teal-700 shadow-xs'
-                            : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300'
-                        }`}
-                      >
-                        <span>{src}</span>
-                        <span
-                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                            referralSource === src
-                              ? 'border-teal-700 bg-teal-700 text-white'
-                              : 'border-slate-300'
+                      'أخرى (مصدر آخر)',
+                    ].map((src) => {
+                      const isSelected = referralSource === src;
+                      return (
+                        <button
+                          key={src}
+                          type="button"
+                          onClick={() => {
+                            setReferralSource(src);
+                            if (src !== 'أخرى (مصدر آخر)') {
+                              setTimeout(handleNext, 150);
+                            }
+                          }}
+                          className={`w-full p-3.5 rounded-2xl border-2 text-right text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-between ${
+                            isSelected
+                              ? 'bg-teal-50 border-teal-700 text-teal-950 ring-1 ring-teal-700 shadow-xs'
+                              : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300'
                           }`}
                         >
-                          {referralSource === src && <Check size={12} />}
-                        </span>
-                      </button>
-                    ))}
+                          <span>{src}</span>
+                          <span
+                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                              isSelected
+                                ? 'border-[#005756] bg-[#005756] text-white'
+                                : 'border-slate-300 bg-white'
+                            }`}
+                          >
+                            {isSelected && <Check size={12} strokeWidth={3} className="text-white" />}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
+
+                  {referralSource === 'أخرى (مصدر آخر)' && (
+                    <div className="pt-1 space-y-1.5 animate-in fade-in duration-150">
+                      <label className="text-xs font-bold text-slate-700 block">
+                        توضيح مصدر الوصول <span className="text-rose-600">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          autoFocus
+                          value={otherReferralSource}
+                          onChange={(e) => setOtherReferralSource(e.target.value)}
+                          placeholder="اكتب مصدر وصول الحالة (مثال: ترشيح إمام مسجد / جيران / مستشفى)..."
+                          className="w-full h-11 px-3.5 pl-12 text-xs sm:text-sm font-semibold bg-white border-2 border-[#005756] rounded-xl focus:outline-hidden text-slate-900 shadow-xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => toggleVoiceDictation('otherReferral', setOtherReferralSource)}
+                          className={`absolute left-2.5 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all cursor-pointer ${
+                            isListening && activeVoiceField === 'otherReferral'
+                              ? 'bg-rose-600 text-white animate-pulse'
+                              : 'bg-slate-100 hover:bg-teal-100 text-slate-700'
+                          }`}
+                          title="إملاء مصدر الوصول صوتياً"
+                        >
+                          {isListening && activeVoiceField === 'otherReferral' ? <MicOff size={15} /> : <Mic size={15} />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1795,36 +2302,57 @@ export function CaseStudyModal() {
 
                   <div className="space-y-2">
                     {[
-                      { level: 'critical' as PriorityLevel, label: 'أولوية حرجة (تدخل عاجل)', badge: 'bg-rose-100 text-rose-900 border-rose-400' },
-                      { level: 'high' as PriorityLevel, label: 'أولوية عالية (استحقاق مؤكد)', badge: 'bg-amber-100 text-amber-900 border-amber-400' },
-                      { level: 'medium' as PriorityLevel, label: 'أولوية متوسطة (دعم جزئي)', badge: 'bg-teal-100 text-teal-900 border-teal-400' },
-                      { level: 'low' as PriorityLevel, label: 'أولوية منخفضة / معونة موسمية', badge: 'bg-slate-100 text-slate-800 border-slate-300' },
-                    ].map((item) => (
-                      <button
-                        key={item.level}
-                        type="button"
-                        onClick={() => {
-                          setPriorityLevel(item.level);
-                          setTimeout(handleNext, 150);
-                        }}
-                        className={`w-full p-3 rounded-2xl border-2 text-right transition-all cursor-pointer flex items-center justify-between ${
-                          priorityLevel === item.level
-                            ? `${item.badge} ring-1 ring-current shadow-xs`
-                            : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300'
-                        }`}
-                      >
-                        <span className="text-xs sm:text-sm font-black">{item.label}</span>
-                        <span
-                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                            priorityLevel === item.level
-                              ? 'border-current bg-current text-white'
-                              : 'border-slate-300'
+                      {
+                        level: 'critical' as PriorityLevel,
+                        label: 'أولوية حرجة (تدخل عاجل)',
+                        badge: 'bg-rose-50 text-rose-900 border-rose-500 ring-1 ring-rose-500',
+                        activeDot: 'border-rose-700 bg-rose-700',
+                      },
+                      {
+                        level: 'high' as PriorityLevel,
+                        label: 'أولوية عالية (استحقاق مؤكد)',
+                        badge: 'bg-amber-50 text-amber-900 border-amber-500 ring-1 ring-amber-500',
+                        activeDot: 'border-amber-700 bg-amber-700',
+                      },
+                      {
+                        level: 'medium' as PriorityLevel,
+                        label: 'أولوية متوسطة (دعم جزئي)',
+                        badge: 'bg-teal-50 text-teal-950 border-[#005756] ring-1 ring-[#005756]',
+                        activeDot: 'border-[#005756] bg-[#005756]',
+                      },
+                      {
+                        level: 'low' as PriorityLevel,
+                        label: 'أولوية منخفضة / معونة موسمية',
+                        badge: 'bg-slate-100 text-slate-900 border-slate-500 ring-1 ring-slate-500',
+                        activeDot: 'border-slate-700 bg-slate-700',
+                      },
+                    ].map((item) => {
+                      const isSelected = priorityLevel === item.level;
+                      return (
+                        <button
+                          key={item.level}
+                          type="button"
+                          onClick={() => {
+                            setPriorityLevel(item.level);
+                            setTimeout(handleNext, 150);
+                          }}
+                          className={`w-full p-3.5 rounded-2xl border-2 text-right transition-all cursor-pointer flex items-center justify-between ${
+                            isSelected
+                              ? `${item.badge} shadow-xs`
+                              : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300'
                           }`}
                         >
-                          {priorityLevel === item.level && <Check size={12} className="text-white" />}
-                        </span>
-                      </button>
-                    ))}
+                          <span className="text-xs sm:text-sm font-black">{item.label}</span>
+                          <span
+                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                              isSelected ? item.activeDot : 'border-slate-300 bg-white'
+                            }`}
+                          >
+                            {isSelected && <Check size={12} strokeWidth={3} className="text-white" />}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -2196,6 +2724,8 @@ export function CaseStudyModal() {
                           className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg cursor-pointer font-medium"
                         >
                           <option value="قادر على العمل">قادر على العمل</option>
+                          <option value="ربة منزل">ربة منزل</option>
+                          <option value="متفرغ لرعاية الأسرة">متفرغ لرعاية الأسرة</option>
                           <option value="عاجز جزئياً أو مسن">عاجز جزئياً أو مسن</option>
                           <option value="عاجز كلياً">عاجز كلياً</option>
                           <option value="طفل / قاصر">طفل / قاصر</option>
@@ -2214,7 +2744,7 @@ export function CaseStudyModal() {
                       />
                     </div>
 
-                    {/* Chronic Illness Sub-card */}
+                    {/* Chronic Illness Sub-card (Linked to Settings Chronic Diseases) */}
                     <div className="p-2.5 bg-white border border-slate-200 rounded-xl space-y-2">
                       <label className="flex items-center gap-2 cursor-pointer text-xs">
                         <input
@@ -2222,9 +2752,12 @@ export function CaseStudyModal() {
                           checked={Boolean(currentMember?.chronicIllness)}
                           onChange={(e) => {
                             if (e.target.checked) {
+                              const activeList = chronicDiseases.filter((d) => d.isActive);
+                              const first = activeList[0];
                               updateCurrentMember('chronicIllness', {
-                                conditionName: 'مرض مزمن / عجز',
-                                monthlyCost: 250,
+                                diseaseId: first ? first.id : '__other__',
+                                conditionName: first ? first.name : '',
+                                monthlyCost: first ? first.defaultMonthlyCost : 300,
                                 isCoveredByStateInsurance: false,
                               });
                             } else {
@@ -2236,55 +2769,124 @@ export function CaseStudyModal() {
                         <span className="font-bold text-slate-800">يعاني هذا الفرد من مرض مزمن أو عجز صحي</span>
                       </label>
 
-                      {currentMember?.chronicIllness && (
-                        <div className="space-y-2 pt-2 border-t border-slate-100">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="text-[10px] font-bold text-slate-600 block mb-0.5">تشخيص المرض / العجز</label>
+                      {currentMember?.chronicIllness && (() => {
+                        const activeList = chronicDiseases.filter((d) => d.isActive);
+                        const ci = currentMember.chronicIllness!;
+                        const matchedById = ci.diseaseId
+                          ? chronicDiseases.find((d) => d.id === ci.diseaseId)
+                          : undefined;
+                        const matchedByName = !matchedById
+                          ? chronicDiseases.find(
+                              (d) => d.name.trim() === (ci.conditionName || '').trim()
+                            )
+                          : undefined;
+                        const resolvedSelectValue =
+                          ci.diseaseId === '__other__'
+                            ? '__other__'
+                            : matchedById?.id || matchedByName?.id || '__other__';
+
+                        return (
+                          <div className="space-y-2 pt-2 border-t border-slate-100">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-600 block mb-0.5">
+                                  تشخيص المرض المزمن
+                                </label>
+                                <select
+                                  value={resolvedSelectValue}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === '__other__') {
+                                      updateCurrentMember('chronicIllness', {
+                                        ...ci,
+                                        diseaseId: '__other__',
+                                        conditionName:
+                                          matchedById || matchedByName ? '' : ci.conditionName,
+                                      });
+                                    } else {
+                                      const picked = chronicDiseases.find((d) => d.id === val);
+                                      if (picked) {
+                                        updateCurrentMember('chronicIllness', {
+                                          ...ci,
+                                          diseaseId: picked.id,
+                                          conditionName: picked.name,
+                                          monthlyCost: picked.defaultMonthlyCost,
+                                        });
+                                      }
+                                    }
+                                  }}
+                                  className="w-full p-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-semibold cursor-pointer text-slate-900"
+                                >
+                                  {activeList.map((d) => (
+                                    <option key={d.id} value={d.id}>
+                                      {d.name} ({d.defaultMonthlyCost} ج.م)
+                                    </option>
+                                  ))}
+                                  {matchedById && !matchedById.isActive && (
+                                    <option value={matchedById.id}>
+                                      {matchedById.name} ({matchedById.defaultMonthlyCost} ج.م)
+                                    </option>
+                                  )}
+                                  <option value="__other__">مرض آخر (كتابة مخصصة)</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-600 block mb-0.5">
+                                  تكلفة العلاج (ج.م/شهر)
+                                </label>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={ci.monthlyCost}
+                                  onChange={(e) =>
+                                    updateCurrentMember('chronicIllness', {
+                                      ...ci,
+                                      monthlyCost: Number(e.target.value) || 0,
+                                    })
+                                  }
+                                  className="w-full p-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-900"
+                                />
+                              </div>
+                            </div>
+
+                            {resolvedSelectValue === '__other__' && (
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-600 block mb-0.5">
+                                  اكتب اسم المرض أو العجز المخصص
+                                </label>
+                                <input
+                                  type="text"
+                                  value={ci.conditionName}
+                                  onChange={(e) =>
+                                    updateCurrentMember('chronicIllness', {
+                                      ...ci,
+                                      diseaseId: '__other__',
+                                      conditionName: e.target.value,
+                                    })
+                                  }
+                                  placeholder="مثال: التهاب مفصلي مزمن / مرض نادر..."
+                                  className="w-full p-1.5 text-xs bg-slate-50 border border-[#005756] rounded-lg font-medium text-slate-900"
+                                />
+                              </div>
+                            )}
+
+                            <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-700">
                               <input
-                                type="text"
-                                value={currentMember.chronicIllness.conditionName}
+                                type="checkbox"
+                                checked={ci.isCoveredByStateInsurance}
                                 onChange={(e) =>
                                   updateCurrentMember('chronicIllness', {
-                                    ...currentMember.chronicIllness!,
-                                    conditionName: e.target.value,
+                                    ...ci,
+                                    isCoveredByStateInsurance: e.target.checked,
                                   })
                                 }
-                                placeholder="مثال: غسيل كلى، سكري، قلب"
-                                className="w-full p-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-medium"
+                                className="w-3.5 h-3.5 rounded text-teal-700 accent-teal-700"
                               />
-                            </div>
-                            <div>
-                              <label className="text-[10px] font-bold text-slate-600 block mb-0.5">تكلفة العلاج (ج.م/شهر)</label>
-                              <input
-                                type="number"
-                                value={currentMember.chronicIllness.monthlyCost}
-                                onChange={(e) =>
-                                  updateCurrentMember('chronicIllness', {
-                                    ...currentMember.chronicIllness!,
-                                    monthlyCost: Number(e.target.value) || 0,
-                                  })
-                                }
-                                className="w-full p-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold"
-                              />
-                            </div>
+                              <span>مشمول بالتأمين الصحي أو علاج على نفقة الدولة</span>
+                            </label>
                           </div>
-                          <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-700">
-                            <input
-                              type="checkbox"
-                              checked={currentMember.chronicIllness.isCoveredByStateInsurance}
-                              onChange={(e) =>
-                                updateCurrentMember('chronicIllness', {
-                                  ...currentMember.chronicIllness!,
-                                  isCoveredByStateInsurance: e.target.checked,
-                                })
-                              }
-                              className="w-3.5 h-3.5 rounded text-teal-700 accent-teal-700"
-                            />
-                            <span>مشمول بالتأمين الصحي أو علاج على نفقة الدولة</span>
-                          </label>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -2356,6 +2958,33 @@ export function CaseStudyModal() {
                         </button>
                       ))}
                     </div>
+
+                    <div className="pt-1 space-y-1">
+                      <label className="text-xs font-bold text-slate-700 block">
+                        مصدر وتفاصيل الدخل الأساسي
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={basicIncomeSources}
+                          onChange={(e) => setBasicIncomeSources(e.target.value)}
+                          placeholder="مثال: معاش تكافل وكرامة، معاش تأميني، راتب شهري..."
+                          className="w-full h-10 px-3 pl-11 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:border-[#005756] focus:bg-white focus:outline-hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => toggleVoiceDictation('basicIncomeSource', setBasicIncomeSources)}
+                          className={`absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all cursor-pointer ${
+                            isListening && activeVoiceField === 'basicIncomeSource'
+                              ? 'bg-rose-600 text-white animate-pulse'
+                              : 'bg-slate-200/80 hover:bg-teal-100 text-slate-700'
+                          }`}
+                          title="إملاء تفاصيل الدخل الأساسي صوتياً"
+                        >
+                          {isListening && activeVoiceField === 'basicIncomeSource' ? <MicOff size={14} /> : <Mic size={14} />}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -2402,6 +3031,33 @@ export function CaseStudyModal() {
                           {val} ج.م
                         </button>
                       ))}
+                    </div>
+
+                    <div className="pt-1 space-y-1">
+                      <label className="text-xs font-bold text-slate-700 block">
+                        مصدر وتفاصيل الدخل الإضافي
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={additionalIncomeSources}
+                          onChange={(e) => setAdditionalIncomeSources(e.target.value)}
+                          placeholder="مثال: يوميات عمالة غير منتظمة، خياطة، مساعدة أهل..."
+                          className="w-full h-10 px-3 pl-11 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:border-[#005756] focus:bg-white focus:outline-hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => toggleVoiceDictation('additionalIncomeSource', setAdditionalIncomeSources)}
+                          className={`absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all cursor-pointer ${
+                            isListening && activeVoiceField === 'additionalIncomeSource'
+                              ? 'bg-rose-600 text-white animate-pulse'
+                              : 'bg-slate-200/80 hover:bg-teal-100 text-slate-700'
+                          }`}
+                          title="إملاء تفاصيل الدخل الإضافي صوتياً"
+                        >
+                          {isListening && activeVoiceField === 'additionalIncomeSource' ? <MicOff size={14} /> : <Mic size={14} />}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2784,7 +3440,7 @@ export function CaseStudyModal() {
 
               {/* Q22: قائمة التحقق الرسمية والمرفقات (Official Checklist & Documents) */}
               {currentQuestion === 22 && (
-                <div className="space-y-3 flex-1 overflow-y-auto overscroll-contain pr-1 pl-1 pb-32">
+                <div className="space-y-3 flex-1 overflow-y-auto overscroll-contain pr-1 pl-1 pb-6">
                   <div className="space-y-1">
                     <span className="text-xs font-bold text-teal-800 flex items-center gap-1.5">
                       <FileCheck size={15} />
@@ -2984,92 +3640,149 @@ export function CaseStudyModal() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
 
-                  {/* Voice Memo Card in Step 22 (الملاحظات الإضافية وتوصية الباحث) */}
-                  <div className="pt-1 space-y-2">
-                    {!isFullAudioRecording && !fullAudioUrl && (
-                      <div className="p-3.5 bg-gradient-to-br from-teal-50/90 via-white to-emerald-50/50 border-2 border-teal-600/60 rounded-2xl space-y-2.5 text-right shadow-2xs">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="text-xs font-black text-teal-950 block">
-                              ملاحظات الزيارة الصوتية
-                            </span>
-                            <span className="text-[11px] text-slate-600 font-medium block mt-0.5">
-                              سجّل ملخص سريع يساعد في تقييم الحالة
-                            </span>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={startFullAudioRecording}
-                          className="w-full py-3 px-4 bg-[#005756] hover:bg-[#004241] active:scale-98 text-white rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
-                        >
-                          <Mic size={16} />
-                          <span>ابدأ التسجيل</span>
-                        </button>
-                      </div>
-                    )}
-
-                    {isFullAudioRecording && (
-                      <div className="p-3.5 bg-rose-50 border-2 border-rose-400 rounded-2xl space-y-3 text-right animate-in fade-in">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="w-3 h-3 rounded-full bg-rose-600 animate-ping" />
-                            <span className="text-xs font-black text-rose-950">
-                              شغال تسجيل دلوقتي... سجل بصوتك أي ملاحظة مش مكتوبة
-                            </span>
-                          </div>
-                          <span className="font-mono text-sm font-black text-white bg-rose-600 px-2.5 py-0.5 rounded-lg">
-                            {formatDuration(fullAudioDuration)}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={stopFullAudioRecording}
-                          className="w-full py-3 px-4 bg-rose-600 hover:bg-rose-700 active:scale-98 text-white rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
-                        >
-                          <Square size={14} className="fill-white" />
-                          <span>وقف واحفظ الريكورد</span>
-                        </button>
-                      </div>
-                    )}
-
-                    {!isFullAudioRecording && fullAudioUrl && (
-                      <ResearcherVoicePlayer
-                        audioUrl={fullAudioUrl}
-                        durationSeconds={fullAudioDuration || 12}
-                        researcherName={visitorName}
-                        fileName="تسجيل_صوتي_للباحث.webm"
-                        onReRecord={startFullAudioRecording}
-                        onDelete={deleteFullAudioRecording}
-                      />
-                    )}
+              {/* Q23: توصية الباحث الميداني المستقلة (Researcher Recommendation) */}
+              {currentQuestion === 23 && (
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-teal-800 flex items-center gap-1.5">
+                      <HeartHandshake size={15} />
+                      <span>توصية الباحث الميداني</span>
+                    </span>
+                    <h2 className="text-lg sm:text-xl font-black text-slate-900 leading-tight">
+                      إيه نوع المساعدة والمبلغ اللي بتوصي بيه للأسرة؟
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      اختار نوع الدعم الأنسب لحالة الأسرة وحدد المبلغ الشهري المقترح مع توضيح السبب للإدارة.
+                    </p>
                   </div>
 
-                  {/* Written Notes & Researcher Recommendation */}
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={additionalNotesAndRemarks}
-                      onChange={(e) => setAdditionalNotesAndRemarks(e.target.value)}
-                      placeholder="أو اكتب هنا التوصية الختامية للباحث..."
-                      className="w-full p-2.5 pl-10 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-700 focus:bg-white text-slate-800"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => toggleVoiceDictation('remarks', setAdditionalNotesAndRemarks)}
-                      className="absolute left-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-teal-800 cursor-pointer"
-                      title="إملاء صوتي سريع للنص"
-                    >
-                      <Mic size={14} />
-                    </button>
+                  {/* 1. Assistance Type Selection Cards */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 block">
+                      نوع المساعدة المقترحة
+                    </label>
+                    <div className="grid grid-cols-1 gap-2">
+                      {ASSISTANCE_TYPE_OPTIONS.map((opt) => {
+                        const isSelected = recommendedAssistanceType === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setRecommendedAssistanceType(opt.id)}
+                            className={`w-full p-2.5 sm:p-3 rounded-xl border text-right transition-colors cursor-pointer flex items-center justify-between gap-2.5 ${
+                              isSelected
+                                ? 'bg-teal-50/80 border-[#005756] text-teal-950'
+                                : 'bg-slate-50/70 border-slate-200/80 text-slate-700 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="min-w-0 space-y-0.5">
+                              <span className="block text-xs font-bold">{opt.label}</span>
+                              <span className="block text-[11px] text-slate-500">{opt.desc}</span>
+                            </div>
+                            <span
+                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                                isSelected
+                                  ? 'border-[#005756] bg-[#005756] text-white'
+                                  : 'border-slate-300 bg-white'
+                              }`}
+                            >
+                              {isSelected && <Check size={12} />}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 2. Suggested Monthly Amount (defaults to netFinancialGap) */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="text-xs font-bold text-slate-700">
+                        المبلغ المالي المقترح شهرياً (ج.م)
+                      </label>
+                      {recommendedAmountOverride !== null &&
+                        recommendedAmountOverride !== netFinancialGap && (
+                          <button
+                            type="button"
+                            onClick={() => setRecommendedAmountOverride(null)}
+                            className="text-[11px] font-semibold text-[#005756] hover:underline cursor-pointer"
+                          >
+                            استخدام العجز ({netFinancialGap.toLocaleString('ar-EG')} ج.م)
+                          </button>
+                        )}
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={0}
+                        step={50}
+                        value={effectiveRecommendedAmount}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw === '') {
+                            setRecommendedAmountOverride(0);
+                            return;
+                          }
+                          const parsed = Number(raw);
+                          setRecommendedAmountOverride(
+                            Number.isFinite(parsed) && parsed >= 0 ? parsed : 0
+                          );
+                        }}
+                        className="w-full p-3 pl-14 text-sm font-bold font-mono tabular-nums bg-slate-50 border border-slate-200 rounded-xl focus:border-[#005756] focus:bg-white focus:outline-hidden text-slate-900"
+                      />
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500 pointer-events-none">
+                        ج.م
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      مقترح تلقائياً حسب العجز الشهري للأسرة (
+                      <span className="font-mono tabular-nums font-semibold text-slate-700">
+                        {netFinancialGap.toLocaleString('ar-EG')} ج.م
+                      </span>
+                      ) وتقدر تعدله حسب رؤيتك الميدانية.
+                    </p>
+                  </div>
+
+                  {/* 3. Justification & Researcher Notes for Management */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 block">
+                      مبررات التوصية وملاحظات الباحث للإدارة
+                    </label>
+                    <div className="relative">
+                      <textarea
+                        rows={3}
+                        value={additionalNotesAndRemarks}
+                        onChange={(e) => setAdditionalNotesAndRemarks(e.target.value)}
+                        placeholder="اكتب هنا سبب ترشيح الدعم ده وأي تفاصيل شفتها على الطبيعة تساعد الإدارة في القرار..."
+                        className="w-full p-3 pl-10 text-xs font-medium leading-relaxed bg-slate-50 border border-slate-200 rounded-xl focus:border-[#005756] focus:bg-white focus:outline-hidden text-slate-800 resize-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => toggleVoiceDictation('remarks', setAdditionalNotesAndRemarks)}
+                        className={`absolute left-2.5 top-2.5 p-1.5 rounded-lg transition-colors cursor-pointer ${
+                          isListening && activeVoiceField === 'remarks'
+                            ? 'bg-rose-600 text-white animate-pulse'
+                            : 'text-slate-500 hover:text-[#005756] hover:bg-slate-200/60'
+                        }`}
+                        title="إملاء صوتي سريع للنص"
+                      >
+                        {isListening && activeVoiceField === 'remarks' ? (
+                          <MicOff size={14} />
+                        ) : (
+                          <Mic size={14} />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Q23: 4. شاشة المراجعة الختامية (Quick Summary Slide) */}
-              {currentQuestion === 23 && (
-                <div className="space-y-2.5">
+              {/* Q24: شاشة المراجعة الختامية (Quick Summary Slide) */}
+              {currentQuestion === 24 && (
+                <div className="space-y-3">
                   <div className="space-y-0.5 text-center">
                     <span className="text-xs font-bold text-teal-800 inline-flex items-center gap-1.5 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
                       <CheckCircle2 size={13} className="text-teal-700" />
@@ -3148,48 +3861,48 @@ export function CaseStudyModal() {
                     </div>
                   )}
 
-                  {/* Summary Capsules (Zero-Scroll strictly fitted) */}
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-xs">
-                    <div className="flex justify-between items-center pb-1.5 border-b border-slate-200/60">
+                  {/* Summary Card (Scrolls smoothly above CTA) */}
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-xs">
+                    <div className="flex justify-between items-center gap-2 pb-1.5 border-b border-slate-200/60">
                       <span className="text-slate-500 font-medium">اسم المستفيد:</span>
                       <span className="font-black text-slate-900">{caseName || 'رب الأسرة'}</span>
                     </div>
 
-                    <div className="flex justify-between items-center pb-1.5 border-b border-slate-200/60">
+                    <div className="flex justify-between items-center gap-2 pb-1.5 border-b border-slate-200/60">
                       <span className="text-slate-500 font-medium">أفراد الأسرة:</span>
-                      <span className="font-bold text-slate-800">
+                      <span className="font-bold text-slate-800 text-left">
                         {familyMembers.length} أفراد ({familyMembers.map((m) => m.name || m.relation).filter(Boolean).slice(0, 3).join('، ')}...)
                       </span>
                     </div>
 
-                    <div className="flex justify-between items-center pb-1.5 border-b border-slate-200/60">
+                    <div className="flex justify-between items-center gap-2 pb-1.5 border-b border-slate-200/60">
                       <span className="text-slate-500 font-medium">صافي الفجوة الشهرية:</span>
-                      <span className="font-black text-teal-800 font-mono text-sm">
+                      <span className="font-black text-teal-800 font-mono tabular-nums text-sm">
                         {netFinancialGap.toLocaleString('ar-EG')} ج.م
                       </span>
                     </div>
 
-                    <div className="flex justify-between items-center pb-1.5 border-b border-slate-200/60">
+                    <div className="flex justify-between items-center gap-2 pb-1.5 border-b border-slate-200/60">
                       <span className="text-slate-500 font-medium">مرافق السكن:</span>
-                      <span className="font-bold text-slate-800">
+                      <span className="font-bold text-slate-800 text-left">
                         سقف {roofType === 'concrete' ? 'خرساني' : roofType === 'wood_straw' ? 'خشب/قش' : 'متصدع'} · {hasPrivateBathroom ? 'حمام خاص' : 'حمام مشترك'} ({basicAppliances.length} أجهزة)
                       </span>
                     </div>
 
-                    <div className="flex justify-between items-center pb-1.5 border-b border-slate-200/60">
+                    <div className="flex justify-between items-center gap-2 pb-1.5 border-b border-slate-200/60">
                       <span className="text-slate-500 font-medium">مستندات الـ Checklist:</span>
-                      <span className="font-bold text-emerald-800">
+                      <span className="font-bold text-emerald-800 font-mono tabular-nums">
                         {Object.values(checklist).filter(Boolean).length} من 7 بنود مستوفاة
                       </span>
                     </div>
 
-                    <div className="flex justify-between items-center pb-1.5 border-b border-slate-200/60">
+                    <div className="flex justify-between items-center gap-2 pb-1.5 border-b border-slate-200/60">
                       <span className="text-slate-500 font-medium">الموقف الطبي:</span>
-                      <span className="font-bold text-slate-800">{stateHealthInsurance}</span>
+                      <span className="font-bold text-slate-800 text-left">{stateHealthInsurance}</span>
                     </div>
 
-                    <div>
-                      <span className="text-slate-500 font-medium block mb-1">
+                    <div className="pb-1.5 border-b border-slate-200/60">
+                      <span className="text-slate-500 font-medium block mb-1.5">
                         المرفقات الثبوتية المرفوعة ({uploadedDocs.length}):
                       </span>
                       <div className="flex flex-wrap gap-1">
@@ -3204,10 +3917,33 @@ export function CaseStudyModal() {
                         ))}
                       </div>
                     </div>
+
+                    {/* Researcher Recommendation Summary */}
+                    <div className="pt-0.5 space-y-1.5">
+                      <span className="text-slate-700 font-bold block">
+                        توصية الباحث الميداني:
+                      </span>
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="text-slate-500">نوع المساعدة المقترحة:</span>
+                        <span className="font-bold text-slate-800">{recommendedAssistanceType}</span>
+                      </div>
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="text-slate-500">المبلغ المقترح شهرياً:</span>
+                        <span className="font-black text-[#005756] font-mono tabular-nums">
+                          {effectiveRecommendedAmount.toLocaleString('ar-EG')} ج.م
+                        </span>
+                      </div>
+                      <div className="pt-0.5">
+                        <span className="text-slate-500 block mb-0.5">مبررات التوصية والملاحظات:</span>
+                        <p className="text-slate-700 leading-relaxed whitespace-pre-line">
+                          {additionalNotesAndRemarks.trim() || 'مفيش ملاحظات إضافية مكتوبة.'}
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
-                  <p className="text-[11px] text-center text-slate-500 font-medium">
-                    بالضغط على الزر أدناه يتم إحالة الحالة فورياً لمدير النظام بوضع (بانتظار المراجعة والاعتماد).
+                  <p className="text-[11px] text-center text-slate-500 font-medium pb-1">
+                    لما تضغط على الزر تحت، بيتبعت ملف الحالة على طول لإدارة الجمعية (بانتظار المراجعة والاعتماد).
                   </p>
                 </div>
               )}
@@ -3234,7 +3970,7 @@ export function CaseStudyModal() {
             ) : (
               <button
                 type="button"
-                onClick={() => setIsFieldSurveyModalOpen(false)}
+                onClick={handleRequestClose}
                 className="px-3.5 h-14 border border-slate-200 text-slate-500 hover:text-slate-800 rounded-2xl text-xs font-bold transition-colors cursor-pointer shrink-0"
               >
                 إلغاء
@@ -3272,6 +4008,57 @@ export function CaseStudyModal() {
                 <span>تأكيد وحفظ البحث</span>
               </button>
             )}
+          </div>
+        )}
+
+        {/* Calm UI Close Confirmation Overlay (Protects against accidental data loss) */}
+        {showCloseConfirm && !isSuccessSubmitted && (
+          <div
+            className="absolute inset-0 z-30 bg-slate-950/55 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-2xl p-5 space-y-4 text-right">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-700 flex items-center justify-center shrink-0">
+                  <AlertTriangle size={20} />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-slate-900">
+                    هل تريد حفظ المسودة قبل الإغلاق؟
+                  </h4>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    وصلت إلى <strong className="text-slate-800">الخطوة {currentQuestion} من {totalQuestions}</strong>. عند الإغلاق سيتم الاحتفاظ بجميع بياناتك تلقائياً لتتمكن من استكمالها من نفس الخطوة لاحقاً.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleConfirmSaveAndClose}
+                  className="w-full h-10 bg-[#005756] hover:bg-[#004342] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                >
+                  <Save size={15} />
+                  <span>حفظ المسودة والخروج</span>
+                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowCloseConfirm(false)}
+                    className="h-10 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    متابعة الاستمارة
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDiscardDraftAndClose}
+                    className="h-10 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-rose-600 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    حذف المسودة والخروج
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

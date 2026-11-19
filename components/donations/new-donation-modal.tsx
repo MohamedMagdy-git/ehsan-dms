@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useApp } from '@/context/app-context';
+import { useToast } from '@/context/toast-context';
 import { X, AlertCircle } from 'lucide-react';
 import { DonationChannel } from '@/types';
 import { AmountInput } from '@/components/common/amount-input';
@@ -13,6 +14,7 @@ interface NewDonationModalProps {
 
 export function NewDonationModal({ isOpen, onClose }: NewDonationModalProps) {
   const { addDonation } = useApp();
+  const { toast } = useToast();
 
   const [donorName, setDonorName] = useState('');
   const [manualReceiptNo, setManualReceiptNo] = useState('');
@@ -59,6 +61,11 @@ export function NewDonationModal({ isOpen, onClose }: NewDonationModalProps) {
       notes: notes.trim(),
     });
 
+    toast.success(
+      status === 'received'
+        ? 'تم تسجيل التبرع بنجاح وإضافته لسجل الخزينة'
+        : 'تم تسجيل التعهد بنجاح لحين التحصيل'
+    );
     handleClose();
   };
 

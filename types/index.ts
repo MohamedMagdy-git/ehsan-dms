@@ -64,6 +64,16 @@ export interface MockAttachment {
   durationSeconds?: number;
 }
 
+export interface DocumentsChecklist {
+  nationalIdsAdults: boolean;
+  birthCertificatesMinors: boolean;
+  insurancePrintOut: boolean;
+  utilityReceipt: boolean;
+  leaseContractOrRentReceipt: boolean;
+  recentMedicalProof: boolean;
+  deathOrDivorceCertificates: boolean;
+}
+
 export interface BeneficiaryCase {
   id: string;
   code: string;                   // كود الحالة مثل: EHS-101
@@ -72,6 +82,7 @@ export interface BeneficiaryCase {
   fullName: string;               // الاسم المعروض المتوافق مع كافة الواجهات
   nationalId: string;             // الرقم القومي المصري (14 رقم)
   phone: string;
+  secondaryPhone?: string;
   governorate: string;            // المحافظة
   district: string;               // الحي أو القرية (بولاق، المطرية...)
   address: string;
@@ -89,6 +100,15 @@ export interface BeneficiaryCase {
   notes: string;
   historicalAssistanceTotal: number;
   attachments: MockAttachment[];
+  documentsChecklist?: DocumentsChecklist;
+  housingFacilities?: HousingFacilities;
+  referralSource?: string;
+  caseSummary?: string;
+  researcherRecommendation?: string;
+  recommendedAssistanceType?: string;
+  recommendedMonthlyAmount?: number;
+  researcherJustification?: string;
+  adminRevisionNote?: string;
   gpsLocation?: {
     latitude: number;
     longitude: number;
@@ -152,6 +172,13 @@ export interface ShariaDonationCategory {
   iconName?: string;
   isActive: boolean;              // متاح للصرف والتحصيل
   isSystemDefault?: boolean;      // تصنيف قياسي معتمد
+}
+
+export interface ChronicDiseaseConfig {
+  id: string;
+  name: string;
+  defaultMonthlyCost: number;
+  isActive: boolean;
 }
 
 export interface Donation {
@@ -364,6 +391,7 @@ export interface CaseStudyFamilyMember {
   currentJob: string;             // العمل (لا يعمل، عامل يومية، موظف، حرفي...)
   isPrimaryCaregiver?: boolean;   // المتكفل الفعلي بالإنفاق / الرعاية
   chronicIllness?: {
+    diseaseId?: string;           // معرف المرض المزمن من الإعدادات أو '__other__'
     conditionName: string;        // مسمى المرض / العجز
     monthlyCost: number;          // التكلفة الشهرية للعلاج والدواء (ج.م)
     isCoveredByStateInsurance: boolean; // هل مشمول بتأمين صحي أو علاج على نفقة الدولة
@@ -396,6 +424,12 @@ export interface CaseStudyReport {
   housingStatus: HousingCondition | string; // الحالة السكنية (ملك، إيجار مستقر، إيجار غير مستقر، آيل للسقوط...)
   caseSummary: string;            // مختصر وصف الحالة والبيئة السكنية
   landmarkAddress?: string;       // علامة مميزة لموقع السكن
+  gpsLocation?: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+    mapsUrl?: string;
+  };
   housingFacilities?: HousingFacilities; // مرافق السكن والأجهزة الأساسية
   
   // الخطوة 3: أفراد الأسرة ومصادر الدخل
@@ -440,6 +474,8 @@ export interface CaseStudyReport {
     }>;
   };
   
+  recommendedAssistanceType?: string;
+  recommendedMonthlyAmount?: number;
   additionalNotesAndRemarks?: string; // ملاحظات وتفاصيل إضافية (أسفل صفحة 2 من نموذج PDF)
   voiceNoteUrl?: string;              // رابط التسجيل الصوتي للملاحظات الميدانية للباحث
   voiceNoteDuration?: number;         // مدة التسجيل الصوتي بالثواني

@@ -177,7 +177,7 @@ export function ResearcherVoicePlayer({
 
   return (
     <div
-      className={`bg-slate-50/80 border border-slate-200/80 rounded-xl px-4 py-2.5 flex flex-wrap md:flex-nowrap items-center justify-between gap-4 text-right ${className}`}
+      className={`w-full max-w-full overflow-hidden bg-slate-50/80 border border-slate-200/80 rounded-xl px-3.5 sm:px-4 py-2.5 flex flex-wrap md:flex-nowrap items-center justify-between gap-x-2.5 gap-y-2 text-right ${className}`}
       dir="rtl"
     >
       <audio
@@ -204,7 +204,7 @@ export function ResearcherVoicePlayer({
       />
 
       {/* Right Side: Play/Pause Circular Button + Identity */}
-      <div className="flex items-center gap-3 shrink-0 min-w-0">
+      <div className="flex items-center gap-2.5 min-w-0 flex-1 md:flex-initial md:shrink-0 max-w-full">
         <button
           type="button"
           onClick={togglePlay}
@@ -216,11 +216,11 @@ export function ResearcherVoicePlayer({
 
         <div className="min-w-0 leading-snug">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 truncate">
-            <span>تسجيل الباحث الصوتي</span>
+            <span className="truncate">تسجيل الباحث الصوتي</span>
             {formattedResearcher && (
               <>
-                <span className="text-slate-300" aria-hidden="true">·</span>
-                <span className="text-slate-600 font-medium">{formattedResearcher}</span>
+                <span className="text-slate-300 shrink-0" aria-hidden="true">·</span>
+                <span className="text-slate-600 font-medium truncate">{formattedResearcher}</span>
               </>
             )}
           </div>
@@ -231,21 +231,23 @@ export function ResearcherVoicePlayer({
       </div>
 
       {/* Middle: Progress Scrubber + Current Time (Right) & Total Duration (Left) */}
-      <div className="flex-1 flex items-center gap-2.5 min-w-[180px]">
+      <div className="order-3 md:order-2 w-full md:w-auto md:flex-1 min-w-0 flex items-center gap-2 overflow-hidden">
         <span className="font-mono text-[11px] text-slate-500 font-semibold shrink-0 tabular-nums">
           {formatAudioTime(currentTime)}
         </span>
 
-        <input
-          type="range"
-          min={0}
-          max={Math.max(1, totalDuration)}
-          step={0.1}
-          value={Math.min(currentTime, Math.max(1, totalDuration))}
-          onChange={handleSeek}
-          className="flex-1 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#005756]"
-          aria-label="شريط تقدم الصوت"
-        />
+        <div className="flex-1 min-w-0 flex items-center overflow-hidden">
+          <input
+            type="range"
+            min={0}
+            max={Math.max(1, totalDuration)}
+            step={0.1}
+            value={Math.min(currentTime, Math.max(1, totalDuration))}
+            onChange={handleSeek}
+            className="w-full min-w-0 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#005756]"
+            aria-label="شريط تقدم الصوت"
+          />
+        </div>
 
         <span className="font-mono text-[11px] text-slate-500 font-semibold shrink-0 tabular-nums">
           {formatAudioTime(totalDuration)}
@@ -253,7 +255,7 @@ export function ResearcherVoicePlayer({
       </div>
 
       {/* Left Side: Quick Skip Controls (-10s / +10s) & Optional Researcher Actions */}
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="order-2 md:order-3 flex items-center gap-1 shrink-0">
         <button
           type="button"
           onClick={() => handleSkip(-10)}
