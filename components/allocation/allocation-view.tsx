@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useApp } from '@/context/app-context';
 import { useToast } from '@/context/toast-context';
 import {
@@ -26,8 +27,11 @@ import {
   ChevronDown,
   Plus,
   Layers,
+  History,
+  MessageSquareText,
+  ArrowLeft,
 } from 'lucide-react';
-import { PriorityLevel } from '@/types';
+import { PriorityLevel, CaseNote } from '@/types';
 import { exportMonthlyAllocationToExcel } from '@/services/excel-export';
 import { MoneyDisplay } from '@/components/common/money-display';
 import { AmountInput } from '@/components/common/amount-input';
@@ -48,10 +52,7 @@ const getPriorityMeta = (priority: PriorityLevel): { label: string; className: s
 
 export function AllocationView() {
   const {
-    currentPeriod,
-    setCurrentPeriod,
     allocations,
-    currentAllocation,
     generateOrRefreshAllocation,
     createAllocationCycle,
     syncDraftAllocations,
@@ -63,12 +64,39 @@ export function AllocationView() {
     currentUserRole,
     currentSessionProfile,
     cases,
+    caseNotes,
     scoringConfig,
     permissions,
-    setSelectedCaseId,
+    openCaseDetails,
     metrics,
   } = useApp();
 
+  // عزل اختيار الدورة محلياً داخل شاشة توزيع الميزانية (Local State) لمنع تسريب الفلتر للصفحة الرئيسية
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(() => {
+    const entries = Object.entries(allocations);
+    if (entries.length === 0) return '2026-10';
+    const drafts = entries.filter(([, a]) => a.status === 'draft');
+    if (drafts.length > 0) {
+      return [...drafts].sort(([, a], [, b]) =>
+        (a.periodDate || a.executionDate || a.period).localeCompare(
+          b.periodDate || b.executionDate || b.period
+        )
+      )[0][0];
+    }
+    return [...entries].sort(([, a], [, b]) =>
+      (b.periodDate || b.executionDate || b.period).localeCompare(
+        a.periodDate || a.executionDate || a.period
+      )
+    )[0][0];
+  });
+
+  const currentPeriod = allocations[selectedPeriod]
+    ? selectedPeriod
+    : Object.keys(allocations)[0] || selectedPeriod;
+  const setCurrentPeriod = setSelectedPeriod;
+  const currentAllocation = allocations[currentPeriod];
+
+  const prefersReducedMotion = useReducedMotion();
   const actualUnrestricted = metrics?.unrestrictedDonationsBalance ?? 113000;
 
   const [budgetInput, setBudgetInput] = useState<number>(
@@ -79,6 +107,7 @@ export function AllocationView() {
     currentAllocation?.totalBudget ?? actualUnrestricted
   );
   const [isNewCycleModalOpen, setIsNewCycleModalOpen] = useState(false);
+  const [expandedCaseIds, setExpandedCaseIds] = useState<Record<string, boolean>>({});
 
   const [excludingItemId, setExcludingItemId] = useState<string | null>(null);
   const [exclusionReasonInput, setExclusionReasonInput] = useState<string>('');
@@ -107,8 +136,87 @@ export function AllocationView() {
     }
   }
 
-  // Case Map for fast lookups
+  // Case Map for fast O(1) lookups
   const caseMap = useMemo(() => new Map(cases.map((c) => [c.id, c])), [cases]);
+
+  // O(1) map: previous approved disbursements per case (from all approved cycles)
+  const approvedHistoryByCaseId = useMemo(() => {
+    const map = new Map<
+      string,
+      Array<{
+        id: string;
+        batchTitle: string;
+        date: string;
+        amount: number;
+        cycleType: 'regular' | 'exceptional';
+      }>
+    >();
+
+    Object.values(allocations).forEach((alloc) => {
+      if (alloc.status !== 'approved') return;
+      const date =
+        alloc.periodDate ||
+        alloc.executionDate ||
+        (alloc.approvedDate ? alloc.approvedDate.split(' ')[0] : alloc.period);
+      const batchTitle = alloc.batchTitle || alloc.periodLabel || alloc.period;
+      const cycleType = alloc.cycleType === 'exceptional' ? 'exceptional' : 'regular';
+
+      (alloc.items || []).forEach((item) => {
+        if (item.isExcluded || item.approvedAmount <= 0) return;
+        const list = map.get(item.caseId) || [];
+        list.push({
+          id: `${alloc.id}-${item.id}`,
+          batchTitle,
+          date,
+          amount: item.approvedAmount,
+          cycleType,
+        });
+        map.set(item.caseId, list);
+      });
+    });
+
+    map.forEach((list) => {
+      list.sort((a, b) => b.date.localeCompare(a.date));
+    });
+
+    return map;
+  }, [allocations]);
+
+  // O(1) map: accessible notes count & latest note per case (matching BeneficiaryNotes privacy rules)
+  const notesSummaryByCaseId = useMemo(() => {
+    const map = new Map<string, { count: number; latestNote?: CaseNote }>();
+    const profileName = currentSessionProfile?.name;
+
+    const sortedNotes = [...caseNotes].sort(
+      (a, b) => (b.timestamp || 0) - (a.timestamp || 0)
+    );
+
+    sortedNotes.forEach((note) => {
+      const isAuthor = note.authorId === currentUserRole || note.authorName === profileName;
+      const canView = !note.isPrivate || isAuthor || currentUserRole === 'admin';
+      if (!canView) return;
+
+      const existing = map.get(note.caseId);
+      if (!existing) {
+        map.set(note.caseId, { count: 1, latestNote: note });
+      } else {
+        existing.count += 1;
+      }
+    });
+
+    return map;
+  }, [caseNotes, currentUserRole, currentSessionProfile?.name]);
+
+  const toggleExpandCase = (caseId: string) => {
+    setExpandedCaseIds((prev) => ({
+      ...prev,
+      [caseId]: !prev[caseId],
+    }));
+  };
+
+  const collapseTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 0.18, ease: 'easeOut' as const };
 
   const isApproved = currentAllocation?.status === 'approved';
   const isExceptionalCycle = currentAllocation?.cycleType === 'exceptional';
@@ -809,10 +917,11 @@ export function AllocationView() {
         {/* Desktop Table View (>= 1024px) */}
         <div className="hidden lg:block bg-white rounded-xl border border-slate-200/80 shadow-none overflow-hidden">
           <div className="w-full overflow-x-auto">
-            <table className="w-full min-w-[950px] text-right border-collapse text-xs">
+            <table className="w-full min-w-[980px] text-right border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-600 font-semibold">
-                  <th className="py-3.5 px-3 text-center w-10">م</th>
+                  <th className="py-3.5 px-2 text-center w-9" aria-label="توسيع التفاصيل" />
+                  <th className="py-3.5 px-2 text-center w-9">م</th>
                   <th className="py-3.5 px-4 whitespace-nowrap">الأسرة والكود</th>
                   <th className="py-3.5 px-3 whitespace-nowrap">الرقم القومي</th>
                   <th className="py-3.5 px-3 whitespace-nowrap">الباحث المسؤول</th>
@@ -826,7 +935,7 @@ export function AllocationView() {
               <tbody className="divide-y divide-slate-100">
                 {filteredItems.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-10 text-center text-slate-500 font-medium">
+                    <td colSpan={10} className="py-10 text-center text-slate-500 font-medium">
                       مفيش حالات مطابقة للبحث أو التصفية
                     </td>
                   </tr>
@@ -835,173 +944,374 @@ export function AllocationView() {
                     const c = caseMap.get(item.caseId);
                     const isExcluded = item.isExcluded;
                     const priorityMeta = getPriorityMeta(item.priority);
+                    const isExpanded = Boolean(expandedCaseIds[item.caseId]);
+                    const historyList = approvedHistoryByCaseId.get(item.caseId) || [];
+                    const totalApprovedHistory = historyList.reduce((s, h) => s + h.amount, 0);
+                    const notesInfo = notesSummaryByCaseId.get(item.caseId) || {
+                      count: 0,
+                      latestNote: undefined,
+                    };
 
                     return (
-                      <tr
-                        key={item.id}
-                        className={`transition-colors ${
-                          isExcluded
-                            ? 'bg-slate-50/70 text-slate-400'
-                            : 'hover:bg-slate-50/70'
-                        }`}
-                      >
-                        {/* Serial */}
-                        <td className="py-3.5 px-3 text-center text-slate-400 font-mono tabular-nums">
-                          {idx + 1}
-                        </td>
-
-                        {/* Code & Full Name */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              onClick={() => setSelectedCaseId(item.caseId)}
-                              className={`font-semibold cursor-pointer hover:text-[#005756] hover:underline ${
-                                isExcluded ? 'text-slate-500' : 'text-slate-900'
+                      <React.Fragment key={item.id}>
+                        <tr
+                          className={`transition-colors ${
+                            isExcluded
+                              ? 'bg-slate-50/70 text-slate-400'
+                              : isExpanded
+                              ? 'bg-slate-50/60'
+                              : 'hover:bg-slate-50/70'
+                          }`}
+                        >
+                          {/* Expand Toggle */}
+                          <td className="py-3.5 px-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => toggleExpandCase(item.caseId)}
+                              aria-expanded={isExpanded}
+                              aria-label={
+                                isExpanded
+                                  ? `طي سجل وملاحظات ${item.caseName}`
+                                  : `عرض سجل الصرف والملاحظات لـ ${item.caseName}`
+                              }
+                              title="السجل المالي السابق والملاحظات"
+                              className={`p-1 rounded-lg transition-colors cursor-pointer ${
+                                isExpanded
+                                  ? 'text-[#005756] bg-[#005756]/10'
+                                  : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
                               }`}
                             >
-                              {item.caseName}
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                            <span className="font-mono tabular-nums">{item.caseCode}</span>
-                            {c?.secondaryName && (
-                              <>
-                                <span aria-hidden="true">·</span>
-                                <span>{c.secondaryName}</span>
-                              </>
-                            )}
-                            {item.isVisitOverdue && (
-                              <>
-                                <span aria-hidden="true">·</span>
-                                <span className="text-rose-600 font-medium">زيارة متأخرة</span>
-                              </>
-                            )}
-                          </div>
-                        </td>
+                              <ChevronDown
+                                size={15}
+                                className={`transition-transform duration-150 ${
+                                  isExpanded ? 'rotate-180' : ''
+                                }`}
+                              />
+                            </button>
+                          </td>
 
-                        {/* National ID */}
-                        <td className="py-3.5 px-3 whitespace-nowrap font-mono tabular-nums text-slate-700">
-                          {c?.nationalId || 'مرفق بالملف'}
-                        </td>
+                          {/* Serial */}
+                          <td className="py-3.5 px-2 text-center text-slate-400 font-mono tabular-nums">
+                            {idx + 1}
+                          </td>
 
-                        {/* Assigned Researcher */}
-                        <td className="py-3.5 px-3 whitespace-nowrap font-medium text-slate-700">
-                          {c?.assignedResearcher || 'مش متحدد'}
-                        </td>
-
-                        {/* Priority & Score */}
-                        <td className="py-3.5 px-3 whitespace-nowrap">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono tabular-nums font-semibold text-slate-700">
-                              {item.score}/100
-                            </span>
-                            <span className="text-slate-300" aria-hidden="true">·</span>
-                            <span className={`text-[11px] ${priorityMeta.className}`}>
-                              {priorityMeta.label}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* Gap */}
-                        <td className="py-3.5 px-3 whitespace-nowrap">
-                          <MoneyDisplay
-                            amount={item.financialGap}
-                            size="sm"
-                            variant={isExcluded ? 'muted' : 'neutral'}
-                          />
-                        </td>
-
-                        {/* Approved Amount */}
-                        <td className="py-3 px-3 whitespace-nowrap">
-                          {isExcluded ? (
-                            <span className="text-xs font-medium text-slate-400 inline-flex items-center gap-1.5">
-                              <MoneyDisplay amount={0} size="sm" variant="muted" />
-                              <span>· مستبعد</span>
-                            </span>
-                          ) : isApproved || !permissions.canEditAllocation ? (
+                          {/* Code & Full Name */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
-                              <MoneyDisplay amount={item.approvedAmount} size="md" variant="neutral" />
-                              {item.isManuallyAdjusted && (
-                                <span className="text-[11px] text-slate-500 font-medium">
-                                  · معدّل
-                                </span>
+                              <span
+                                onClick={() => openCaseDetails(item.caseId, 'profile')}
+                                className={`font-semibold cursor-pointer hover:text-[#005756] hover:underline ${
+                                  isExcluded ? 'text-slate-500' : 'text-slate-900'
+                                }`}
+                              >
+                                {item.caseName}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                              <span className="font-mono tabular-nums">{item.caseCode}</span>
+                              {c?.secondaryName && (
+                                <>
+                                  <span aria-hidden="true">·</span>
+                                  <span>{c.secondaryName}</span>
+                                </>
+                              )}
+                              {item.isVisitOverdue && (
+                                <>
+                                  <span aria-hidden="true">·</span>
+                                  <span className="text-rose-600 font-medium">زيارة متأخرة</span>
+                                </>
                               )}
                             </div>
-                          ) : (
+                          </td>
+
+                          {/* National ID */}
+                          <td className="py-3.5 px-3 whitespace-nowrap font-mono tabular-nums text-slate-700">
+                            {c?.nationalId || 'مرفق بالملف'}
+                          </td>
+
+                          {/* Assigned Researcher */}
+                          <td className="py-3.5 px-3 whitespace-nowrap font-medium text-slate-700">
+                            {c?.assignedResearcher || 'مش متحدد'}
+                          </td>
+
+                          {/* Priority & Score */}
+                          <td className="py-3.5 px-3 whitespace-nowrap">
                             <div className="flex items-center gap-1.5">
-                              <div className="flex items-center">
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step={50}
-                                  value={item.approvedAmount === 0 ? '' : item.approvedAmount}
-                                  placeholder="0"
-                                  onChange={(e) => {
-                                    const val = Math.max(0, Number(e.target.value) || 0);
-                                    updateAllocationItem(currentPeriod, item.id, {
-                                      approvedAmount: val,
-                                      isManuallyAdjusted: true,
-                                    });
-                                  }}
-                                  className="w-24 px-2.5 py-1.5 bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200/80 focus:border-[#005756] rounded-lg text-xs font-mono tabular-nums font-semibold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#005756]/15 transition-colors"
-                                  title="اكتب المبلغ المقرر صرفه ليُحفظ تلقائياً"
-                                />
-                                <span className="mr-1.5 text-[11px] font-medium text-slate-500">ج.م</span>
+                              <span className="font-mono tabular-nums font-semibold text-slate-700">
+                                {item.score}/100
+                              </span>
+                              <span className="text-slate-300" aria-hidden="true">·</span>
+                              <span className={`text-[11px] ${priorityMeta.className}`}>
+                                {priorityMeta.label}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Gap */}
+                          <td className="py-3.5 px-3 whitespace-nowrap">
+                            <MoneyDisplay
+                              amount={item.financialGap}
+                              size="sm"
+                              variant={isExcluded ? 'muted' : 'neutral'}
+                            />
+                          </td>
+
+                          {/* Approved Amount */}
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            {isExcluded ? (
+                              <span className="text-xs font-medium text-slate-400 inline-flex items-center gap-1.5">
+                                <MoneyDisplay amount={0} size="sm" variant="muted" />
+                                <span>· مستبعد</span>
+                              </span>
+                            ) : isApproved || !permissions.canEditAllocation ? (
+                              <div className="flex items-center gap-1.5">
+                                <MoneyDisplay amount={item.approvedAmount} size="md" variant="neutral" />
+                                {item.isManuallyAdjusted && (
+                                  <span className="text-[11px] text-slate-500 font-medium">
+                                    · معدّل
+                                  </span>
+                                )}
                               </div>
-                              {item.isManuallyAdjusted && (
-                                <span
-                                  className="text-[11px] text-slate-500 font-medium shrink-0"
-                                  title="تم تعديل المبلغ يدوياً"
-                                >
-                                  معدّل
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </td>
+                            ) : (
+                              <div className="flex items-center gap-1.5">
+                                <div className="flex items-center">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step={50}
+                                    value={item.approvedAmount === 0 ? '' : item.approvedAmount}
+                                    placeholder="0"
+                                    onChange={(e) => {
+                                      const val = Math.max(0, Number(e.target.value) || 0);
+                                      updateAllocationItem(currentPeriod, item.id, {
+                                        approvedAmount: val,
+                                        isManuallyAdjusted: true,
+                                      });
+                                    }}
+                                    className="w-24 px-2.5 py-1.5 bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200/80 focus:border-[#005756] rounded-lg text-xs font-mono tabular-nums font-semibold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#005756]/15 transition-colors"
+                                    title="اكتب المبلغ المقرر صرفه ليُحفظ تلقائياً"
+                                  />
+                                  <span className="mr-1.5 text-[11px] font-medium text-slate-500">ج.م</span>
+                                </div>
+                                {item.isManuallyAdjusted && (
+                                  <span
+                                    className="text-[11px] text-slate-500 font-medium shrink-0"
+                                    title="تم تعديل المبلغ يدوياً"
+                                  >
+                                    معدّل
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </td>
 
-                        {/* Reasoning */}
-                        <td className="py-3.5 px-4 text-slate-600 text-[11px] leading-relaxed max-w-[280px]">
-                          {isExcluded ? (
-                            <span className="text-slate-500 font-medium">
-                              سبب الاستبعاد: {item.exclusionReason}
-                            </span>
-                          ) : (
-                            item.reasoning
-                          )}
-                        </td>
+                          {/* Reasoning */}
+                          <td className="py-3.5 px-4 text-slate-600 text-[11px] leading-relaxed max-w-[280px]">
+                            {isExcluded ? (
+                              <span className="text-slate-500 font-medium">
+                                سبب الاستبعاد: {item.exclusionReason}
+                              </span>
+                            ) : (
+                              item.reasoning
+                            )}
+                          </td>
 
-                        {/* Actions */}
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                          {!isApproved && permissions.canEditAllocation ? (
-                            <div className="flex items-center justify-center gap-1.5">
-                              {!isExcluded ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setExcludingItemId(item.id)}
-                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50/70 rounded-lg transition-colors cursor-pointer"
-                                  title="استبعاد مؤقت من الدفعة"
+                          {/* Actions */}
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                            {!isApproved && permissions.canEditAllocation ? (
+                              <div className="flex items-center justify-center gap-1.5">
+                                {!isExcluded ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setExcludingItemId(item.id)}
+                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50/70 rounded-lg transition-colors cursor-pointer"
+                                    title="استبعاد مؤقت من الدفعة"
+                                  >
+                                    <Ban size={15} />
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleExcludeItem(currentPeriod, item.id, false)}
+                                    className="px-2.5 py-1 text-[11px] font-semibold text-slate-700 bg-white border border-slate-200/80 hover:border-[#005756]/40 hover:text-[#005756] rounded-lg cursor-pointer transition-colors"
+                                  >
+                                    إلغاء الاستبعاد
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center justify-center gap-1 text-[11px] text-slate-500 font-medium">
+                                <Lock size={12} className="text-slate-400" />
+                                <span>معتمد</span>
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+
+                        {/* Expandable Decision-Support Row (Calm UI, Zero Cards-Within-Cards) */}
+                        <AnimatePresence initial={false}>
+                          {isExpanded && (
+                            <tr className="bg-slate-50/70">
+                              <td colSpan={10} className="p-0 border-t border-slate-200/70">
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={collapseTransition}
+                                  className="overflow-hidden"
                                 >
-                                  <Ban size={15} />
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => toggleExcludeItem(currentPeriod, item.id, false)}
-                                  className="px-2.5 py-1 text-[11px] font-semibold text-slate-700 bg-white border border-slate-200/80 hover:border-[#005756]/40 hover:text-[#005756] rounded-lg cursor-pointer transition-colors"
-                                >
-                                  إلغاء الاستبعاد
-                                </button>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="inline-flex items-center justify-center gap-1 text-[11px] text-slate-500 font-medium">
-                              <Lock size={12} className="text-slate-400" />
-                              <span>معتمد</span>
-                            </span>
+                                  <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x md:divide-x-reverse divide-slate-200/80">
+                                    {/* Section 1: Previous Approved Disbursement History */}
+                                    <div className="pb-3 md:pb-0 md:pl-6 space-y-2.5">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+                                          <History size={14} className="text-slate-400 shrink-0" />
+                                          <span>سجل الصرف المالي السابق</span>
+                                          {historyList.length > 0 && (
+                                            <span className="text-[11px] font-normal text-slate-500 tabular-nums">
+                                              ({historyList.length} دورات معتمدة ·{' '}
+                                              {totalApprovedHistory.toLocaleString('ar-EG')} ج.م)
+                                            </span>
+                                          )}
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => openCaseDetails(item.caseId, 'financials')}
+                                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#005756] hover:underline cursor-pointer shrink-0"
+                                        >
+                                          <span>كشف الحساب</span>
+                                          <ArrowLeft size={12} />
+                                        </button>
+                                      </div>
+
+                                      {historyList.length > 0 ? (
+                                        <div className="divide-y divide-slate-200/60">
+                                          {historyList.slice(0, 4).map((entry) => (
+                                            <div
+                                              key={entry.id}
+                                              className="py-1.5 flex items-center justify-between gap-3 text-[11px]"
+                                            >
+                                              <div className="flex items-center gap-1.5 min-w-0">
+                                                <span className="font-medium text-slate-800 truncate">
+                                                  {entry.batchTitle}
+                                                </span>
+                                                {entry.cycleType === 'exceptional' && (
+                                                  <span className="text-[10px] text-slate-500 shrink-0">
+                                                    · استثنائية
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <div className="flex items-center gap-3 shrink-0">
+                                                <span className="font-mono tabular-nums text-slate-500">
+                                                  {entry.date}
+                                                </span>
+                                                <MoneyDisplay
+                                                  amount={entry.amount}
+                                                  size="sm"
+                                                  variant="neutral"
+                                                />
+                                              </div>
+                                            </div>
+                                          ))}
+                                          {historyList.length > 4 && (
+                                            <div className="pt-1.5 text-[11px] text-slate-500">
+                                              + {historyList.length - 4} دورات سابقة أخرى في كشف الحساب
+                                            </div>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div className="text-[11px] text-slate-500 leading-relaxed space-y-1">
+                                          <p>لسه مفيش دورات معتمدة منصرفة للحالة في السجل الحالي.</p>
+                                          {c && c.historicalAssistanceTotal > 0 && (
+                                            <p className="text-slate-600 font-medium tabular-nums">
+                                              إجمالي المساعدات التاريخية المسجلة بالملف:{' '}
+                                              <span className="font-mono font-semibold text-slate-800">
+                                                {c.historicalAssistanceTotal.toLocaleString('ar-EG')} ج.م
+                                              </span>
+                                            </p>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Section 2: Quick Notes Summary & Deep-Link */}
+                                    <div className="pt-3 md:pt-0 md:pr-6 flex flex-col justify-between gap-2.5">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+                                          <MessageSquareText
+                                            size={14}
+                                            className="text-slate-400 shrink-0"
+                                          />
+                                          <span>الملاحظات السريعة</span>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => openCaseDetails(item.caseId, 'notes')}
+                                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 hover:border-[#005756]/40 hover:text-[#005756] text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer shrink-0 tabular-nums"
+                                        >
+                                          <span>الملاحظات ({notesInfo.count})</span>
+                                          <ArrowLeft size={12} />
+                                        </button>
+                                      </div>
+
+                                      {notesInfo.latestNote ? (
+                                        <div className="space-y-1.5">
+                                          <p className="text-xs text-slate-700 font-medium line-clamp-1">
+                                            {notesInfo.latestNote.content}
+                                          </p>
+                                          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                              <span className="font-mono tabular-nums">
+                                                {notesInfo.latestNote.createdAt}
+                                              </span>
+                                              <span aria-hidden="true">·</span>
+                                              <span>{notesInfo.latestNote.authorName}</span>
+                                              {notesInfo.latestNote.isPrivate && (
+                                                <>
+                                                  <span aria-hidden="true">·</span>
+                                                  <span>خاصة بيا</span>
+                                                </>
+                                              )}
+                                              {notesInfo.latestNote.category === 'urgent' && (
+                                                <>
+                                                  <span aria-hidden="true">·</span>
+                                                  <span className="text-rose-600 font-semibold">
+                                                    عاجل
+                                                  </span>
+                                                </>
+                                              )}
+                                            </div>
+                                            <button
+                                              type="button"
+                                              onClick={() => openCaseDetails(item.caseId, 'notes')}
+                                              className="text-[#005756] font-semibold hover:underline cursor-pointer inline-flex items-center gap-1"
+                                            >
+                                              <span>عرض الملاحظات بالكامل</span>
+                                              <ArrowLeft size={11} />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500">
+                                          <span>مفيش ملاحظات مسجلة على الحالة لسه.</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => openCaseDetails(item.caseId, 'notes')}
+                                            className="text-[#005756] font-semibold hover:underline cursor-pointer inline-flex items-center gap-1 shrink-0"
+                                          >
+                                            <span>إضافة ملاحظة</span>
+                                            <ArrowLeft size={11} />
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              </td>
+                            </tr>
                           )}
-                        </td>
-                      </tr>
+                        </AnimatePresence>
+                      </React.Fragment>
                     );
                   })
                 )}
@@ -1021,6 +1331,12 @@ export function AllocationView() {
               const c = caseMap.get(item.caseId);
               const isExcluded = item.isExcluded;
               const priorityMeta = getPriorityMeta(item.priority);
+              const isExpanded = Boolean(expandedCaseIds[item.caseId]);
+              const historyList = approvedHistoryByCaseId.get(item.caseId) || [];
+              const notesInfo = notesSummaryByCaseId.get(item.caseId) || {
+                count: 0,
+                latestNote: undefined,
+              };
 
               return (
                 <div
@@ -1033,7 +1349,7 @@ export function AllocationView() {
                     <div>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span
-                          onClick={() => setSelectedCaseId(item.caseId)}
+                          onClick={() => openCaseDetails(item.caseId, 'profile')}
                           className="font-semibold text-sm text-slate-900 cursor-pointer hover:text-[#005756] hover:underline"
                         >
                           {item.caseName}
@@ -1129,6 +1445,121 @@ export function AllocationView() {
                     ) : (
                       item.reasoning
                     )}
+                  </div>
+
+                  {/* Mobile Expandable Toggle: Previous Disbursements & Quick Notes */}
+                  <div className="border-t border-slate-100 pt-2.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleExpandCase(item.caseId)}
+                      aria-expanded={isExpanded}
+                      className="w-full flex items-center justify-between gap-2 text-xs font-semibold text-slate-700 hover:text-[#005756] transition-colors cursor-pointer"
+                    >
+                      <span className="inline-flex items-center gap-1.5 tabular-nums">
+                        <History size={13} className="text-slate-400" />
+                        <span>السجل السابق والملاحظات ({notesInfo.count})</span>
+                      </span>
+                      <ChevronDown
+                        size={15}
+                        className={`text-slate-400 transition-transform duration-150 ${
+                          isExpanded ? 'rotate-180 text-[#005756]' : ''
+                        }`}
+                      />
+                    </button>
+
+                    <AnimatePresence initial={false}>
+                      {isExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={collapseTransition}
+                          className="overflow-hidden"
+                        >
+                          <div className="mt-3 pt-3 border-t border-slate-100 space-y-3 text-xs">
+                            {/* Previous Disbursements */}
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between text-[11px]">
+                                <span className="font-semibold text-slate-700">
+                                  سجل الصرف السابق (الدورات المعتمدة)
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => openCaseDetails(item.caseId, 'financials')}
+                                  className="text-[#005756] font-semibold inline-flex items-center gap-0.5 cursor-pointer"
+                                >
+                                  <span>كشف الحساب</span>
+                                  <ArrowLeft size={11} />
+                                </button>
+                              </div>
+                              {historyList.length > 0 ? (
+                                <div className="divide-y divide-slate-100">
+                                  {historyList.slice(0, 3).map((entry) => (
+                                    <div
+                                      key={entry.id}
+                                      className="py-1.5 flex items-center justify-between gap-2 text-[11px]"
+                                    >
+                                      <span className="text-slate-700 font-medium truncate">
+                                        {entry.batchTitle}
+                                      </span>
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        <span className="font-mono tabular-nums text-slate-400">
+                                          {entry.date}
+                                        </span>
+                                        <MoneyDisplay
+                                          amount={entry.amount}
+                                          size="sm"
+                                          variant="neutral"
+                                        />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-[11px] text-slate-500">
+                                  لسه مفيش دورات معتمدة منصرفة في السجل الحالي
+                                  {c && c.historicalAssistanceTotal > 0
+                                    ? ` · الصرف التاريخي بالملف: ${c.historicalAssistanceTotal.toLocaleString('ar-EG')} ج.م`
+                                    : ''}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Quick Notes Deep-Link */}
+                            <div className="pt-2.5 border-t border-slate-100 space-y-1.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[11px] font-semibold text-slate-700 inline-flex items-center gap-1">
+                                  <MessageSquareText size={12} className="text-slate-400" />
+                                  <span>الملاحظات السريعة</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => openCaseDetails(item.caseId, 'notes')}
+                                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#005756] hover:underline cursor-pointer tabular-nums"
+                                >
+                                  <span>عرض الملاحظات ({notesInfo.count})</span>
+                                  <ArrowLeft size={11} />
+                                </button>
+                              </div>
+                              {notesInfo.latestNote ? (
+                                <div className="space-y-0.5">
+                                  <p className="text-[11px] text-slate-700 line-clamp-1">
+                                    {notesInfo.latestNote.content}
+                                  </p>
+                                  <p className="text-[10px] text-slate-400 font-mono tabular-nums">
+                                    {notesInfo.latestNote.createdAt} · {notesInfo.latestNote.authorName}
+                                  </p>
+                                </div>
+                              ) : (
+                                <p className="text-[11px] text-slate-500">
+                                  مفيش ملاحظات مسجلة على الحالة لسه.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
 
                   {!isApproved && permissions.canEditAllocation && (
@@ -1387,6 +1818,7 @@ export function AllocationView() {
         scoringConfig={scoringConfig}
         onCreateCycle={(data) => {
           const created = createAllocationCycle(data);
+          setCurrentPeriod(created.period);
           setBudgetInput(created.totalBudget);
           toast.success(`تم فتح دورة «${created.batchTitle}» وتجهيز كشف الصرف`);
         }}

@@ -45,16 +45,34 @@ function formatBeneficiaryDisplayName(caseObj?: BeneficiaryCase, fallbackName?: 
 
 export function ReportsView() {
   const {
-    currentPeriod,
-    setCurrentPeriod,
     allocations,
     generateOrRefreshAllocation,
     syncDraftAllocations,
-    currentAllocation,
     cases,
     donations,
     fastTrackOrders,
   } = useApp();
+
+  // عزل اختيار الدورة محلياً داخل شاشة التقارير (Local State) دون التأثير على الصفحة الرئيسية
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(() => {
+    const entries = Object.entries(allocations);
+    if (entries.length === 0) return '2026-10';
+    const approved = entries.filter(
+      ([, a]) => a.status === 'approved' || a.status === 'closed'
+    );
+    const pool = approved.length > 0 ? approved : entries;
+    return [...pool].sort(([, a], [, b]) =>
+      (b.periodDate || b.executionDate || b.period).localeCompare(
+        a.periodDate || a.executionDate || a.period
+      )
+    )[0][0];
+  });
+
+  const currentPeriod = allocations[selectedPeriod]
+    ? selectedPeriod
+    : Object.keys(allocations)[0] || selectedPeriod;
+  const setCurrentPeriod = setSelectedPeriod;
+  const currentAllocation = allocations[currentPeriod];
 
   const [selectedResearcher, setSelectedResearcher] = useState<string>('all');
   const [isQuickPrintModalOpen, setIsQuickPrintModalOpen] = useState(false);

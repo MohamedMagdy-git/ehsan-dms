@@ -133,12 +133,17 @@ export const DEFAULT_RESEARCHERS: string[] = Array.from(
   ].filter(Boolean))
 );
 
+export type CaseDetailsTab = 'profile' | 'financials' | 'visits' | 'documents' | 'notes';
+
 interface AppContextType {
   // Navigation & State
   activeSection: string;
   setActiveSection: (sec: string) => void;
   selectedCaseId: string | null;
   setSelectedCaseId: (id: string | null) => void;
+  selectedCaseTab: CaseDetailsTab;
+  setSelectedCaseTab: (tab: CaseDetailsTab) => void;
+  openCaseDetails: (caseId: string, defaultTab?: CaseDetailsTab) => void;
   currentUserRole: AppUserRole;
   setCurrentUserRole: (role: AppUserRole) => void;
   currentSessionProfile: UserSessionProfile;
@@ -190,6 +195,7 @@ interface AppContextType {
 
   // Helpers & Derived
   currentAllocation: MonthlyAllocation | undefined;
+  dashboardCycle: MonthlyAllocation | undefined;
   metrics: {
     totalCases: number;
     eligibleCases: number;
@@ -214,6 +220,11 @@ interface AppContextType {
     totalAvailableLiquidity: number;
     pledgedDonationsTotal: number;
     approvedAssistanceTotal: number;
+    approvedCyclesCount: number;
+    approvedCyclesDisbursedTotal: number;
+    fastTrackDeliveredTotal: number;
+    fastTrackPendingTotal: number;
+    activeFastTrackTotal: number;
     disbursedAssistanceTotal: number;
     unrestrictedAvailableBalance: number;
     totalDisbursedOrAllocated: number;
@@ -347,7 +358,13 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [activeSection, setActiveSection] = useState<string>('dashboard');
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+  const [selectedCaseTab, setSelectedCaseTab] = useState<CaseDetailsTab>('profile');
   const [editingCase, setEditingCase] = useState<BeneficiaryCase | null>(null);
+
+  const openCaseDetails = useCallback((caseId: string, defaultTab: CaseDetailsTab = 'profile') => {
+    setSelectedCaseTab(defaultTab);
+    setSelectedCaseId(caseId);
+  }, []);
   const [currentUserRole, setCurrentUserRole] = useState<AppUserRole>('admin');
   const [activeDonorId, setActiveDonorId] = useState<string>('donor-ahmed-hossam');
   const [currentPeriod, setCurrentPeriod] = useState<string>('2026-10');
@@ -1449,7 +1466,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       [cycleKey]: newCycle,
     }));
-    setCurrentPeriod(cycleKey);
 
     addAuditLog(
       'فتح دورة صرف جديدة',
@@ -1977,7 +1993,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // 2. مزامنة جميع مسودات التخصيص المفتوحة (draft) بالإعدادات والحالات المحدثة مع الحفاظ على التعديلات اليدوية
     syncDraftAllocationsWithCases(updatedCases, mergedConfig);
-    if (!allocations[currentPeriod]) {
+    if (Object.keys(allocations).length === 0) {
       const periodLabel = formatPeriodLabel(currentPeriod);
       const newProposal = generateMonthlyAllocationProposal({
         period: currentPeriod,
@@ -2672,9 +2688,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [cases, addAuditLog]
   );
 
-  const currentAllocation = allocations[currentPeriod];
+  // مرجع الدورة المستقلة للرئيسية وبوابة المتبرعين (معزول تماماً عن اختيار شاشة توزيع الميزانية أو التقارير):
+  // يعتمد أحدث دورة معتمدة/مغلقة، ولا يعود لمسودة إلا إذا لم تُعتمد أي دورة على النظام بعد.
+  const dashboardCycle = useMemo<MonthlyAllocation | undefined>(() => {
+    const allCycles = Object.values(allocations);
+    if (allCycles.length === 0) return undefined;
 
-  // Operational & Treasury Financial metrics
+    const getSortKey = (a: MonthlyAllocation) =>
+      a.periodDate || a.executionDate || (a.approvedDate ? a.approvedDate.split(' ')[0] : '') || a.period;
+
+    const approvedOrClosed = allCycles.filter(
+      (a) => a.status === 'approved' || a.status === 'closed'
+    );
+
+    if (approvedOrClosed.length > 0) {
+      return [...approvedOrClosed].sort((a, b) => {
+        const byDate = getSortKey(b).localeCompare(getSortKey(a));
+        if (byDate !== 0) return byDate;
+        return (b.approvedDate || '').localeCompare(a.approvedDate || '');
+      })[0];
+    }
+
+    // في حالة عدم اعتماد أي دورة بعد: اختيار أقرب دورة دورية مفتوحة أو أول دورة متاحة
+    const regularDrafts = allCycles.filter((a) => (a.cycleType || 'regular') === 'regular');
+    const pool = regularDrafts.length > 0 ? regularDrafts : allCycles;
+    return [...pool].sort((a, b) => getSortKey(a).localeCompare(getSortKey(b)))[0];
+  }, [allocations]);
+
+  const currentAllocation = dashboardCycle;
+
+  // Operational & Treasury Financial metrics (معزولة تماماً عن مسودات شاشة التخصيص)
   const metrics = useMemo(() => {
     const totalCases = cases.length;
     const activeEligibleStandardCases = cases.filter((c) => c.status === 'active_eligible').length;
@@ -2685,7 +2728,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       (c) => c.status === 'pending_exception' && !c.vulnerability?.exceptionApproved
     ).length;
     const eligibleCases = activeEligibleStandardCases + approvedExceptionCases;
-    const fundedCasesCount = currentAllocation?.summary.fundedCasesCount ?? eligibleCases;
+    const fundedCasesCount = dashboardCycle?.summary.fundedCasesCount ?? eligibleCases;
     const underInvestigationCases = cases.filter((c) => c.status === 'under_review').length;
     const temporarilyExcludedCases = cases.filter((c) => c.status === 'excluded_current_month').length;
     const closedCases = cases.filter((c) => c.status === 'closed').length;
@@ -2716,9 +2759,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Total restricted balance (sum of purpose + case)
     const restrictedDonationsBalance = restrictedPurposeBalance + restrictedCaseBalance;
 
-    // Disbursed total from active fast-track orders
+    // الصرف الفوري: فصل المُسلّم فعلياً عن العهدة قيد التسليم مع خصم الاثنين (غير الملغاة) من الخزينة
     const activeRestrictedOrders = fastTrackOrders.filter((o) => o.status !== 'cancelled');
-    const restrictedDisbursedTotal = activeRestrictedOrders.reduce((s, o) => s + o.amount, 0);
+    const fastTrackDeliveredTotal = activeRestrictedOrders
+      .filter((o) => o.status === 'delivered')
+      .reduce((s, o) => s + o.amount, 0);
+    const fastTrackPendingTotal = activeRestrictedOrders
+      .filter((o) => o.status === 'pending_delivery')
+      .reduce((s, o) => s + o.amount, 0);
+    const activeFastTrackTotal = fastTrackDeliveredTotal + fastTrackPendingTotal;
+    const restrictedDisbursedTotal = activeFastTrackTotal;
 
     const totalAvailableLiquidity = unrestrictedDonationsBalance + restrictedDonationsBalance;
 
@@ -2726,18 +2776,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .filter((d) => d.status === 'pledged')
       .reduce((s, d) => s + d.amount, 0);
 
-    const approvedAssistanceTotal = currentAllocation?.summary.totalAllocated ?? 0;
-    const isAllocationApproved = currentAllocation?.status === 'approved';
-    const disbursedAssistanceTotal = isAllocationApproved ? approvedAssistanceTotal : 0;
-    const totalDisbursedOrAllocated = approvedAssistanceTotal;
+    // إجمالي كافة الدورات المعتمدة والمغلقة فعلياً (دون أي تأثر بالمسودات تحت الإعداد)
+    const approvedCyclesList = Object.values(allocations).filter(
+      (a) => a.status === 'approved' || a.status === 'closed'
+    );
+    const approvedCyclesCount = approvedCyclesList.length;
+    const approvedCyclesDisbursedTotal = approvedCyclesList.reduce(
+      (sum, a) => sum + (a.summary?.totalAllocated ?? 0),
+      0
+    );
 
-    // الرصيد غير المقيد المتاح للتخصيص الحر = التبرعات غير المقيدة - ما تم اعتماده فعلياً من الصندوق العام
-    const unrestrictedAssistanceTotal = currentAllocation?.items
-      .filter((i) => !i.isExcluded && i.fundSource === 'unrestricted_pool')
-      .reduce((sum, i) => sum + i.approvedAmount, 0) ?? 0;
-    const unrestrictedAvailableBalance = Math.max(0, unrestrictedDonationsBalance - unrestrictedAssistanceTotal);
+    // بطاقة الدورة الرئيسية (أحدث دورة معتمدة أو أول دورة جاهزة للاعتماد)
+    const approvedAssistanceTotal = dashboardCycle?.summary.totalAllocated ?? 0;
+    const isAllocationApproved =
+      dashboardCycle?.status === 'approved' || dashboardCycle?.status === 'closed';
 
-    const netTreasuryBalance = receivedDonationsTotal - totalDisbursedOrAllocated;
+    // تم صرفه فعلياً = مجموع جميع الدورات المعتمدة/المغلقة + إجمالي أوامر الصرف الفوري الفعالة (مُسلّم + بعهدة الباحث)
+    const disbursedAssistanceTotal = approvedCyclesDisbursedTotal + activeFastTrackTotal;
+    const totalDisbursedOrAllocated = disbursedAssistanceTotal;
+
+    // الرصيد غير المقيد المتاح حالياً (تم خصم الدورات المعتمدة منه مسبقاً في remainingAmount)
+    const unrestrictedAvailableBalance = Math.max(0, unrestrictedDonationsBalance);
+
+    // المتبقي في الخزنة = إجمالي التبرعات المتاحة - إجمالي كافة المصروفات المعتمدة والمنفذة فعلياً
+    const netTreasuryBalance = receivedDonationsTotal - disbursedAssistanceTotal;
     const treasuryStatus: 'surplus' | 'deficit' = netTreasuryBalance >= 0 ? 'surplus' : 'deficit';
 
     const totalFamiliesNeedGap = cases
@@ -2768,6 +2830,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       totalAvailableLiquidity,
       pledgedDonationsTotal,
       approvedAssistanceTotal,
+      approvedCyclesCount,
+      approvedCyclesDisbursedTotal,
+      fastTrackDeliveredTotal,
+      fastTrackPendingTotal,
+      activeFastTrackTotal,
       disbursedAssistanceTotal,
       unrestrictedAvailableBalance,
       totalDisbursedOrAllocated,
@@ -2776,7 +2843,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       totalFamiliesNeedGap,
       isAllocationApproved,
     };
-  }, [cases, donations, currentAllocation, fastTrackOrders]);
+  }, [cases, donations, allocations, dashboardCycle, fastTrackOrders]);
 
   // Role permissions
   const permissions = useMemo(() => {
@@ -2809,6 +2876,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setActiveSection,
         selectedCaseId,
         setSelectedCaseId,
+        selectedCaseTab,
+        setSelectedCaseTab,
+        openCaseDetails,
         editingCase,
         setEditingCase,
         isNewCaseModalOpen,
@@ -2838,6 +2908,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         scoringConfig,
         auditLogs,
         currentAllocation,
+        dashboardCycle,
         metrics,
         shariaCategories,
         chronicDiseases,

@@ -43,6 +43,8 @@ export function CaseDetailsModal() {
   const {
     selectedCaseId,
     setSelectedCaseId,
+    selectedCaseTab,
+    setSelectedCaseTab,
     setEditingCase,
     cases,
     visits,
@@ -59,7 +61,18 @@ export function CaseDetailsModal() {
     caseNotes,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'financials' | 'visits' | 'documents' | 'notes'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'financials' | 'visits' | 'documents' | 'notes'>(
+    selectedCaseTab || 'profile'
+  );
+  const [prevSelectedCaseId, setPrevSelectedCaseId] = useState<string | null>(selectedCaseId);
+  const [prevRequestedTab, setPrevRequestedTab] = useState(selectedCaseTab);
+  if (selectedCaseId !== prevSelectedCaseId || selectedCaseTab !== prevRequestedTab) {
+    setPrevSelectedCaseId(selectedCaseId);
+    setPrevRequestedTab(selectedCaseTab);
+    if (selectedCaseId) {
+      setActiveTab(selectedCaseTab || 'profile');
+    }
+  }
   const [showExceptionDialog, setShowExceptionDialog] = useState(false);
   const [exceptionReasonInput, setExceptionReasonInput] = useState('');
   const [showReassignDialog, setShowReassignDialog] = useState(false);
@@ -121,8 +134,9 @@ export function CaseDetailsModal() {
     setDragState({ isDragging: false, deltaY: 0 });
     setSheetSnap('half');
     setIsClosing(false);
+    setSelectedCaseTab('profile');
     setSelectedCaseId(null);
-  }, [setSelectedCaseId, indicatorOpacity]);
+  }, [setSelectedCaseId, setSelectedCaseTab, indicatorOpacity]);
 
   const handleSheetPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isMobileViewport || isClosing) return;
@@ -243,7 +257,10 @@ export function CaseDetailsModal() {
         const item = alloc.items?.find((i) => i.caseId === caseId);
         if (item && (item.approvedAmount > 0 || item.proposedAmount > 0 || item.isExcluded)) {
           const isApproved = alloc.status === 'approved';
-          const date = alloc.executionDate || (alloc.approvedDate ? alloc.approvedDate.split(' ')[0] : (alloc.period ? `${alloc.period}-15` : '-'));
+          const date =
+            alloc.periodDate ||
+            alloc.executionDate ||
+            (alloc.approvedDate ? alloc.approvedDate.split(' ')[0] : (/^\d{4}-\d{2}$/.test(alloc.period) ? `${alloc.period}-15` : '-'));
           const title = alloc.batchTitle || `كفالات ${alloc.periodLabel || alloc.period}`;
 
           let status: LedgerEntry['status'] = isApproved ? 'delivered' : 'draft';

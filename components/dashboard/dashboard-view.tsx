@@ -56,13 +56,12 @@ export function DashboardView() {
     metrics,
     cases,
     donations,
-    currentAllocation,
+    dashboardCycle,
     setActiveSection,
     setSelectedCaseId,
     setIsNewCaseModalOpen,
     auditLogs,
     approveAllocation,
-    currentPeriod,
   } = useApp();
 
   const [showDonationBreakdownModal, setShowDonationBreakdownModal] = useState(false);
@@ -106,7 +105,7 @@ export function DashboardView() {
     ? Math.round((activePrioritySlice.value / totalPriorityCases) * 100)
     : 0;
 
-  // Cases comparison: Monthly Deficit vs Approved Support
+  // Cases comparison: Monthly Deficit vs Approved Support (strictly bound to dashboardCycle)
   const caseComparisonData = cases
     .filter(
       (c) =>
@@ -115,7 +114,7 @@ export function DashboardView() {
     )
     .slice(0, 6)
     .map((c) => {
-      const allocItem = currentAllocation?.items.find((i) => i.caseId === c.id);
+      const allocItem = dashboardCycle?.items.find((i) => i.caseId === c.id);
       const proposed = allocItem
         ? allocItem.approvedAmount > 0
           ? allocItem.approvedAmount
@@ -143,44 +142,55 @@ export function DashboardView() {
     hoveredBarIndex !== null ? caseComparisonData[hoveredBarIndex] : null;
 
   // Calculate coverage percentage of active assessed need and compliance suspended metrics
-  const activeEligibleItems = (currentAllocation?.items || []).filter(
+  const activeEligibleItems = (dashboardCycle?.items || []).filter(
     (item) => !item.isExcluded && !item.isVisitOverdue
   );
-  const overdueSuspendedItems = (currentAllocation?.items || []).filter(
+  const overdueSuspendedItems = (dashboardCycle?.items || []).filter(
     (item) => !item.isExcluded && item.isVisitOverdue
   );
 
   const totalAssessedNeed = activeEligibleItems.reduce((sum, item) => sum + item.financialGap, 0);
-  const totalAllocated = currentAllocation?.summary.totalAllocated ?? 0;
+  const totalAllocated = dashboardCycle?.summary.totalAllocated ?? 0;
   const overdueSuspendedNeed =
-    currentAllocation?.summary.totalOverdueSuspendedNeed ??
+    dashboardCycle?.summary.totalOverdueSuspendedNeed ??
     overdueSuspendedItems.reduce(
       (sum, item) => sum + Math.max(0, item.financialGap - (item.approvedAmount || 0)),
       0
     );
   const overdueSuspendedCount =
-    currentAllocation?.summary.overdueSuspendedCasesCount ?? overdueSuspendedItems.length;
+    dashboardCycle?.summary.overdueSuspendedCasesCount ?? overdueSuspendedItems.length;
 
   const coveragePercentage =
     totalAssessedNeed > 0 ? Math.min(100, Math.round((totalAllocated / totalAssessedNeed) * 100)) : 100;
 
   // Handle direct one-click cycle approval from dashboard
   const handleQuickApproveCycle = () => {
+    if (!dashboardCycle) return;
     setIsApprovingCycle(true);
     setTimeout(() => {
-      approveAllocation(currentPeriod, 'أ. أحمد الجزار (رئيس المبادرة)');
+      approveAllocation(dashboardCycle.period, 'أ. أحمد الجزار (رئيس المبادرة)');
       setIsApprovingCycle(false);
     }, 400);
   };
 
   const handleExportExcel = async () => {
-    if (currentAllocation) {
+    if (dashboardCycle) {
       const { exportMonthlyAllocationToExcel } = await import('@/services/excel-export');
-      exportMonthlyAllocationToExcel(currentAllocation);
+      exportMonthlyAllocationToExcel(dashboardCycle, cases);
     }
   };
 
-  const isAllocationApproved = currentAllocation?.status === 'approved';
+  const isAllocationApproved =
+    dashboardCycle?.status === 'approved' || dashboardCycle?.status === 'closed';
+  const dashboardCycleTitle =
+    dashboardCycle?.batchTitle || dashboardCycle?.periodLabel || 'دورة الصرف الحالية';
+  const dashboardCyclePeriodLabel = dashboardCycle?.periodLabel || dashboardCycleTitle;
+  const fundedFamiliesCount = dashboardCycle?.summary.fundedCasesCount ?? metrics.eligibleCases;
+  const safeTotalCases = metrics.totalCases || 1;
+  const eligiblePercent = Math.round((metrics.eligibleCases / safeTotalCases) * 100);
+  const excludedTempPercent = (metrics.temporarilyExcludedCases / safeTotalCases) * 100;
+  const underReviewPercent = (metrics.underInvestigationCases / safeTotalCases) * 100;
+  const closedPercent = (metrics.closedCases / safeTotalCases) * 100;
 
   return (
     <div className="space-y-6">
@@ -191,7 +201,7 @@ export function DashboardView() {
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-slate-900">موقف الخزينة هذا الشهر</h2>
+            <h2 className="text-sm font-bold text-slate-900">موقف الخزينة العام</h2>
             <span className="text-xs text-slate-400 font-medium">· بالجنيه المصري (ج.م)</span>
           </div>
           <button
@@ -199,28 +209,28 @@ export function DashboardView() {
             onClick={() => setShowDonationBreakdownModal(true)}
             className="text-xs text-[#005756] font-semibold hover:underline flex items-center gap-1 cursor-pointer"
           >
-            <span>عرض تبرعات الشهر</span>
+            <span>عرض سجل التبرعات</span>
             <ChevronLeft size={14} />
           </button>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {/* Card 1: Total Monthly Donations */}
+          {/* Card 1: Total Received Donations */}
           <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between hover:border-slate-300 transition-colors">
             <div>
               <div className="flex items-center justify-between gap-1">
                 <span className="text-xs font-semibold text-slate-700 tracking-tight">
-                  إجمالي تبرعات الشهر
+                  إجمالي التبرعات المتاحة
                 </span>
                 <InfoTooltip
-                  title="إجمالي تبرعات الشهر"
+                  title="إجمالي التبرعات المتاحة"
                   badge="دخلت الخزينة"
                   badgeColor="slate"
                   icon="help"
                   iconSize={13}
                   content={
                     <p suppressHydrationWarning>
-                      كل التبرعات المستلمة في الخزينة هذا الشهر ({metrics.receivedDonationsTotal.toLocaleString('en-US')} ج.م) وتُدار كسيولة موحدة للصرف الشهري.
+                      إجمالي كل التبرعات المستلمة فعلياً في الخزينة ({metrics.receivedDonationsTotal.toLocaleString('en-US')} ج.م) قبل خصم الدورات المعتمدة وأوامر الصرف الفوري.
                     </p>
                   }
                 />
@@ -231,43 +241,55 @@ export function DashboardView() {
               <MoneyDisplay amount={metrics.receivedDonationsTotal} size="lg" variant="neutral" />
               <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 tabular-nums">
                 <span>مودعة بالكامل</span>
-                <span className="text-slate-700 font-semibold">سيولة موحدة</span>
+                <span className="text-slate-700 font-semibold">سيولة إجمالية</span>
               </div>
             </div>
           </div>
 
-          {/* Card 2: Approved Assistance */}
+          {/* Card 2: Latest Active / Approved Cycle */}
           <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between hover:border-slate-300 transition-colors">
             <div>
               <div className="flex items-center justify-between gap-1">
                 <span className="text-xs font-semibold text-slate-700 tracking-tight">
-                  المعتمد للصرف
+                  {isAllocationApproved ? 'أحدث دورة معتمدة' : 'المعتمد للصرف'}
                 </span>
                 <InfoTooltip
-                  title="المعتمد للصرف"
-                  badge="كشف الشهر"
+                  title={isAllocationApproved ? 'أحدث دورة معتمدة' : 'المعتمد للصرف'}
+                  badge={isAllocationApproved ? 'معتمدة' : 'جاهزة للاعتماد'}
                   badgeColor="slate"
                   icon="help"
                   iconSize={13}
                   content={
-                    <p suppressHydrationWarning>
-                      إجمالي المساعدات المدرجة في كشف دورة أكتوبر 2026 ({metrics.approvedAssistanceTotal.toLocaleString('en-US')} ج.م) لصالح {metrics.eligibleCases} أسر.
-                    </p>
+                    <div className="space-y-1.5 text-xs" suppressHydrationWarning>
+                      <p>
+                        إجمالي المساعدات في «{dashboardCycleTitle}» ({metrics.approvedAssistanceTotal.toLocaleString('en-US')} ج.م) لصالح {fundedFamiliesCount} أسر.
+                      </p>
+                      {metrics.approvedCyclesCount > 1 && (
+                        <p className="text-slate-300 pt-1 border-t border-slate-700">
+                          إجمالي جميع الدورات المعتمدة ({metrics.approvedCyclesCount} دورات): {metrics.approvedCyclesDisbursedTotal.toLocaleString('en-US')} ج.م.
+                        </p>
+                      )}
+                      <p className="text-slate-400 text-[11px]">
+                        لا تتأثر هذه البطاقة بالمسودات المفتوحة قيد الإعداد في شاشة التوزيع.
+                      </p>
+                    </div>
                   }
                 />
               </div>
-              <span className="text-[11px] text-slate-500 block mt-0.5">دورة أكتوبر 2026</span>
+              <span className="text-[11px] text-slate-500 block mt-0.5 truncate" title={dashboardCycleTitle}>
+                {dashboardCycleTitle}
+              </span>
             </div>
             <div className="mt-3">
               <MoneyDisplay amount={metrics.approvedAssistanceTotal} size="lg" variant="neutral" />
               <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 tabular-nums">
                 <span>الأسر المستفيدة</span>
-                <span className="text-slate-700 font-semibold">{metrics.eligibleCases} أسر</span>
+                <span className="text-slate-700 font-semibold">{fundedFamiliesCount} أسر</span>
               </div>
             </div>
           </div>
 
-          {/* Card 3: Actually Disbursed */}
+          {/* Card 3: Actually Disbursed (Cumulative Approved Cycles + Active Fast-Track Custody) */}
           <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between hover:border-slate-300 transition-colors">
             <div>
               <div className="flex items-center justify-between gap-1">
@@ -275,32 +297,67 @@ export function DashboardView() {
                   تم صرفه فعلياً
                 </span>
                 <InfoTooltip
-                  title="تم صرفه فعلياً"
-                  badge="توثيق التسليم"
-                  badgeColor="slate"
+                  title="تفصيل إجمالي ما تم صرفه فعلياً"
+                  badge="تراكمي معتمد"
+                  badgeColor="teal"
                   icon="help"
                   iconSize={13}
                   content={
-                    <p>
-                      المبالغ التي تم تسليمها للمستحقين بالفعل. يتحول المبلغ المعتمد إلى مصروف فعلياً فور اعتماد الكشف.
-                    </p>
+                    <div className="space-y-1.5 text-xs tabular-nums" suppressHydrationWarning>
+                      <p>
+                        إجمالي المبالغ الخارجة فعلياً من الخزينة عبر جميع الدورات المعتمدة وأوامر الصرف الفوري:
+                      </p>
+                      <div className="bg-slate-800 p-2 rounded-lg space-y-1 text-[11px] text-slate-200">
+                        <div className="flex items-center justify-between gap-3">
+                          <span>الدورات المعتمدة ({metrics.approvedCyclesCount}):</span>
+                          <strong className="font-mono">{metrics.approvedCyclesDisbursedTotal.toLocaleString('en-US')} ج.م</strong>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 pt-1 border-t border-slate-700">
+                          <span>صرف فوري (مُسلّم للمستحقين):</span>
+                          <strong className="font-mono">{metrics.fastTrackDeliveredTotal.toLocaleString('en-US')} ج.م</strong>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <span>صرف فوري (بعهدة الباحث قيد التسليم):</span>
+                          <strong className="font-mono">{metrics.fastTrackPendingTotal.toLocaleString('en-US')} ج.م</strong>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        يُحتسب الصرف الفوري قيد التسليم كمخصوم فعلياً لأنه خرج كعهدة مع الباحث، ولا تُحتسب أي مسودات غير معتمدة.
+                      </p>
+                    </div>
                   }
                 />
               </div>
-              <span className="text-[11px] text-slate-500 block mt-0.5">المسلم للمستحقين</span>
+              <span className="text-[11px] text-slate-500 block mt-0.5 truncate">
+                {metrics.approvedCyclesCount > 0 && metrics.activeFastTrackTotal > 0
+                  ? `${metrics.approvedCyclesCount} ${metrics.approvedCyclesCount === 1 ? 'دورة معتمدة' : 'دورات معتمدة'} + صرف فوري`
+                  : metrics.approvedCyclesCount > 0
+                  ? `${metrics.approvedCyclesCount} ${metrics.approvedCyclesCount === 1 ? 'دورة معتمدة' : 'دورات معتمدة'}`
+                  : metrics.activeFastTrackTotal > 0
+                  ? 'أذونات صرف فوري وعُهد'
+                  : 'المسلم والمنفذ فعلياً'}
+              </span>
             </div>
             <div className="mt-3">
               <MoneyDisplay amount={metrics.disbursedAssistanceTotal} size="lg" variant="neutral" />
               <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] tabular-nums">
                 <span className="text-slate-500">الحالة</span>
-                <span className={`font-semibold ${isAllocationApproved ? 'text-[#005756]' : 'text-slate-700'}`}>
-                  {isAllocationApproved ? 'تم التسليم' : 'بانتظار الاعتماد'}
+                <span
+                  className={`font-semibold ${
+                    metrics.disbursedAssistanceTotal > 0 ? 'text-[#005756]' : 'text-slate-700'
+                  }`}
+                >
+                  {metrics.approvedCyclesCount > 0
+                    ? `${metrics.approvedCyclesCount} ${metrics.approvedCyclesCount === 1 ? 'دورة معتمدة' : 'دورات معتمدة'}`
+                    : metrics.activeFastTrackTotal > 0
+                    ? 'صرف فوري مفعل'
+                    : 'بانتظار الاعتماد'}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Card 4: Remaining in Treasury (Total Donations - Approved) */}
+          {/* Card 4: Remaining in Treasury (Received Donations - All Actual Disbursements) */}
           <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between hover:border-slate-300 transition-colors">
             <div>
               <div className="flex items-center justify-between gap-1">
@@ -314,13 +371,13 @@ export function DashboardView() {
                   icon="help"
                   iconSize={13}
                   content={
-                    <div className="space-y-1 text-xs">
-                      <p className="font-semibold text-slate-200">طريقة الحساب:</p>
+                    <div className="space-y-1.5 text-xs">
+                      <p className="font-semibold text-slate-200">المعادلة المحاسبية:</p>
                       <div className="bg-slate-800 p-2 rounded-lg font-mono text-[11px] text-slate-200" suppressHydrationWarning>
-                        إجمالي تبرعات الشهر ({metrics.receivedDonationsTotal.toLocaleString('en-US')}) - المعتمد للصرف ({metrics.approvedAssistanceTotal.toLocaleString('en-US')}) = {metrics.netTreasuryBalance.toLocaleString('en-US')} ج.م
+                        التبرعات المتاحة ({metrics.receivedDonationsTotal.toLocaleString('en-US')}) - المنصرف فعلياً ({metrics.disbursedAssistanceTotal.toLocaleString('en-US')}) = {metrics.netTreasuryBalance.toLocaleString('en-US')} ج.م
                       </div>
                       <p>
-                        الرصيد المتاح للتوزيع والصرف بعد خصم التزامات الكشف الحالي.
+                        الرصيد الفعلي المتاح للتوزيع والصرف بعد خصم كافة الدورات المعتمدة وأوامر الصرف الفوري (دون خصم المسودات غير المعتمدة).
                       </p>
                     </div>
                   }
@@ -362,8 +419,8 @@ export function DashboardView() {
                   موقف الأسر هذا الشهر (إجمالي {metrics.totalCases} أسرة)
                 </h3>
                 <InfoTooltip
-                  title="توزيع الأسر هذا الشهر"
-                  badge="دورة أكتوبر"
+                  title="توزيع الأسر المسجلة"
+                  badge={dashboardCyclePeriodLabel}
                   badgeColor="slate"
                   icon="help"
                   iconSize={13}
@@ -373,10 +430,10 @@ export function DashboardView() {
                         ملخص حالة الأسر المسجلة ({metrics.totalCases} أسرة) بعد المراجعة الميدانية:
                       </p>
                       <div className="pt-1 border-t border-slate-800 space-y-1 text-[11px]">
-                        <div>• <strong>9 أسر جاهزة للصرف (تغطية كاملة):</strong> 8 أسر أساسية + حالة استثناء معتمدة.</div>
-                        <div>• <strong>أسرة مستبعدة مؤقتاً:</strong> استلمت دعم خارجي بقيمة 5,000 ج.م في أكتوبر.</div>
-                        <div>• <strong>أسرة قيد البحث:</strong> بانتظار استكمال الأوراق وتقرير الباحث.</div>
-                        <div>• <strong>أسرة ملفها مغلق:</strong> تحسن دخل الأسرة بعد توظيف الابن.</div>
+                        <div>• <strong>{metrics.eligibleCases} أسر جاهزة للصرف:</strong> {metrics.activeEligibleStandardCases} أساسي + {metrics.approvedExceptionCases} استثناء معتمد.</div>
+                        <div>• <strong>{metrics.temporarilyExcludedCases} استبعاد مؤقت:</strong> مؤجلة مؤقتاً لظروف الدعم الخارجي أو المراجعة.</div>
+                        <div>• <strong>{metrics.underInvestigationCases} قيد البحث:</strong> بانتظار استكمال الأوراق وتقرير الباحث.</div>
+                        <div>• <strong>{metrics.closedCases} ملف مغلق:</strong> تحسن دخل الأسرة أو زوال الاستحقاق.</div>
                       </div>
                     </div>
                   }
@@ -423,21 +480,23 @@ export function DashboardView() {
             <span className="text-base font-bold text-[#005756] mt-0.5 block tabular-nums">
               <span className="font-mono" dir="ltr">{metrics.eligibleCases}</span> أسر
             </span>
-            <span className="text-[10px] text-slate-500">8 أساسي + 1 استثناء</span>
+            <span className="text-[10px] text-slate-500">
+              {metrics.activeEligibleStandardCases} أساسي + {metrics.approvedExceptionCases} استثناء
+            </span>
           </div>
 
           <div className="p-3 bg-white rounded-xl border border-slate-200/80">
             <span className="text-[11px] text-slate-500 block">مدرجة في الكشف</span>
             <span className="text-base font-bold text-slate-900 mt-0.5 block tabular-nums">
-              <span className="font-mono" dir="ltr">{metrics.eligibleCases}</span> أسر
+              <span className="font-mono" dir="ltr">{fundedFamiliesCount}</span> أسر
             </span>
-            <span className="text-[10px] text-slate-400">دورة أكتوبر 2026</span>
+            <span className="text-[10px] text-slate-400 truncate block">{dashboardCyclePeriodLabel}</span>
           </div>
 
           <div className="p-3 bg-white rounded-xl border border-slate-200/80">
             <span className="text-[11px] text-slate-500 block">معتمد لها الصرف</span>
             <span className="text-base font-bold text-slate-900 mt-0.5 block tabular-nums">
-              <span className="font-mono" dir="ltr">{metrics.eligibleCases}</span> أسر
+              <span className="font-mono" dir="ltr">{fundedFamiliesCount}</span> أسر
             </span>
             <span className="text-[10px] text-slate-500 tabular-nums" suppressHydrationWarning>
               {metrics.approvedAssistanceTotal.toLocaleString('en-US')} ج.م
@@ -447,19 +506,19 @@ export function DashboardView() {
           <div className="p-3 bg-white rounded-xl border border-slate-200/80">
             <span className="text-[11px] text-slate-500 block">تسليم المساعدة</span>
             <span className="text-base font-bold text-slate-900 mt-0.5 block tabular-nums">
-              {metrics.disbursedAssistanceTotal > 0 ? (
+              {isAllocationApproved ? (
                 <>
-                  <span className="font-mono" dir="ltr">{metrics.eligibleCases}</span> أسر
+                  <span className="font-mono" dir="ltr">{fundedFamiliesCount}</span> أسر
                 </>
               ) : (
                 'جاهزة للصرف'
               )}
             </span>
-            <span className="text-[10px] text-slate-500">تغطية 100% للعجز</span>
+            <span className="text-[10px] text-slate-500">تغطية {coveragePercentage}% للعجز</span>
           </div>
 
           <div className="p-3 bg-white rounded-xl border border-slate-200/80">
-            <span className="text-[11px] text-slate-500 block">غير مشمولة هذا الشهر</span>
+            <span className="text-[11px] text-slate-500 block">غير مشمولة حالياً</span>
             <span className="text-base font-bold text-slate-900 mt-0.5 block tabular-nums">
               <span className="font-mono" dir="ltr">
                 {metrics.excludedOrClosedCases + metrics.underInvestigationCases}
@@ -480,24 +539,24 @@ export function DashboardView() {
         <div>
           <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex">
             <div
-              style={{ width: `${(9 / 12) * 100}%` }}
+              style={{ width: `${(metrics.eligibleCases / safeTotalCases) * 100}%` }}
               className="bg-[#005756] h-full transition-all"
-              title="9 أسر مستفيدة هذا الشهر (75%)"
+              title={`${metrics.eligibleCases} أسر مستحقة (${eligiblePercent}%)`}
             />
             <div
-              style={{ width: `${(1 / 12) * 100}%` }}
+              style={{ width: `${excludedTempPercent}%` }}
               className="bg-slate-500 h-full transition-all"
-              title="أسرة مستبعدة مؤقتاً لوجود دعم خارجي (8%)"
+              title={`${metrics.temporarilyExcludedCases} استبعاد مؤقت`}
             />
             <div
-              style={{ width: `${(1 / 12) * 100}%` }}
+              style={{ width: `${underReviewPercent}%` }}
               className="bg-slate-400 h-full transition-all"
-              title="أسرة قيد البحث وتجهيز الأوراق (8%)"
+              title={`${metrics.underInvestigationCases} قيد البحث وتجهيز الأوراق`}
             />
             <div
-              style={{ width: `${(1 / 12) * 100}%` }}
+              style={{ width: `${closedPercent}%` }}
               className="bg-slate-300 h-full transition-all"
-              title="أسرة ملف مغلق لتحسن الدخل (8%)"
+              title={`${metrics.closedCases} ملف مغلق`}
             />
           </div>
 
@@ -510,10 +569,10 @@ export function DashboardView() {
             >
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-xs bg-[#005756] shrink-0" />
-                <span className="font-semibold text-slate-800 text-[11px]">مستفيدة هذا الشهر</span>
+                <span className="font-semibold text-slate-800 text-[11px]">مستفيدة حالياً</span>
               </div>
               <span className="font-bold text-slate-900 text-xs tabular-nums">
-                <span className="font-mono" dir="ltr">9</span> أسر (75%)
+                <span className="font-mono" dir="ltr">{metrics.eligibleCases}</span> أسر ({eligiblePercent}%)
               </span>
             </button>
 
@@ -527,7 +586,7 @@ export function DashboardView() {
                 <span className="font-semibold text-slate-700 text-[11px]">استبعاد مؤقت</span>
               </div>
               <span className="font-bold text-slate-800 text-xs tabular-nums">
-                <span className="font-mono" dir="ltr">1</span> أسرة
+                <span className="font-mono" dir="ltr">{metrics.temporarilyExcludedCases}</span> أسرة
               </span>
             </button>
 
@@ -541,7 +600,7 @@ export function DashboardView() {
                 <span className="font-semibold text-slate-700 text-[11px]">قيد البحث</span>
               </div>
               <span className="font-bold text-slate-800 text-xs tabular-nums">
-                <span className="font-mono" dir="ltr">1</span> أسرة
+                <span className="font-mono" dir="ltr">{metrics.underInvestigationCases}</span> أسرة
               </span>
             </button>
 
@@ -555,7 +614,7 @@ export function DashboardView() {
                 <span className="font-semibold text-slate-700 text-[11px]">ملف مغلق</span>
               </div>
               <span className="font-bold text-slate-800 text-xs tabular-nums">
-                <span className="font-mono" dir="ltr">1</span> أسرة
+                <span className="font-mono" dir="ltr">{metrics.closedCases}</span> أسرة
               </span>
             </button>
           </div>
@@ -564,10 +623,10 @@ export function DashboardView() {
 
       {/* 4. Actionable Management Decisions & Alerts (قرارات وتنبيهات اليوم) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Card 1: Cycle Approval Decision */}
+        {/* Card 1: Cycle Approval Decision (Strictly bound to dashboardCycle) */}
         <div className="p-5 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <span
                 className={`inline-flex items-center gap-1.5 text-xs font-semibold tracking-tight ${
                   isAllocationApproved ? 'text-[#005756]' : 'text-slate-700'
@@ -576,21 +635,26 @@ export function DashboardView() {
                 {isAllocationApproved ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
                 {isAllocationApproved ? 'تم اعتماد الصرف' : 'بانتظار اعتمادك'}
               </span>
-              <span className="text-xs font-medium text-slate-400">
-                أكتوبر <span className="font-mono" dir="ltr">2026</span>
+              <span className="text-xs font-medium text-slate-400 truncate">
+                {dashboardCyclePeriodLabel}
               </span>
             </div>
 
             <h4 className="text-sm font-bold text-slate-900 mt-2.5 tracking-tight">
               {isAllocationApproved
-                ? 'كشف صرف أكتوبر معتمد وجاهز'
-                : 'كشف صرف أكتوبر جاهز للاعتماد'}
+                ? `${dashboardCycleTitle} معتمدة وجاهزة`
+                : `${dashboardCycleTitle} جاهزة للاعتماد`}
             </h4>
             <p className="text-xs text-slate-600 mt-1.5 leading-relaxed" suppressHydrationWarning>
               {isAllocationApproved
-                ? `تم اعتماد صرف ${metrics.approvedAssistanceTotal.toLocaleString('en-US')} ج.م لـ ${metrics.eligibleCases} أسر بواسطة ${currentAllocation?.approvedBy || 'الإدارة'}.`
-                : `إجمالي المبلغ: ${metrics.approvedAssistanceTotal.toLocaleString('en-US')} ج.م لـ ${metrics.eligibleCases} أسر بتغطية كاملة للعجز.`}
+                ? `تم اعتماد صرف ${metrics.approvedAssistanceTotal.toLocaleString('en-US')} ج.م لـ ${fundedFamiliesCount} أسر بواسطة ${dashboardCycle?.approvedBy || 'الإدارة'}.`
+                : `إجمالي المبلغ: ${metrics.approvedAssistanceTotal.toLocaleString('en-US')} ج.م لـ ${fundedFamiliesCount} أسر بتغطية ${coveragePercentage}% للعجز.`}
             </p>
+            {metrics.approvedCyclesCount > 1 && (
+              <p className="text-[11px] text-slate-500 mt-1 tabular-nums" suppressHydrationWarning>
+                إجمالي الدورات المعتمدة: {metrics.approvedCyclesCount} دورات بقيمة {metrics.approvedCyclesDisbursedTotal.toLocaleString('en-US')} ج.م.
+              </p>
+            )}
           </div>
 
           <div className="pt-3 border-t border-slate-100 mt-4 flex items-center gap-2">
@@ -599,7 +663,7 @@ export function DashboardView() {
                 <button
                   type="button"
                   onClick={handleQuickApproveCycle}
-                  disabled={isApprovingCycle}
+                  disabled={isApprovingCycle || !dashboardCycle}
                   className="flex-1 min-h-[40px] py-2 px-3 bg-[#005756] hover:bg-[#004746] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                 >
                   <Check size={14} />
@@ -614,14 +678,23 @@ export function DashboardView() {
                 </button>
               </>
             ) : (
-              <button
-                type="button"
-                onClick={handleExportExcel}
-                className="w-full min-h-[40px] py-2 px-3 bg-[#005756] hover:bg-[#004746] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-              >
-                <FileSpreadsheet size={14} />
-                <span>تصدير كشف إكسل</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleExportExcel}
+                  className="flex-1 min-h-[40px] py-2 px-3 bg-[#005756] hover:bg-[#004746] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <FileSpreadsheet size={14} />
+                  <span>تصدير كشف إكسل</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSection('allocation')}
+                  className="min-h-[40px] py-2 px-3.5 bg-white border border-slate-200/80 text-slate-700 hover:bg-slate-50 text-xs font-semibold rounded-xl cursor-pointer transition-colors"
+                >
+                  إدارة الدورات
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -858,7 +931,7 @@ export function DashboardView() {
             <span className="flex items-center gap-1.5">
               <span>إجمالي العجز للأسر الجاهزة للصرف:</span>
               <MoneyDisplay
-                amount={currentAllocation?.summary.totalAssessedNeed ?? 0}
+                amount={dashboardCycle?.summary.totalAssessedNeed ?? 0}
                 size="xs"
                 variant="neutral"
               />
@@ -1283,10 +1356,10 @@ export function DashboardView() {
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-4 shrink-0">
               <div>
                 <h3 className="text-lg font-bold text-slate-800">
-                  توزيع الأسر المسجلة (إجمالي 12 أسرة)
+                  توزيع الأسر المسجلة (إجمالي {metrics.totalCases} أسرة)
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  توضيح الحالات الجاهزة للصرف والأسباب الخاصة بباقي الأسر لدورة أكتوبر 2026
+                  توضيح الحالات الجاهزة للصرف والأسباب الخاصة بباقي الأسر لـ «{dashboardCycleTitle}»
                 </p>
               </div>
               <button
@@ -1303,10 +1376,10 @@ export function DashboardView() {
               <div className="px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-[11px] text-slate-600 space-y-1 leading-relaxed">
                 <p className="font-semibold text-slate-700 flex items-center gap-1.5">
                   <Check size={14} className="text-slate-400 shrink-0" />
-                  <span>لماذا تضم دورة الصرف 9 أسر بتغطية كاملة؟</span>
+                  <span>ملخص استحقاق الأسر في «{dashboardCycleTitle}»</span>
                 </p>
                 <p suppressHydrationWarning>
-                  من بين 12 أسرة مسجلة، تشمل الدورة 9 أسر جاهزة للصرف (8 أسر أساسية + حالة استثناء عاجل) تم توفير كامل مبالغها ({metrics.approvedAssistanceTotal.toLocaleString('en-US')} ج.م)، بينما الحالات الـ 3 الأخرى مؤجلة أو قيد المراجعة للأسباب الموضحة أدناه.
+                  من بين {metrics.totalCases} أسرة مسجلة، توجد {metrics.eligibleCases} أسر جاهزة للصرف ({metrics.activeEligibleStandardCases} أساسي + {metrics.approvedExceptionCases} استثناء معتمد) بإجمالي مخصص ({metrics.approvedAssistanceTotal.toLocaleString('en-US')} ج.م)، بينما باقي الحالات مؤجلة أو قيد المراجعة للأسباب الموضحة أدناه.
                 </p>
               </div>
 
@@ -1315,7 +1388,7 @@ export function DashboardView() {
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-slate-700 text-xs flex items-center gap-2">
                     <span className="w-2 h-2 rounded-xs bg-[#005756] inline-block" />
-                    <span>المجموعة الأولى: 9 أسر جاهزة ومشمولة بالصرف هذا الشهر</span>
+                    <span>المجموعة الأولى: {metrics.eligibleCases} أسر جاهزة ومشمولة بالصرف</span>
                   </h4>
                   <span className="text-[11px] font-bold text-slate-700 bg-slate-50 px-2.5 py-0.5 rounded-md border border-slate-200 inline-flex items-center gap-1">
                     <span>المعتمد:</span>
