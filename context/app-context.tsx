@@ -9,6 +9,8 @@ import {
   CaseResearchReport,
   MonthlyAllocation,
   AllocationItem,
+  AllocationCycleType,
+  ExceptionalDistributionMode,
   ScoringRulesConfig,
   AuditLog,
   AppUserRole,
@@ -41,7 +43,13 @@ import {
   derivePriorityLevel,
   checkVisitOverdueStatus,
 } from '@/services/scoring-engine';
-import { generateMonthlyAllocationProposal, calculateAllocationSummary } from '@/services/allocation-engine';
+import {
+  generateMonthlyAllocationProposal,
+  calculateAllocationSummary,
+  doesDraftAllocationNeedSync,
+  reconcileDraftAllocationWithCases,
+  formatPeriodLabelFromDate,
+} from '@/services/allocation-engine';
 
 export const ROLE_PROFILES: Record<AppUserRole, UserSessionProfile> = {
   admin: {
@@ -241,18 +249,38 @@ interface AppContextType {
     overrideCases?: BeneficiaryCase[],
     batchOptions?: {
       batchTitle?: string;
+      cycleType?: AllocationCycleType;
+      periodDate?: string;
       executionDate?: string;
       coverageMonths?: number;
       strategy?: 'priority_first' | 'proportional';
+      exceptionalDistributionMode?: ExceptionalDistributionMode;
+      flatAmountPerCase?: number;
     }
   ) => MonthlyAllocation;
+  createAllocationCycle: (data: {
+    batchTitle: string;
+    cycleType: AllocationCycleType;
+    periodDate: string;
+    totalBudget: number;
+    coverageMonths?: number;
+    allocationStrategy?: 'priority_first' | 'proportional';
+    exceptionalDistributionMode?: ExceptionalDistributionMode;
+    flatAmountPerCase?: number;
+  }) => MonthlyAllocation;
+  syncDraftAllocations: (period?: string) => void;
   updateAllocationBatchConfig: (
     period: string,
     updates: {
       batchTitle?: string;
+      cycleType?: AllocationCycleType;
+      periodDate?: string;
       executionDate?: string;
       coverageMonths?: number;
       allocationStrategy?: 'priority_first' | 'proportional';
+      exceptionalDistributionMode?: ExceptionalDistributionMode;
+      flatAmountPerCase?: number;
+      totalBudget?: number;
     }
   ) => void;
   updateAllocationItem: (period: string, itemId: string, updates: Partial<AllocationItem>) => void;
@@ -360,6 +388,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       period: '2026-10',
       periodLabel: 'أكتوبر 2026',
       batchTitle: 'كفالات أكتوبر 2026',
+      cycleType: 'regular',
+      periodDate: '2026-10-15',
       executionDate: '2026-10-15',
       coverageMonths: 1,
       cases: INITIAL_CASES,
@@ -373,6 +403,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       period: '2026-11',
       periodLabel: 'نوفمبر 2026',
       batchTitle: 'كفالات نوفمبر 2026',
+      cycleType: 'regular',
+      periodDate: '2026-11-15',
       executionDate: '2026-11-15',
       coverageMonths: 1,
       cases: INITIAL_CASES,
@@ -393,22 +425,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     try {
+      let hydratedCases: BeneficiaryCase[] = INITIAL_CASES;
+      let hydratedDonations: Donation[] = INITIAL_DONATIONS;
+      let hydratedScoring: ScoringRulesConfig = DEFAULT_SCORING_CONFIG;
+
       const savedCases = localStorage.getItem(STORAGE_KEYS.CASES);
       if (savedCases) {
         const parsedCases = JSON.parse(savedCases);
         if (Array.isArray(parsedCases)) {
-          setCases(
-            parsedCases.map((c: BeneficiaryCase) =>
-              !c.lastVisitDate || c.status === 'pending_field_research'
-                ? { ...c, isVisitOverdue: false }
-                : c
-            )
+          hydratedCases = parsedCases.map((c: BeneficiaryCase) =>
+            !c.lastVisitDate || c.status === 'pending_field_research'
+              ? { ...c, isVisitOverdue: false }
+              : c
           );
+          setCases(hydratedCases);
         }
       }
 
       const savedDonations = localStorage.getItem(STORAGE_KEYS.DONATIONS);
-      if (savedDonations) setDonations(JSON.parse(savedDonations));
+      if (savedDonations) {
+        hydratedDonations = JSON.parse(savedDonations);
+        setDonations(hydratedDonations);
+      }
 
       const savedCategories = localStorage.getItem(STORAGE_KEYS.SHARIA_CATEGORIES);
       if (savedCategories) {
@@ -435,7 +473,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (savedVisits) setVisits(JSON.parse(savedVisits));
 
       const savedScoring = localStorage.getItem(STORAGE_KEYS.SCORING);
-      if (savedScoring) setScoringConfig(JSON.parse(savedScoring));
+      if (savedScoring) {
+        hydratedScoring = JSON.parse(savedScoring);
+        setScoringConfig(hydratedScoring);
+      }
 
       const savedAudit = localStorage.getItem(STORAGE_KEYS.AUDIT);
       if (savedAudit) {
@@ -476,19 +517,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               return item;
             });
             const budgetVal = v.totalBudget === 188000 ? 113000 : v.totalBudget;
-            sanitized[k] = {
+            const inferredDate =
+              v.periodDate ||
+              v.executionDate ||
+              (/^\d{4}-\d{2}$/.test(k) ? `${k}-15` : new Date().toISOString().split('T')[0]);
+            const normalizedAlloc: MonthlyAllocation = {
               ...v,
+              cycleType: v.cycleType || 'regular',
+              periodDate: inferredDate,
+              executionDate: v.executionDate || inferredDate,
+              periodLabel: v.periodLabel || formatPeriodLabelFromDate(inferredDate, k),
+              batchTitle: v.batchTitle || v.periodLabel || formatPeriodLabelFromDate(inferredDate, k),
               totalBudget: budgetVal,
               unrestrictedBudget: budgetVal,
               restrictedBudget: 0,
               items: sanitizedItems,
               summary: calculateAllocationSummary(sanitizedItems, budgetVal),
             };
+
+            // Auto-heal open draft cycles so previously approved eligible cases appear immediately
+            sanitized[k] =
+              normalizedAlloc.status === 'draft' &&
+              doesDraftAllocationNeedSync(normalizedAlloc, hydratedCases, hydratedScoring)
+                ? reconcileDraftAllocationWithCases(
+                    normalizedAlloc,
+                    hydratedCases,
+                    hydratedDonations,
+                    hydratedScoring
+                  )
+                : normalizedAlloc;
           }
           setAllocations(sanitized);
         } catch (err) {
           console.warn('Failed to parse saved allocations:', err);
         }
+      } else if (savedCases) {
+        // If cases were persisted without allocations, sync initial open drafts against hydrated cases
+        setAllocations((prev) => {
+          const updated: Record<string, MonthlyAllocation> = {};
+          for (const [k, alloc] of Object.entries(prev)) {
+            updated[k] =
+              alloc.status === 'draft' &&
+              doesDraftAllocationNeedSync(alloc, hydratedCases, hydratedScoring)
+                ? reconcileDraftAllocationWithCases(
+                    alloc,
+                    hydratedCases,
+                    hydratedDonations,
+                    hydratedScoring
+                  )
+                : alloc;
+          }
+          return updated;
+        });
       }
 
       const savedFastTrack = localStorage.getItem(STORAGE_KEYS.FAST_TRACK_ORDERS);
@@ -704,6 +784,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setAuditLogs((prev) => [newLog, ...prev]);
   }, [currentUserRole]);
 
+  // دالة مزامنة حتمية لجميع المسودات المفتوحة (draft) مع الحفاظ على التعديلات والاستبعادات اليدوية
+  const syncDraftAllocationsWithCases = useCallback(
+    (
+      nextCases: BeneficiaryCase[],
+      overrideConfig?: ScoringRulesConfig,
+      targetPeriod?: string
+    ) => {
+      const effectiveConfig = overrideConfig || scoringConfig;
+      setAllocations((prevAlloc) => {
+        let hasAnyChange = false;
+        const nextAllocMap: Record<string, MonthlyAllocation> = { ...prevAlloc };
+
+        for (const [periodKey, alloc] of Object.entries(prevAlloc)) {
+          if (targetPeriod && periodKey !== targetPeriod) continue;
+          if (!alloc || alloc.status !== 'draft') continue;
+
+          const reconciled = reconcileDraftAllocationWithCases(
+            alloc,
+            nextCases,
+            donations,
+            effectiveConfig
+          );
+          nextAllocMap[periodKey] = reconciled;
+          hasAnyChange = true;
+        }
+
+        return hasAnyChange ? nextAllocMap : prevAlloc;
+      });
+    },
+    [donations, scoringConfig]
+  );
+
+  const syncDraftAllocations = useCallback(
+    (period?: string) => {
+      syncDraftAllocationsWithCases(cases, scoringConfig, period);
+    },
+    [cases, scoringConfig, syncDraftAllocationsWithCases]
+  );
+
   const addCase = (
     caseData: Omit<BeneficiaryCase, 'id' | 'code' | 'historicalAssistanceTotal' | 'isVisitOverdue'>
   ) => {
@@ -729,7 +848,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       isVisitOverdue: false,
     };
 
-    setCases((prev) => [newCase, ...prev]);
+    const nextCases = [newCase, ...cases];
+    setCases(nextCases);
+    if (newCase.status === 'active_eligible' || newCase.status === 'excluded_current_month') {
+      syncDraftAllocationsWithCases(nextCases);
+    }
+
     if (newCase.status === 'pending_field_research') {
       addAuditLog(
         'قيد طلب مساعدة جديد',
@@ -743,29 +867,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateCase = (id: string, updates: Partial<BeneficiaryCase>) => {
     let updatedCaseName = id;
-    setCases((prev) =>
-      prev.map((c) => {
-        if (c.id === id) {
-          const merged: BeneficiaryCase = { ...c, ...updates };
-          if (updates.primaryName) {
-            merged.primaryName = updates.primaryName.trim();
-            merged.fullName = merged.primaryName;
-          }
-          if (updates.secondaryName !== undefined) {
-            merged.secondaryName = updates.secondaryName.trim() || undefined;
-          }
-          const assessment = calculateCaseAssessment(merged, scoringConfig);
-          updatedCaseName = `${merged.fullName} (${merged.code})`;
-          return {
-            ...merged,
-            priorityScore: assessment.totalScore,
-            priority: derivePriorityLevel(assessment.totalScore),
-            assessmentFactors: assessment,
-          };
+    const nextCases = cases.map((c) => {
+      if (c.id === id) {
+        const merged: BeneficiaryCase = { ...c, ...updates };
+        if (updates.primaryName) {
+          merged.primaryName = updates.primaryName.trim();
+          merged.fullName = merged.primaryName;
         }
-        return c;
-      })
-    );
+        if (updates.secondaryName !== undefined) {
+          merged.secondaryName = updates.secondaryName.trim() || undefined;
+        }
+        const assessment = calculateCaseAssessment(merged, scoringConfig);
+        updatedCaseName = `${merged.fullName} (${merged.code})`;
+        return {
+          ...merged,
+          priorityScore: assessment.totalScore,
+          priority: derivePriorityLevel(assessment.totalScore),
+          assessmentFactors: assessment,
+        };
+      }
+      return c;
+    });
+    setCases(nextCases);
+    syncDraftAllocationsWithCases(nextCases);
     addAuditLog('تحديث بيانات حالة', `تم تحديث وتعديل بيانات الحالة: ${updatedCaseName}`);
   };
 
@@ -864,14 +988,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const changeCaseStatus = (id: string, status: CaseStatus, reason?: string) => {
-    setCases((prev) =>
-      prev.map((c) => {
-        if (c.id === id) {
-          return { ...c, status };
-        }
-        return c;
-      })
-    );
+    const nextCases = cases.map((c) => (c.id === id ? { ...c, status } : c));
+    setCases(nextCases);
+    syncDraftAllocationsWithCases(nextCases);
     addAuditLog(
       'تغيير حالة المستحق',
       `تغيير حالة المستحق (${id}) إلى ${status}${reason ? ` - السبب: ${reason}` : ''}`
@@ -881,51 +1000,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const approveCaseReview = (id: string, notes?: string) => {
     let caseTitle = id;
     const now = new Date().toISOString().split('T')[0];
-    let updatedCasesList: BeneficiaryCase[] = [];
 
-    setCases((prev) => {
-      const updated = prev.map((c) => {
-        if (c.id === id) {
-          caseTitle = `${c.primaryName || c.fullName} (${c.code})`;
-          const entry = `[${now}] تم الاعتماد الإداري لبحث الحالة رسمياً بواسطة مدير النظام وإدراجها فوراً ضمن المستحقين المعتمدين للصرف.${notes ? ` [ملاحظة: ${notes}]` : ''}`;
-          return {
-            ...c,
-            status: 'active_eligible' as CaseStatus,
-            adminRevisionNote: undefined,
-            lastAssessmentDate: now,
-            notes: c.notes ? `${entry}\n\n${c.notes}` : entry,
-          };
-        }
-        return c;
-      });
-      updatedCasesList = updated;
-      return updated;
-    });
-
-    // مزامنة فورية لمسودة الميزانية الشهرية الحالية
-    setAllocations((prevAlloc) => {
-      const curAlloc = prevAlloc[currentPeriod];
-      if (curAlloc && curAlloc.status === 'draft') {
-        const recomputed = generateMonthlyAllocationProposal({
-          period: currentPeriod,
-          periodLabel: curAlloc.periodLabel,
-          batchTitle: curAlloc.batchTitle,
-          executionDate: curAlloc.executionDate,
-          coverageMonths: curAlloc.coverageMonths || 1,
-          strategy: curAlloc.allocationStrategy || 'priority_first',
-          cases: updatedCasesList.length > 0 ? updatedCasesList : cases,
-          donations,
-          customTotalBudget: curAlloc.totalBudget,
-          config: scoringConfig,
-          carriedOverFromPreviousPeriod: curAlloc.carriedOverFromPreviousPeriod,
-        });
+    const nextCases = cases.map((c) => {
+      if (c.id === id) {
+        caseTitle = `${c.primaryName || c.fullName} (${c.code})`;
+        const entry = `[${now}] تم الاعتماد الإداري لبحث الحالة رسمياً بواسطة مدير النظام وإدراجها فوراً ضمن المستحقين المعتمدين للصرف.${notes ? ` [ملاحظة: ${notes}]` : ''}`;
         return {
-          ...prevAlloc,
-          [currentPeriod]: recomputed,
+          ...c,
+          status: 'active_eligible' as CaseStatus,
+          adminRevisionNote: undefined,
+          lastAssessmentDate: now,
+          lastVisitDate: c.lastVisitDate || c.lastAssessmentDate || now,
+          isVisitOverdue: false,
+          notes: c.notes ? `${entry}\n\n${c.notes}` : entry,
         };
       }
-      return prevAlloc;
+      return c;
     });
+
+    setCases(nextCases);
+    // مزامنة فورية وحتمية لجميع مسودات الميزانية المفتوحة (الحالية والمستقبلية) مع الحفاظ على التعديلات اليدوية
+    syncDraftAllocationsWithCases(nextCases);
 
     addAuditLog('اعتماد رسمي لبحث حالة', `تم اعتماد بحث الحالة (${caseTitle}) رسمياً ونقلها للمستحقين المعتمدين للصرف`);
   };
@@ -934,63 +1029,66 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let caseTitle = id;
     const now = new Date().toISOString().split('T')[0];
     const cleanReason = revisionReason.trim();
-    setCases((prev) =>
-      prev.map((c) => {
-        if (c.id === id) {
-          caseTitle = `${c.primaryName || c.fullName} (${c.code})`;
-          const entry = `[${now}] إعادة للباحث الميداني (${c.assignedResearcher}) للاستيفاء والتعديل: "${cleanReason}"`;
-          return {
-            ...c,
-            status: 'needs_revision' as CaseStatus,
-            adminRevisionNote: cleanReason,
-            notes: c.notes ? `${entry}\n\n${c.notes}` : entry,
-          };
-        }
-        return c;
-      })
-    );
+    const nextCases = cases.map((c) => {
+      if (c.id === id) {
+        caseTitle = `${c.primaryName || c.fullName} (${c.code})`;
+        const entry = `[${now}] إعادة للباحث الميداني (${c.assignedResearcher}) للاستيفاء والتعديل: "${cleanReason}"`;
+        return {
+          ...c,
+          status: 'needs_revision' as CaseStatus,
+          adminRevisionNote: cleanReason,
+          notes: c.notes ? `${entry}\n\n${c.notes}` : entry,
+        };
+      }
+      return c;
+    });
+    setCases(nextCases);
+    syncDraftAllocationsWithCases(nextCases);
     addAuditLog('إعادة بحث حالة للاستيفاء', `تمت إعادة الحالة (${caseTitle}) للباحث للاستيفاء والتعديل: ${cleanReason}`);
   };
 
   const rejectCaseReview = (id: string, rejectionReason: string) => {
     let caseTitle = id;
     const now = new Date().toISOString().split('T')[0];
-    setCases((prev) =>
-      prev.map((c) => {
-        if (c.id === id) {
-          caseTitle = `${c.primaryName || c.fullName} (${c.code})`;
-          const entry = `[${now}] استبعاد / عدم اعتماد بحث الحالة بقرار إداري. السبب: "${rejectionReason}"`;
-          return {
-            ...c,
-            status: 'closed' as CaseStatus,
-            adminRevisionNote: undefined,
-            notes: c.notes ? `${entry}\n\n${c.notes}` : entry,
-          };
-        }
-        return c;
-      })
-    );
+    const nextCases = cases.map((c) => {
+      if (c.id === id) {
+        caseTitle = `${c.primaryName || c.fullName} (${c.code})`;
+        const entry = `[${now}] استبعاد / عدم اعتماد بحث الحالة بقرار إداري. السبب: "${rejectionReason}"`;
+        return {
+          ...c,
+          status: 'closed' as CaseStatus,
+          adminRevisionNote: undefined,
+          notes: c.notes ? `${entry}\n\n${c.notes}` : entry,
+        };
+      }
+      return c;
+    });
+    setCases(nextCases);
+    syncDraftAllocationsWithCases(nextCases);
     addAuditLog('استبعاد بحث حالة', `تم استبعاد الحالة (${caseTitle}) بقرار إداري: ${rejectionReason}`);
   };
 
   const approveCaseException = (id: string, approvedBy: string, reason: string) => {
-    setCases((prev) =>
-      prev.map((c) => {
-        if (c.id === id) {
-          return {
-            ...c,
-            status: 'active_eligible',
-            vulnerability: {
-              ...c.vulnerability,
-              exceptionApproved: true,
-              exceptionApprovedBy: approvedBy,
-              exceptionReason: reason,
-            },
-          };
-        }
-        return c;
-      })
-    );
+    const now = new Date().toISOString().split('T')[0];
+    const nextCases = cases.map((c) => {
+      if (c.id === id) {
+        return {
+          ...c,
+          status: 'active_eligible' as CaseStatus,
+          lastVisitDate: c.lastVisitDate || c.lastAssessmentDate || now,
+          isVisitOverdue: false,
+          vulnerability: {
+            ...c.vulnerability,
+            exceptionApproved: true,
+            exceptionApprovedBy: approvedBy,
+            exceptionReason: reason,
+          },
+        };
+      }
+      return c;
+    });
+    setCases(nextCases);
+    syncDraftAllocationsWithCases(nextCases);
     addAuditLog('اعتماد استثناء إداري', `تم اعتماد الحالة (${id}) كاستثناء إنساني بواسطة ${approvedBy}: ${reason}`);
   };
 
@@ -1106,19 +1204,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
     setVisits((prev) => [newVisit, ...prev]);
 
-    setCases((prev) =>
-      prev.map((c) => {
-        if (c.id === visitData.caseId) {
-          return {
-            ...c,
-            lastVisitDate: visitData.visitDate,
-            nextVisitDueDate: visitData.scheduledNextDate,
-            isVisitOverdue: false,
-          };
-        }
-        return c;
-      })
-    );
+    const nextCases = cases.map((c) => {
+      if (c.id === visitData.caseId) {
+        return {
+          ...c,
+          lastVisitDate: visitData.visitDate,
+          nextVisitDueDate: visitData.scheduledNextDate,
+          isVisitOverdue: false,
+        };
+      }
+      return c;
+    });
+    setCases(nextCases);
+    syncDraftAllocationsWithCases(nextCases);
 
     addAuditLog('تسجيل زيارة ميدانية', `توثيق زيارة ميدانية للحالة ${visitData.caseName} بواسطة ${visitData.researcherName}`);
   };
@@ -1227,19 +1325,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [triggerSync]);
 
   const formatPeriodLabel = (p: string) => {
-    if (p === '2026-10') return 'أكتوبر 2026';
-    if (p === '2026-11') return 'نوفمبر 2026';
-    if (p === '2026-12') return 'ديسمبر 2026';
-    const parts = p.split('-');
-    if (parts.length === 2) {
-      const monthNames: Record<string, string> = {
-        '01': 'يناير', '02': 'فبراير', '03': 'مارس', '04': 'أبريل',
-        '05': 'مايو', '06': 'يونيو', '07': 'يوليو', '08': 'أغسطس',
-        '09': 'سبتمبر', '10': 'أكتوبر', '11': 'نوفمبر', '12': 'ديسمبر',
-      };
-      return `${monthNames[parts[1]] || parts[1]} ${parts[0]}`;
-    }
-    return p;
+    return formatPeriodLabelFromDate(p, p);
   };
 
   const generateOrRefreshAllocation = (
@@ -1249,77 +1335,223 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     overrideCases?: BeneficiaryCase[],
     batchOptions?: {
       batchTitle?: string;
+      cycleType?: AllocationCycleType;
+      periodDate?: string;
       executionDate?: string;
       coverageMonths?: number;
       strategy?: 'priority_first' | 'proportional';
+      exceptionalDistributionMode?: ExceptionalDistributionMode;
+      flatAmountPerCase?: number;
     }
   ) => {
-    const periodLabel = formatPeriodLabel(period);
     const existing = allocations[period];
+    const resolvedDate =
+      batchOptions?.periodDate ||
+      batchOptions?.executionDate ||
+      existing?.periodDate ||
+      existing?.executionDate ||
+      (/^\d{4}-\d{2}$/.test(period) ? `${period}-15` : new Date().toISOString().split('T')[0]);
+    const periodLabel = existing?.periodLabel || formatPeriodLabelFromDate(resolvedDate, period);
     const activeConfig = overrideConfig || scoringConfig;
     const activeCases = overrideCases || cases;
 
     const proposal = generateMonthlyAllocationProposal({
+      id: existing?.id,
       period,
       periodLabel,
       batchTitle: batchOptions?.batchTitle || existing?.batchTitle,
-      executionDate: batchOptions?.executionDate || existing?.executionDate,
+      cycleType: batchOptions?.cycleType || existing?.cycleType || 'regular',
+      periodDate: resolvedDate,
+      executionDate: batchOptions?.executionDate || resolvedDate,
       coverageMonths: batchOptions?.coverageMonths || existing?.coverageMonths || 1,
       strategy: batchOptions?.strategy || existing?.allocationStrategy || 'priority_first',
+      exceptionalDistributionMode:
+        batchOptions?.exceptionalDistributionMode || existing?.exceptionalDistributionMode,
+      flatAmountPerCase:
+        batchOptions?.flatAmountPerCase !== undefined
+          ? batchOptions.flatAmountPerCase
+          : existing?.flatAmountPerCase,
       cases: activeCases,
       donations,
       customTotalBudget: customBudget !== undefined ? customBudget : existing?.totalBudget,
       config: activeConfig,
       carriedOverFromPreviousPeriod: existing?.carriedOverFromPreviousPeriod,
     });
-    setAllocations((prev) => ({ ...prev, [period]: proposal }));
+
+    const enrichedProposal: MonthlyAllocation = {
+      ...proposal,
+      sessionMinutesNumber: existing?.sessionMinutesNumber,
+      sessionMinutesDate: existing?.sessionMinutesDate,
+      unlockedDate: existing?.unlockedDate,
+      unlockedBy: existing?.unlockedBy,
+      unlockReason: existing?.unlockReason,
+      isExceptionallyUnlocked: existing?.isExceptionallyUnlocked,
+    };
+
+    setAllocations((prev) => ({ ...prev, [period]: enrichedProposal }));
     addAuditLog(
-      'توليد مقترح تخصيص شهري',
-      `تم توليد مقترح الميزانية لدورة "${proposal.batchTitle || periodLabel}" بميزانية ${proposal.totalBudget.toLocaleString('ar-EG')} ج.م`
+      'توليد مقترح تخصيص للصرف',
+      `تم إعادة توليد مقترح الميزانية لدورة "${enrichedProposal.batchTitle || periodLabel}" بميزانية ${enrichedProposal.totalBudget.toLocaleString('ar-EG')} ج.م`
     );
-    return proposal;
+    return enrichedProposal;
+  };
+
+  const createAllocationCycle = (data: {
+    batchTitle: string;
+    cycleType: AllocationCycleType;
+    periodDate: string;
+    totalBudget: number;
+    coverageMonths?: number;
+    allocationStrategy?: 'priority_first' | 'proportional';
+    exceptionalDistributionMode?: ExceptionalDistributionMode;
+    flatAmountPerCase?: number;
+  }): MonthlyAllocation => {
+    const cycleKey = `cycle-${Date.now()}`;
+    const safeDate = data.periodDate || new Date().toISOString().split('T')[0];
+    const cleanTitle = data.batchTitle.trim() || `دورة صرف ${formatPeriodLabelFromDate(safeDate, safeDate)}`;
+    const periodLabel = formatPeriodLabelFromDate(safeDate, cleanTitle);
+    const yearMatch = safeDate.match(/^(\d{4})/);
+    const yearStr = yearMatch ? yearMatch[1] : String(new Date().getFullYear());
+    const seqNum = Object.keys(allocations).length + 1;
+
+    const proposal = generateMonthlyAllocationProposal({
+      id: `alloc-${cycleKey}`,
+      period: cycleKey,
+      periodLabel,
+      batchTitle: cleanTitle,
+      cycleType: data.cycleType,
+      periodDate: safeDate,
+      executionDate: safeDate,
+      coverageMonths: data.cycleType === 'exceptional' ? 1 : data.coverageMonths || 1,
+      strategy: data.allocationStrategy || 'priority_first',
+      exceptionalDistributionMode:
+        data.cycleType === 'exceptional'
+          ? data.exceptionalDistributionMode || 'flat_per_case'
+          : undefined,
+      flatAmountPerCase:
+        data.cycleType === 'exceptional' &&
+        (data.exceptionalDistributionMode || 'flat_per_case') === 'flat_per_case'
+          ? data.flatAmountPerCase
+          : undefined,
+      cases,
+      donations,
+      customTotalBudget: data.totalBudget,
+      config: scoringConfig,
+    });
+
+    const newCycle: MonthlyAllocation = {
+      ...proposal,
+      sessionMinutesNumber: `محضر رقم ${String(seqNum).padStart(2, '0')}/${yearStr}-إد`,
+      sessionMinutesDate: safeDate,
+    };
+
+    setAllocations((prev) => ({
+      ...prev,
+      [cycleKey]: newCycle,
+    }));
+    setCurrentPeriod(cycleKey);
+
+    addAuditLog(
+      'فتح دورة صرف جديدة',
+      `تم فتح دورة صرف ${data.cycleType === 'exceptional' ? 'استثنائية/موسمية' : 'شهرية دورية'} بعنوان "${cleanTitle}" بتاريخ ${safeDate} وبميزانية ${newCycle.totalBudget.toLocaleString('ar-EG')} ج.م`
+    );
+
+    return newCycle;
   };
 
   const updateAllocationBatchConfig = (
     period: string,
     updates: {
       batchTitle?: string;
+      cycleType?: AllocationCycleType;
+      periodDate?: string;
       executionDate?: string;
       coverageMonths?: number;
       allocationStrategy?: 'priority_first' | 'proportional';
+      exceptionalDistributionMode?: ExceptionalDistributionMode;
+      flatAmountPerCase?: number;
+      totalBudget?: number;
     }
   ) => {
     setAllocations((prev) => {
       const current = prev[period];
       if (!current) return prev;
 
-      const newCoverage = updates.coverageMonths !== undefined ? updates.coverageMonths : (current.coverageMonths || 1);
-      const newStrategy = updates.allocationStrategy !== undefined ? updates.allocationStrategy : (current.allocationStrategy || 'priority_first');
+      const newCycleType: AllocationCycleType =
+        updates.cycleType !== undefined ? updates.cycleType : current.cycleType || 'regular';
+      const newCoverage =
+        newCycleType === 'exceptional'
+          ? 1
+          : updates.coverageMonths !== undefined
+          ? updates.coverageMonths
+          : current.coverageMonths || 1;
+      const newStrategy =
+        updates.allocationStrategy !== undefined
+          ? updates.allocationStrategy
+          : current.allocationStrategy || 'priority_first';
       const newTitle = updates.batchTitle !== undefined ? updates.batchTitle : current.batchTitle;
-      const newExecDate = updates.executionDate !== undefined ? updates.executionDate : current.executionDate;
+      const newDate =
+        updates.periodDate !== undefined
+          ? updates.periodDate
+          : updates.executionDate !== undefined
+          ? updates.executionDate
+          : current.periodDate || current.executionDate;
+      const newPeriodLabel =
+        updates.periodDate !== undefined || updates.executionDate !== undefined
+          ? formatPeriodLabelFromDate(newDate, current.periodLabel)
+          : current.periodLabel;
+      const newExceptionalMode: ExceptionalDistributionMode =
+        updates.exceptionalDistributionMode !== undefined
+          ? updates.exceptionalDistributionMode
+          : current.exceptionalDistributionMode || 'flat_per_case';
+      const newFlatAmount =
+        updates.flatAmountPerCase !== undefined
+          ? updates.flatAmountPerCase
+          : current.flatAmountPerCase;
+      const newTotalBudget =
+        updates.totalBudget !== undefined ? updates.totalBudget : current.totalBudget;
 
       const shouldRecompute =
         current.status === 'draft' &&
-        ((updates.coverageMonths !== undefined && updates.coverageMonths !== current.coverageMonths) ||
-         (updates.allocationStrategy !== undefined && updates.allocationStrategy !== current.allocationStrategy));
+        ((updates.cycleType !== undefined && updates.cycleType !== (current.cycleType || 'regular')) ||
+          (updates.coverageMonths !== undefined && updates.coverageMonths !== current.coverageMonths) ||
+          (updates.allocationStrategy !== undefined && updates.allocationStrategy !== current.allocationStrategy) ||
+          (updates.exceptionalDistributionMode !== undefined &&
+            updates.exceptionalDistributionMode !== current.exceptionalDistributionMode) ||
+          (updates.flatAmountPerCase !== undefined &&
+            updates.flatAmountPerCase !== current.flatAmountPerCase) ||
+          (updates.totalBudget !== undefined && updates.totalBudget !== current.totalBudget));
 
       if (shouldRecompute) {
         const recomputed = generateMonthlyAllocationProposal({
+          id: current.id,
           period,
-          periodLabel: current.periodLabel,
+          periodLabel: newPeriodLabel,
           batchTitle: newTitle,
-          executionDate: newExecDate,
+          cycleType: newCycleType,
+          periodDate: newDate,
+          executionDate: newDate,
           coverageMonths: newCoverage,
           strategy: newStrategy,
+          exceptionalDistributionMode: newExceptionalMode,
+          flatAmountPerCase: newFlatAmount,
           cases,
           donations,
-          customTotalBudget: current.totalBudget,
+          customTotalBudget: newTotalBudget,
           config: scoringConfig,
           carriedOverFromPreviousPeriod: current.carriedOverFromPreviousPeriod,
         });
         return {
           ...prev,
-          [period]: recomputed,
+          [period]: {
+            ...recomputed,
+            sessionMinutesNumber: current.sessionMinutesNumber,
+            sessionMinutesDate: current.sessionMinutesDate,
+            unlockedDate: current.unlockedDate,
+            unlockedBy: current.unlockedBy,
+            unlockReason: current.unlockReason,
+            isExceptionallyUnlocked: current.isExceptionallyUnlocked,
+          },
         };
       }
 
@@ -1327,10 +1559,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         [period]: {
           ...current,
+          periodLabel: newPeriodLabel,
           ...(updates.batchTitle !== undefined ? { batchTitle: updates.batchTitle } : {}),
-          ...(updates.executionDate !== undefined ? { executionDate: updates.executionDate } : {}),
-          ...(updates.coverageMonths !== undefined ? { coverageMonths: updates.coverageMonths } : {}),
-          ...(updates.allocationStrategy !== undefined ? { allocationStrategy: updates.allocationStrategy } : {}),
+          ...(updates.cycleType !== undefined ? { cycleType: newCycleType } : {}),
+          ...(newDate !== undefined ? { periodDate: newDate, executionDate: newDate } : {}),
+          ...(updates.coverageMonths !== undefined ? { coverageMonths: newCoverage } : {}),
+          ...(updates.allocationStrategy !== undefined ? { allocationStrategy: newStrategy } : {}),
+          ...(updates.exceptionalDistributionMode !== undefined
+            ? { exceptionalDistributionMode: newExceptionalMode }
+            : {}),
+          ...(updates.flatAmountPerCase !== undefined ? { flatAmountPerCase: newFlatAmount } : {}),
         },
       };
     });
@@ -1414,24 +1652,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const totalDeducted = approvedUnrestricted + approvedRestricted;
     const carriedOverSurplus = current.summary.unallocatedBalance;
+    const isExceptionalCycle = current.cycleType === 'exceptional';
 
-    // تحديد الدورة التالية زمنياً
-    const sortedPeriods = Object.keys(allocations).sort();
-    const currentIndex = sortedPeriods.indexOf(period);
-    let nextPeriodKey =
-      currentIndex >= 0 && currentIndex < sortedPeriods.length - 1
-        ? sortedPeriods[currentIndex + 1]
-        : null;
+    // تحديد الدورة الشهرية التالية فقط للدورات الدورية (regular) بناءً على periodDate / executionDate
+    // أما الدورات الاستثنائية فتُغلق وتُعتمد بشكل مستقل دون توليد شهر تالي وهمي
+    let nextPeriodKey: string | null = null;
+    let nextPeriodLabel: string | undefined = undefined;
+    let shouldCreateNextMonthDraft = false;
 
-    if (!nextPeriodKey) {
-      const parts = period.split('-').map(Number);
-      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-        const nextMonth = parts[1] === 12 ? 1 : parts[1] + 1;
-        const nextYear = parts[1] === 12 ? parts[0] + 1 : parts[0];
-        nextPeriodKey = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+    if (!isExceptionalCycle) {
+      const dateRef = current.periodDate || current.executionDate || period;
+      const ymMatch = dateRef.match(/^(\d{4})-(\d{2})/);
+      if (ymMatch) {
+        const yearNum = Number(ymMatch[1]);
+        const monthNum = Number(ymMatch[2]);
+        if (!isNaN(yearNum) && !isNaN(monthNum)) {
+          const nextMonth = monthNum === 12 ? 1 : monthNum + 1;
+          const nextYear = monthNum === 12 ? yearNum + 1 : yearNum;
+          const nextCalendarYM = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+
+          // التحقق هل توجد بالفعل مسودة دورية مفتوحة للشهر التالي
+          const existingNextDraftEntry = Object.entries(allocations).find(([key, alloc]) => {
+            if (key === period) return false;
+            if (alloc.status !== 'draft') return false;
+            if ((alloc.cycleType || 'regular') !== 'regular') return false;
+            const allocDate = alloc.periodDate || alloc.executionDate || key;
+            return key === nextCalendarYM || allocDate.startsWith(nextCalendarYM);
+          });
+
+          if (existingNextDraftEntry) {
+            nextPeriodKey = existingNextDraftEntry[0];
+            nextPeriodLabel =
+              existingNextDraftEntry[1].batchTitle || existingNextDraftEntry[1].periodLabel;
+            shouldCreateNextMonthDraft = false;
+          } else if (!allocations[nextCalendarYM]) {
+            nextPeriodKey = nextCalendarYM;
+            nextPeriodLabel = formatPeriodLabel(nextCalendarYM);
+            shouldCreateNextMonthDraft = true;
+          }
+        }
       }
     }
-    const nextPeriodLabel = nextPeriodKey ? formatPeriodLabel(nextPeriodKey) : undefined;
 
     // 2. خصم هذه المبالغ رسمياً من الأرصدة المتاحة في الخزينة وتحديث سجلات التبرعات
     let updatedDonationsList: Donation[] = [];
@@ -1494,7 +1755,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return updated;
     });
 
-    // 3. ترحيل الفائض المتبقي من الدورة المعتمدة وتحديث كائن allocations للدورة الحالية واللاحقة
+    // 3. ترحيل الفائض المتبقي من الدورة المعتمدة وتحديث كائن allocations للدورة الحالية واللاحقة (للدورية فقط)
     setAllocations((prevAllocations) => {
       const currentAlloc = prevAllocations[period] || current;
 
@@ -1513,29 +1774,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         },
       };
 
-      const updatedMap = {
+      const updatedMap: Record<string, MonthlyAllocation> = {
         ...prevAllocations,
         [period]: approvedAllocation,
       };
 
-      if (nextPeriodKey) {
+      if (!isExceptionalCycle && nextPeriodKey) {
         const carryOverInfo = {
           previousPeriod: period,
-          previousPeriodLabel: currentAlloc.periodLabel || formatPeriodLabel(period),
+          previousPeriodLabel:
+            currentAlloc.batchTitle || currentAlloc.periodLabel || formatPeriodLabel(period),
           carriedOverAmount: carriedOverSurplus,
         };
 
-        const nextProposal = generateMonthlyAllocationProposal({
-          period: nextPeriodKey,
-          periodLabel: nextPeriodLabel || formatPeriodLabel(nextPeriodKey),
-          cases,
-          donations: updatedDonationsList.length > 0 ? updatedDonationsList : donations,
-          customTotalBudget: carriedOverSurplus,
-          config: scoringConfig,
-          carriedOverFromPreviousPeriod: carryOverInfo,
-        });
-
-        updatedMap[nextPeriodKey] = nextProposal;
+        if (shouldCreateNextMonthDraft) {
+          const nextLabel = nextPeriodLabel || formatPeriodLabel(nextPeriodKey);
+          const nextProposal = generateMonthlyAllocationProposal({
+            period: nextPeriodKey,
+            periodLabel: nextLabel,
+            batchTitle: `كفالات ${nextLabel}`,
+            cycleType: 'regular',
+            periodDate: `${nextPeriodKey}-15`,
+            executionDate: `${nextPeriodKey}-15`,
+            cases,
+            donations: updatedDonationsList.length > 0 ? updatedDonationsList : donations,
+            customTotalBudget: carriedOverSurplus,
+            config: scoringConfig,
+            carriedOverFromPreviousPeriod: carryOverInfo,
+          });
+          updatedMap[nextPeriodKey] = nextProposal;
+        } else if (updatedMap[nextPeriodKey] && updatedMap[nextPeriodKey].status === 'draft') {
+          const existingNext = updatedMap[nextPeriodKey];
+          updatedMap[nextPeriodKey] = reconcileDraftAllocationWithCases(
+            {
+              ...existingNext,
+              carriedOverFromPreviousPeriod: carryOverInfo,
+            },
+            cases,
+            updatedDonationsList.length > 0 ? updatedDonationsList : donations,
+            scoringConfig
+          );
+        }
       }
 
       return updatedMap;
@@ -1543,9 +1822,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // 4. تحديث إجمالي المساعدات التاريخية وتدوين دورة الصرف في خط سير الحالة (Case Timeline)
     const batchTitle = current.batchTitle || current.periodLabel || formatPeriodLabel(period);
-    const execDate = current.executionDate || new Date().toISOString().split('T')[0];
+    const execDate =
+      current.periodDate || current.executionDate || new Date().toISOString().split('T')[0];
     const covMonths = current.coverageMonths || 1;
-    const covText = covMonths > 1 ? ` (دفعة مجمعة تغطي ${covMonths} أشهر)` : '';
+    const covText =
+      isExceptionalCycle
+        ? ' (دورة استثنائية)'
+        : covMonths > 1
+        ? ` (دفعة مجمعة تغطي ${covMonths} أشهر)`
+        : '';
 
     setCases((prevCases) =>
       prevCases.map((c) => {
@@ -1565,9 +1850,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
 
     // 5. توثيق حركة الاعتماد والخصم في سجل الرقابة والتدقيق
+    const surplusAuditNote = isExceptionalCycle
+      ? `وبقي فائض ${carriedOverSurplus.toLocaleString('ar-EG')} ج.م ضمن رصيد الصندوق العام`
+      : `وتم ترحيل فائض ${carriedOverSurplus.toLocaleString('ar-EG')} ج.م لدورة ${nextPeriodLabel || 'الشهر التالي'}`;
+
     addAuditLog(
       'اعتماد ميزانية دورة الصرف',
-      `تم الاعتماد النهائي لدورة "${batchTitle}" [تاريخ الصرف المقرر: ${execDate}${covText}] بمبلغ إجمالي ${totalDeducted.toLocaleString('ar-EG')} ج.م (صندوق عام: ${approvedUnrestricted.toLocaleString('ar-EG')} ج.م، مقيد: ${approvedRestricted.toLocaleString('ar-EG')} ج.م) بواسطة ${approvedBy}، وتم ترحيل فائض ${carriedOverSurplus.toLocaleString('ar-EG')} ج.م لدورة ${nextPeriodLabel || 'التالية'}`
+      `تم الاعتماد النهائي لدورة "${batchTitle}" [تاريخ الصرف المقرر: ${execDate}${covText}] بمبلغ إجمالي ${totalDeducted.toLocaleString('ar-EG')} ج.م (صندوق عام: ${approvedUnrestricted.toLocaleString('ar-EG')} ج.م، مقيد: ${approvedRestricted.toLocaleString('ar-EG')} ج.م) بواسطة ${approvedBy}، ${surplusAuditNote}`
     );
   };
 
@@ -1686,18 +1975,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     setCases(updatedCases);
 
-    // 2. إعادة توليد مقترح التخصيص للدورة النشطة مباشرة بالإعدادات والحالات المحدثة
-    const currentAlloc = allocations[currentPeriod];
-    if (!currentAlloc || currentAlloc.status !== 'approved') {
+    // 2. مزامنة جميع مسودات التخصيص المفتوحة (draft) بالإعدادات والحالات المحدثة مع الحفاظ على التعديلات اليدوية
+    syncDraftAllocationsWithCases(updatedCases, mergedConfig);
+    if (!allocations[currentPeriod]) {
       const periodLabel = formatPeriodLabel(currentPeriod);
       const newProposal = generateMonthlyAllocationProposal({
         period: currentPeriod,
         periodLabel,
         cases: updatedCases,
         donations,
-        customTotalBudget: currentAlloc?.totalBudget,
         config: mergedConfig,
-        carriedOverFromPreviousPeriod: currentAlloc?.carriedOverFromPreviousPeriod,
       });
 
       setAllocations((prev) => ({
@@ -2580,6 +2867,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addVisit,
         reassignResearcher,
         generateOrRefreshAllocation,
+        createAllocationCycle,
+        syncDraftAllocations,
         updateAllocationBatchConfig,
         updateAllocationItem,
         toggleExcludeItem,

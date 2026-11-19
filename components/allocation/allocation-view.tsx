@@ -1,8 +1,12 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '@/context/app-context';
 import { useToast } from '@/context/toast-context';
+import {
+  doesDraftAllocationNeedSync,
+  formatAllocationCycleDropdownLabel,
+} from '@/services/allocation-engine';
 import {
   Calendar,
   CheckCircle2,
@@ -20,11 +24,14 @@ import {
   Repeat,
   Search,
   ChevronDown,
+  Plus,
+  Layers,
 } from 'lucide-react';
 import { PriorityLevel } from '@/types';
 import { exportMonthlyAllocationToExcel } from '@/services/excel-export';
 import { MoneyDisplay } from '@/components/common/money-display';
 import { AmountInput } from '@/components/common/amount-input';
+import { NewAllocationCycleModal } from '@/components/allocation/new-allocation-cycle-modal';
 
 const getPriorityMeta = (priority: PriorityLevel): { label: string; className: string } => {
   switch (priority) {
@@ -46,6 +53,8 @@ export function AllocationView() {
     allocations,
     currentAllocation,
     generateOrRefreshAllocation,
+    createAllocationCycle,
+    syncDraftAllocations,
     updateAllocationBatchConfig,
     updateAllocationItem,
     toggleExcludeItem,
@@ -54,6 +63,7 @@ export function AllocationView() {
     currentUserRole,
     currentSessionProfile,
     cases,
+    scoringConfig,
     permissions,
     setSelectedCaseId,
     metrics,
@@ -68,6 +78,7 @@ export function AllocationView() {
   const [customBudgetValue, setCustomBudgetValue] = useState<number>(
     currentAllocation?.totalBudget ?? actualUnrestricted
   );
+  const [isNewCycleModalOpen, setIsNewCycleModalOpen] = useState(false);
 
   const [excludingItemId, setExcludingItemId] = useState<string | null>(null);
   const [exclusionReasonInput, setExclusionReasonInput] = useState<string>('');
@@ -84,12 +95,14 @@ export function AllocationView() {
   const [selectedPriorityFilter, setSelectedPriorityFilter] = useState<string>('all');
   const { toast } = useToast();
 
-  // Sync budget input on period change
+  // Sync budget input on period or budget change
   const [prevPeriod, setPrevPeriod] = useState(currentPeriod);
-  if (prevPeriod !== currentPeriod) {
+  const [prevTotalBudget, setPrevTotalBudget] = useState(currentAllocation?.totalBudget);
+  if (prevPeriod !== currentPeriod || prevTotalBudget !== currentAllocation?.totalBudget) {
     setPrevPeriod(currentPeriod);
+    setPrevTotalBudget(currentAllocation?.totalBudget);
     const targetAlloc = allocations[currentPeriod];
-    if (targetAlloc?.totalBudget) {
+    if (targetAlloc?.totalBudget !== undefined) {
       setBudgetInput(targetAlloc.totalBudget);
     }
   }
@@ -98,7 +111,25 @@ export function AllocationView() {
   const caseMap = useMemo(() => new Map(cases.map((c) => [c.id, c])), [cases]);
 
   const isApproved = currentAllocation?.status === 'approved';
+  const isExceptionalCycle = currentAllocation?.cycleType === 'exceptional';
   const currentStrategy = currentAllocation?.allocationStrategy || 'priority_first';
+  const resolvedExecutionDate =
+    currentAllocation?.periodDate ||
+    currentAllocation?.executionDate ||
+    new Date().toISOString().split('T')[0];
+
+  // Auto-healing: ensure any open draft period immediately reflects newly approved/updated eligible cases
+  const needsDraftAutoSync = Boolean(
+    currentAllocation &&
+      currentAllocation.status === 'draft' &&
+      doesDraftAllocationNeedSync(currentAllocation, cases, scoringConfig)
+  );
+
+  useEffect(() => {
+    if (needsDraftAutoSync) {
+      syncDraftAllocations(currentPeriod);
+    }
+  }, [needsDraftAutoSync, currentPeriod, syncDraftAllocations]);
 
   const handleConfirmExclusion = () => {
     if (!excludingItemId) return;
@@ -115,7 +146,11 @@ export function AllocationView() {
   const handleConfirmApproval = () => {
     approveAllocation(currentPeriod, approverName);
     setShowApprovalDialog(false);
-    toast.success('تم اعتماد الميزانية الشهرية وقفل الدورة بنجاح');
+    toast.success(
+      isExceptionalCycle
+        ? 'تم اعتماد الدورة الاستثنائية وقفل الكشف بنجاح'
+        : 'تم اعتماد الميزانية وقفل الدورة بنجاح'
+    );
   };
 
   const handleConfirmUnlock = () => {
@@ -188,37 +223,65 @@ export function AllocationView() {
 
   if (!currentAllocation) {
     return (
-      <div className="p-8 text-center bg-white rounded-xl border border-slate-200/80 shadow-none space-y-4">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs font-medium text-slate-700">
-          <Calendar size={14} className="text-slate-400" />
-          <span className="text-slate-500">الدورة:</span>
-          <select
-            value={currentPeriod}
-            onChange={(e) => {
-              const selected = e.target.value;
-              setCurrentPeriod(selected);
-              if (!allocations[selected]) {
-                generateOrRefreshAllocation(selected);
-              }
-            }}
-            className="bg-transparent font-semibold text-slate-900 focus:outline-hidden cursor-pointer"
-          >
-            {Object.entries(allocations).map(([key, alloc]) => (
-              <option key={key} value={key}>
-                {alloc.periodLabel || key}
-              </option>
-            ))}
-          </select>
+      <>
+        <div className="p-8 text-center bg-white rounded-xl border border-slate-200/80 shadow-none space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs font-medium text-slate-700">
+            <Calendar size={14} className="text-slate-400" />
+            <span className="text-slate-500">الدورة:</span>
+            <select
+              value={currentPeriod}
+              onChange={(e) => {
+                const selected = e.target.value;
+                setCurrentPeriod(selected);
+                if (!allocations[selected]) {
+                  generateOrRefreshAllocation(selected);
+                } else if (allocations[selected].status === 'draft') {
+                  syncDraftAllocations(selected);
+                }
+              }}
+              className="bg-transparent font-semibold text-slate-900 focus:outline-hidden cursor-pointer"
+            >
+              {Object.entries(allocations).map(([key, alloc]) => (
+                <option key={key} value={key}>
+                  {formatAllocationCycleDropdownLabel(alloc, key)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <p className="text-slate-600 font-semibold text-sm">لسه متعملش مقترح توزيع للدورة دي</p>
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            {permissions.canEditAllocation && (
+              <button
+                type="button"
+                onClick={() => setIsNewCycleModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200/80 hover:bg-slate-50 hover:text-[#005756] text-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+              >
+                <Plus size={14} />
+                <span>فتح دورة صرف جديدة</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => generateOrRefreshAllocation(currentPeriod, budgetInput)}
+              className="px-4 py-2 bg-[#005756] hover:bg-[#004241] text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+            >
+              تجهيز مقترح الميزانية
+            </button>
+          </div>
         </div>
-        <p className="text-slate-600 font-semibold text-sm">لسه متعملش مقترح توزيع للدورة دي</p>
-        <button
-          type="button"
-          onClick={() => generateOrRefreshAllocation(currentPeriod, budgetInput)}
-          className="px-4 py-2 bg-[#005756] hover:bg-[#004241] text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-        >
-          تجهيز مقترح الميزانية
-        </button>
-      </div>
+        <NewAllocationCycleModal
+          isOpen={isNewCycleModalOpen}
+          onClose={() => setIsNewCycleModalOpen(false)}
+          unrestrictedBalance={actualUnrestricted}
+          cases={cases}
+          scoringConfig={scoringConfig}
+          onCreateCycle={(data) => {
+            const created = createAllocationCycle(data);
+            setBudgetInput(created.totalBudget);
+            toast.success(`تم فتح دورة «${created.batchTitle}» وتجهيز كشف الصرف`);
+          }}
+        />
+      </>
     );
   }
 
@@ -229,33 +292,29 @@ export function AllocationView() {
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-              توزيع ميزانية الشهر وكشوف الصرف
+              توزيع الميزانية وكشوف الصرف
             </h2>
-            {currentAllocation.batchTitle && currentAllocation.batchTitle !== currentAllocation.periodLabel && (
-              <>
-                <span className="text-slate-300" aria-hidden="true">·</span>
-                <span className="text-xs font-medium text-slate-600">
-                  {currentAllocation.batchTitle}
-                </span>
-              </>
-            )}
+            <span className="text-slate-300" aria-hidden="true">·</span>
+            <span className="text-xs font-semibold text-[#005756]">
+              {isExceptionalCycle ? 'دورة استثنائية / موسمية' : 'دورة شهرية دورية'}
+            </span>
             <span className="text-slate-300" aria-hidden="true">·</span>
             <span className="text-xs font-semibold text-slate-700">
               {isApproved ? 'معتمدة ومقفولة' : 'مسودة للتجهيز'}
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            دورة {currentAllocation.periodLabel} · تحديد مبالغ الدفعة واعتماد كشف الصرف
+            {currentAllocation.batchTitle || currentAllocation.periodLabel} · تحديد مبالغ الدفعة واعتماد كشف الصرف
           </p>
         </div>
 
         {/* Header Actions */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Cycle Dropdown */}
-          <div className="flex items-center gap-1.5 px-3 h-9 rounded-xl bg-white border border-slate-200/80 text-xs font-medium text-slate-700">
+          <div className="flex items-center gap-1.5 px-3 h-9 rounded-xl bg-white border border-slate-200/80 text-xs font-medium text-slate-700 max-w-full">
             <Calendar size={14} className="text-slate-400 shrink-0" />
             <span className="text-slate-400 font-medium text-[11px] shrink-0">الدورة:</span>
-            <div className="relative flex items-center">
+            <div className="relative flex items-center min-w-0">
               <select
                 value={currentPeriod}
                 onChange={(e) => {
@@ -263,20 +322,35 @@ export function AllocationView() {
                   setCurrentPeriod(selected);
                   if (!allocations[selected]) {
                     generateOrRefreshAllocation(selected);
+                  } else if (allocations[selected].status === 'draft') {
+                    syncDraftAllocations(selected);
                   }
                 }}
-                aria-label="اختيار الدورة الشهرية"
-                className="bg-transparent font-semibold text-slate-800 focus:outline-hidden cursor-pointer text-xs pr-1 pl-5 appearance-none"
+                aria-label="اختيار دورة الصرف"
+                className="bg-transparent font-semibold text-slate-800 focus:outline-hidden cursor-pointer text-xs pr-1 pl-5 appearance-none max-w-[230px] sm:max-w-[280px] truncate"
               >
                 {Object.entries(allocations).map(([key, alloc]) => (
                   <option key={key} value={key}>
-                    {alloc.batchTitle ? `${alloc.batchTitle} (${alloc.periodLabel || key})` : (alloc.periodLabel || key)}
+                    {formatAllocationCycleDropdownLabel(alloc, key)}
                   </option>
                 ))}
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
+
+          {/* Open New Disbursement Cycle (Secondary White Calm CTA) */}
+          {permissions.canEditAllocation && (
+            <button
+              type="button"
+              onClick={() => setIsNewCycleModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 h-9 bg-white border border-slate-200/80 hover:bg-slate-50 hover:border-[#005756]/40 hover:text-[#005756] text-slate-700 text-xs font-semibold rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              title="فتح دورة صرف شهرية أو منحة استثنائية جديدة"
+            >
+              <Plus size={14} className="text-[#005756]" />
+              <span>فتح دورة صرف جديدة</span>
+            </button>
+          )}
 
           {/* Excel Export Button (Secondary White) */}
           <button
@@ -341,13 +415,13 @@ export function AllocationView() {
 
       {/* 2. Focused Batch Configuration & Uniform Slate KPI Strip */}
       <div className="bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-none space-y-5">
-        {/* Top: Batch Title, Execution Date, Coverage Months */}
+        {/* Top: Batch Title, Execution Date, Coverage / Exceptional Mode */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start pb-4 border-b border-slate-100">
           {/* Field 1: Batch Title */}
-          <div className="md:col-span-6 space-y-1.5">
+          <div className="md:col-span-5 space-y-1.5">
             <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
               <Tag size={13} className="text-slate-400" />
-              <span>اسم الدفعة</span>
+              <span>اسم الدورة / الدفعة</span>
             </label>
             {isApproved ? (
               <div className="h-10 px-3 py-2 bg-slate-50/80 border border-slate-200/80 rounded-xl text-sm font-medium text-slate-900 flex items-center">
@@ -361,17 +435,24 @@ export function AllocationView() {
                   onChange={(e) =>
                     updateAllocationBatchConfig(currentPeriod, { batchTitle: e.target.value })
                   }
-                  placeholder="مثال: دفعة أكتوبر ونوفمبر 2026"
+                  placeholder="مثال: كفالات نوفمبر 2026 أو منحة دخول المدارس"
                   className="w-full h-10 px-3 py-2 bg-slate-50/60 focus:bg-white border border-slate-200/80 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 transition-colors"
                 />
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-[11px] text-slate-400">مقترحات:</span>
-                  {[
-                    `دفعة شهري أكتوبر ونوفمبر 2026`,
-                    `كفالات ${currentAllocation.periodLabel}`,
-                    `دفعة معونة الشتاء 2026`,
-                    `منحة شهر رمضان المبارك`,
-                  ].map((preset) => (
+                  {(isExceptionalCycle
+                    ? [
+                        'منحة دخول المدارس',
+                        'كسوة العيد',
+                        'إعانة شتاء طارئة',
+                        'منحة شهر رمضان المبارك',
+                      ]
+                    : [
+                        `كفالات ${currentAllocation.periodLabel}`,
+                        `دفعة مجمعة ${currentAllocation.periodLabel}`,
+                        'إعانة شتاء طارئة',
+                      ]
+                  ).map((preset) => (
                     <button
                       key={preset}
                       type="button"
@@ -394,57 +475,149 @@ export function AllocationView() {
             </label>
             {isApproved ? (
               <div className="h-10 px-3 py-2 bg-slate-50/80 border border-slate-200/80 rounded-xl text-sm font-mono tabular-nums font-medium text-slate-900 flex items-center">
-                {currentAllocation.executionDate || `${currentPeriod}-15`}
+                {resolvedExecutionDate}
               </div>
             ) : (
               <input
                 type="date"
-                value={currentAllocation.executionDate || `${currentPeriod}-15`}
+                value={resolvedExecutionDate}
                 onChange={(e) =>
-                  updateAllocationBatchConfig(currentPeriod, { executionDate: e.target.value })
+                  updateAllocationBatchConfig(currentPeriod, {
+                    periodDate: e.target.value,
+                    executionDate: e.target.value,
+                  })
                 }
                 className="w-full h-10 px-3 py-2 bg-slate-50/60 focus:bg-white border border-slate-200/80 rounded-xl text-sm font-mono tabular-nums font-medium text-slate-900 focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 transition-colors cursor-pointer"
               />
             )}
           </div>
 
-          {/* Field 3: Coverage Months */}
-          <div className="md:col-span-3 space-y-1.5">
-            <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
-              <Repeat size={13} className="text-slate-400" />
-              <span>عدد شهور الصرف</span>
-            </label>
-            {isApproved ? (
-              <div className="h-10 px-3 py-2 bg-slate-50/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-900 flex items-center">
-                {(currentAllocation.coverageMonths || 1) === 1
-                  ? 'شهر واحد'
-                  : currentAllocation.coverageMonths === 2
-                  ? 'شهرين'
-                  : `${currentAllocation.coverageMonths} شهور`}
-              </div>
+          {/* Field 3: Coverage Months (Regular) OR Distribution Mode (Exceptional) */}
+          <div className="md:col-span-4 space-y-1.5">
+            {isExceptionalCycle ? (
+              <>
+                <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                  <Layers size={13} className="text-slate-400" />
+                  <span>نظام المنحة الاستثنائية</span>
+                </label>
+                {isApproved ? (
+                  <div className="h-10 px-3 py-2 bg-slate-50/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-900 flex items-center justify-between gap-2">
+                    <span>
+                      {currentAllocation.exceptionalDistributionMode === 'split_budget'
+                        ? 'توزيع ميزانية محددة بالتساوي'
+                        : 'مبلغ موحد لكل أسرة'}
+                    </span>
+                    {currentAllocation.exceptionalDistributionMode !== 'split_budget' &&
+                      currentAllocation.flatAmountPerCase && (
+                        <span className="font-mono tabular-nums text-[#005756]">
+                          {currentAllocation.flatAmountPerCase.toLocaleString('ar-EG')} ج.م
+                        </span>
+                      )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateAllocationBatchConfig(currentPeriod, {
+                            exceptionalDistributionMode: 'flat_per_case',
+                            flatAmountPerCase: currentAllocation.flatAmountPerCase || 1000,
+                          })
+                        }
+                        className={`h-10 px-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-center border whitespace-nowrap ${
+                          (currentAllocation.exceptionalDistributionMode || 'flat_per_case') ===
+                          'flat_per_case'
+                            ? 'bg-[#005756] text-white border-[#005756]'
+                            : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/80'
+                        }`}
+                      >
+                        مبلغ موحد للأسرة
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateAllocationBatchConfig(currentPeriod, {
+                            exceptionalDistributionMode: 'split_budget',
+                          })
+                        }
+                        className={`h-10 px-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-center border whitespace-nowrap ${
+                          currentAllocation.exceptionalDistributionMode === 'split_budget'
+                            ? 'bg-[#005756] text-white border-[#005756]'
+                            : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/80'
+                        }`}
+                      >
+                        تقسيم الميزانية
+                      </button>
+                    </div>
+                    {(currentAllocation.exceptionalDistributionMode || 'flat_per_case') ===
+                      'flat_per_case' && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-slate-500 shrink-0">قيمة المنحة:</span>
+                        <input
+                          type="number"
+                          min={50}
+                          step={50}
+                          value={currentAllocation.flatAmountPerCase ?? 1000}
+                          onChange={(e) => {
+                            const val = Math.max(0, Number(e.target.value) || 0);
+                            const activeCount = Math.max(
+                              1,
+                              currentAllocation.items.filter((i) => !i.isExcluded && !i.isVisitOverdue)
+                                .length
+                            );
+                            updateAllocationBatchConfig(currentPeriod, {
+                              flatAmountPerCase: val,
+                              totalBudget: val * activeCount,
+                            });
+                          }}
+                          className="w-28 h-8 px-2.5 bg-slate-50/60 focus:bg-white border border-slate-200/80 rounded-lg text-xs font-mono tabular-nums font-semibold text-slate-900 focus:outline-hidden focus:border-[#005756]"
+                        />
+                        <span className="text-[11px] text-slate-500">ج.م / أسرة</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             ) : (
-              <div className="grid grid-cols-3 gap-1.5">
-                {[
-                  { value: 1, label: 'شهر واحد' },
-                  { value: 2, label: 'شهرين' },
-                  { value: 3, label: '3 شهور' },
-                ].map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() =>
-                      updateAllocationBatchConfig(currentPeriod, { coverageMonths: option.value })
-                    }
-                    className={`h-10 px-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-center border whitespace-nowrap ${
-                      (currentAllocation.coverageMonths || 1) === option.value
-                        ? 'bg-[#005756] text-white border-[#005756]'
-                        : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/80'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
+              <>
+                <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                  <Repeat size={13} className="text-slate-400" />
+                  <span>عدد شهور الصرف</span>
+                </label>
+                {isApproved ? (
+                  <div className="h-10 px-3 py-2 bg-slate-50/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-900 flex items-center">
+                    {(currentAllocation.coverageMonths || 1) === 1
+                      ? 'شهر واحد'
+                      : currentAllocation.coverageMonths === 2
+                      ? 'شهرين'
+                      : `${currentAllocation.coverageMonths} شهور`}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { value: 1, label: 'شهر واحد' },
+                      { value: 2, label: 'شهرين' },
+                      { value: 3, label: '3 شهور' },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() =>
+                          updateAllocationBatchConfig(currentPeriod, { coverageMonths: option.value })
+                        }
+                        className={`h-10 px-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-center border whitespace-nowrap ${
+                          (currentAllocation.coverageMonths || 1) === option.value
+                            ? 'bg-[#005756] text-white border-[#005756]'
+                            : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/80'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -453,12 +626,16 @@ export function AllocationView() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           {/* Box 1: Available Budget */}
           <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-1">
-            <span className="text-xs font-medium text-slate-500 block">الرصيد المتاح للصرف</span>
+            <span className="text-xs font-medium text-slate-500 block">
+              {isExceptionalCycle ? 'ميزانية الدورة الاستثنائية' : 'الرصيد المتاح للصرف'}
+            </span>
             <div className="font-mono tabular-nums">
               <MoneyDisplay amount={currentAllocation.totalBudget} size="xl" variant="neutral" />
             </div>
             <div className="text-[11px] text-slate-400">
-              المتاح في الصندوق العام للدورة
+              {isExceptionalCycle
+                ? 'سقف الصرف المخصص لهذه المنحة'
+                : 'المتاح في الصندوق العام للدورة'}
             </div>
           </div>
 
@@ -484,7 +661,9 @@ export function AllocationView() {
               />
             </div>
             <div className="text-[11px] text-slate-400">
-              يرجع كرصيد متاح للدورة الجاية
+              {isExceptionalCycle
+                ? 'يفضل ضمن رصيد الصندوق العام'
+                : 'يرجع كرصيد متاح للدورة الجاية'}
             </div>
           </div>
         </div>
@@ -1076,7 +1255,9 @@ export function AllocationView() {
                     />
                   </div>
                   <div className="p-2.5 bg-white rounded-lg border border-slate-200/80">
-                    <span className="text-slate-500 font-medium block mb-1">المتبقي للدورة الجاية:</span>
+                    <span className="text-slate-500 font-medium block mb-1">
+                      {isExceptionalCycle ? 'المتبقي بالصندوق العام:' : 'المتبقي للدورة الجاية:'}
+                    </span>
                     <MoneyDisplay
                       amount={currentAllocation.summary.unallocatedBalance}
                       size="md"
@@ -1196,6 +1377,20 @@ export function AllocationView() {
           </div>
         </div>
       )}
+
+      {/* New Disbursement Cycle Modal */}
+      <NewAllocationCycleModal
+        isOpen={isNewCycleModalOpen}
+        onClose={() => setIsNewCycleModalOpen(false)}
+        unrestrictedBalance={actualUnrestricted}
+        cases={cases}
+        scoringConfig={scoringConfig}
+        onCreateCycle={(data) => {
+          const created = createAllocationCycle(data);
+          setBudgetInput(created.totalBudget);
+          toast.success(`تم فتح دورة «${created.batchTitle}» وتجهيز كشف الصرف`);
+        }}
+      />
     </div>
   );
 }

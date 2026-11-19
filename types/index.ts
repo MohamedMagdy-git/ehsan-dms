@@ -224,14 +224,21 @@ export interface AllocationItem {
   overdueMonthsElapsed?: number;
 }
 
+export type AllocationCycleType = 'regular' | 'exceptional';
+export type ExceptionalDistributionMode = 'flat_per_case' | 'split_budget';
+
 export interface MonthlyAllocation {
   id: string;
-  period: string;                 // YYYY-MM مثلا 2026-10
+  period: string;                 // معرف الدورة (مثلاً 2026-10 أو cycle-...)
   periodLabel: string;            // أكتوبر 2026
-  batchTitle?: string;            // مسمى دورة الصرف / اسم الدفعة (مثال: كفالات نوفمبر، دفعة معونة الشتاء)
+  batchTitle?: string;            // مسمى دورة الصرف / اسم الدفعة (مثال: كفالات نوفمبر، منحة دخول المدارس)
+  cycleType?: AllocationCycleType; // نوع الدورة: شهرية دورية أو استثنائية/موسمية
+  periodDate?: string;            // تاريخ الاستحقاق أو الصرف الفعلي (YYYY-MM-DD)
   executionDate?: string;         // تاريخ تنفيذ الصرف المحدد (مثال: 2026-10-25)
   coverageMonths?: number;        // معامل التغطية (1 = شهر واحد، 2 = شهرين مجمعين...)
   allocationStrategy?: 'priority_first' | 'proportional'; // خوارزمية التوزيع المعتمدة
+  exceptionalDistributionMode?: ExceptionalDistributionMode; // نمط توزيع الدورة الاستثنائية
+  flatAmountPerCase?: number;     // المبلغ الموحد لكل أسرة في الدورات الاستثنائية
   totalBudget: number;
   unrestrictedBudget: number;
   restrictedBudget: number;

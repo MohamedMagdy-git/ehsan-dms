@@ -90,7 +90,7 @@ function MainApp() {
         />
 
         {/* View Content Viewport */}
-        <main className="flex-1 p-3.5 sm:p-4 lg:p-8 max-w-7xl w-full mx-auto pb-28 md:pb-6">
+        <main className="flex-1 px-3.5 pt-3.5 sm:px-4 sm:pt-4 lg:px-8 lg:pt-8 max-w-7xl w-full mx-auto pb-24 md:pb-6">
           {effectiveSection === 'dashboard' && <DashboardView />}
           {effectiveSection === 'cases' && (
             <CasesView onOpenNewCase={() => setIsNewCaseModalOpen(true)} />

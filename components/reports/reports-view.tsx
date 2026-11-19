@@ -32,6 +32,7 @@ import { CustodyPrintModal } from '@/components/reports/custody-print-modal';
 import { QuickFieldDeliveryModal } from '@/components/reports/quick-field-delivery-modal';
 import { UrgentVoucherPrintModal } from '@/components/reports/urgent-voucher-print-modal';
 import { tafqeetNumberToArabicWords } from '@/lib/tafqeet';
+import { formatAllocationCycleDropdownLabel } from '@/services/allocation-engine';
 
 function formatBeneficiaryDisplayName(caseObj?: BeneficiaryCase, fallbackName?: string): string {
   if (!caseObj) return fallbackName || 'غير محدد';
@@ -48,6 +49,7 @@ export function ReportsView() {
     setCurrentPeriod,
     allocations,
     generateOrRefreshAllocation,
+    syncDraftAllocations,
     currentAllocation,
     cases,
     donations,
@@ -202,15 +204,15 @@ export function ReportsView() {
                     setCurrentPeriod(selected);
                     if (!allocations[selected]) {
                       generateOrRefreshAllocation(selected);
+                    } else if (allocations[selected].status === 'draft') {
+                      syncDraftAllocations(selected);
                     }
                   }}
                   className="w-full h-9 px-2.5 py-1.5 pr-2.5 pl-7 text-xs sm:text-sm font-normal text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] appearance-none shadow-xs transition-colors cursor-pointer"
                 >
                   {Object.entries(allocations).map(([key, alloc]) => (
                     <option key={key} value={key}>
-                      {alloc.batchTitle
-                        ? `${alloc.batchTitle} (${alloc.periodLabel || key})`
-                        : alloc.periodLabel || key}
+                      {formatAllocationCycleDropdownLabel(alloc, key)}
                     </option>
                   ))}
                 </select>
