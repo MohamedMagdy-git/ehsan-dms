@@ -73,7 +73,7 @@ export function MobileBottomNav() {
       className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/80 backdrop-blur-lg border-t border-slate-200/80 shadow-[0_-4px_16px_rgba(0,0,0,0.03)] pb-[max(0.45rem,env(safe-area-inset-bottom,0px))]"
     >
       <LayoutGroup id="mobile-bottom-nav">
-        <div className="grid grid-cols-5 items-center h-[60px] px-1.5 max-w-lg mx-auto">
+        <div className="grid grid-cols-5 items-center gap-1 h-[60px] px-2 max-w-lg mx-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id;
@@ -85,10 +85,10 @@ export function MobileBottomNav() {
                 onClick={() => setActiveSection(item.id)}
                 whileTap={prefersReducedMotion ? undefined : { scale: 0.92 }}
                 transition={tapTransition}
-                className={`relative flex flex-col items-center justify-center h-full min-h-[44px] py-1.5 px-1 cursor-pointer select-none transition-colors duration-150 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-[#005756]/30 rounded-2xl ${
+                className={`relative flex flex-col items-center justify-center h-[48px] min-h-[44px] py-1 px-1 rounded-xl cursor-pointer select-none transition-colors duration-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-[#005756]/30 ${
                   isActive
                     ? 'text-[#005756]'
-                    : 'text-slate-500 hover:text-slate-700'
+                    : 'text-slate-500 hover:bg-slate-100/80 hover:text-slate-800'
                 }`}
               >
                 {isActive && (
@@ -96,15 +96,15 @@ export function MobileBottomNav() {
                     layoutId="activeMobileNavIndicator"
                     initial={false}
                     transition={indicatorTransition}
-                    className="pointer-events-none absolute inset-x-1 inset-y-1.5 rounded-2xl bg-[#005756]/10 border border-[#005756]/15"
+                    className="pointer-events-none absolute inset-0 rounded-xl bg-[#005756]/10 border border-[#005756]/15"
                     aria-hidden="true"
                   />
                 )}
-                <div className="relative z-10 flex flex-col items-center justify-center">
+                <div className="relative z-10 flex flex-col items-center justify-center transition-all duration-200">
                   <div className="relative">
                     <Icon
                       size={20}
-                      className={`transition-colors duration-150 ${
+                      className={`transition-colors duration-200 ${
                         isActive ? 'stroke-[2.25]' : 'stroke-[1.75]'
                       }`}
                     />
@@ -115,7 +115,7 @@ export function MobileBottomNav() {
                     )}
                   </div>
                   <span
-                    className={`text-[11px] whitespace-nowrap mt-0.5 leading-tight transition-colors duration-150 ${
+                    className={`text-[11px] whitespace-nowrap mt-0.5 leading-tight transition-colors duration-200 ${
                       isActive ? 'font-semibold' : 'font-medium'
                     }`}
                   >
