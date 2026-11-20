@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { BeneficiaryCase, HousingCondition, WorkCapacity, FoodInsecurityLevel, HouseholdMember, CaseStatus } from '@/types';
 import { AmountInput } from '@/components/common/amount-input';
+import { CustomSelect } from '@/components/ui/custom-select';
 import { ResearcherSelect } from './researcher-select';
 
 interface EditCaseModalProps {
@@ -293,18 +294,21 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
 
               <div className="space-y-1">
                 <label className="text-slate-700 font-semibold">الحالة التشغيلية</label>
-                <select
+                <CustomSelect
+                  size="sm"
                   value={status}
-                  onChange={(e) => setStatus(e.target.value as CaseStatus)}
-                  className="w-full p-2 border border-slate-200 rounded-lg text-xs font-semibold"
-                >
-                  <option value="active_eligible">مؤهلة ومستحقة</option>
-                  <option value="pending_exception">بانتظار اعتماد استثناء</option>
-                  <option value="under_review">تحت البحث والمراجعة</option>
-                  <option value="temporarily_suspended">موقوفة مؤقتاً</option>
-                  <option value="excluded_current_month">مستبعدة من تخصيص الشهر</option>
-                  <option value="closed">مغلقة / زال الاستحقاق</option>
-                </select>
+                  onChange={(val) => setStatus(val as CaseStatus)}
+                  options={[
+                    { value: 'active_eligible', label: 'مؤهلة ومستحقة' },
+                    { value: 'pending_exception', label: 'بانتظار اعتماد استثناء' },
+                    { value: 'under_review', label: 'تحت البحث والمراجعة' },
+                    { value: 'temporarily_suspended', label: 'موقوفة مؤقتاً' },
+                    { value: 'excluded_current_month', label: 'مستبعدة من تخصيص الشهر' },
+                    { value: 'closed', label: 'مغلقة / زال الاستحقاق' },
+                  ]}
+                  ariaLabel="الحالة التشغيلية"
+                  triggerClassName="rounded-lg text-xs font-semibold"
+                />
               </div>
 
               <div className="sm:col-span-2 space-y-1">
@@ -441,16 +445,19 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
 
               <div className="space-y-1">
                 <label className="text-slate-700 font-semibold">حالة السكن</label>
-                <select
+                <CustomSelect
+                  size="sm"
                   value={housingCondition}
-                  onChange={(e) => setHousingCondition(e.target.value as HousingCondition)}
-                  className="w-full p-2 border border-slate-200 rounded-lg text-xs focus:border-[#005756] focus:outline-hidden"
-                >
-                  <option value="dilapidated_urgent">سكن غير آمن / آيل للسقوط</option>
-                  <option value="rent_unstable">إيجار غير مستقر وعليهم متأخرات</option>
-                  <option value="rent_stable">إيجار قديم أو مستقر</option>
-                  <option value="owned">ملك</option>
-                </select>
+                  onChange={(val) => setHousingCondition(val as HousingCondition)}
+                  options={[
+                    { value: 'dilapidated_urgent', label: 'سكن غير آمن / آيل للسقوط' },
+                    { value: 'rent_unstable', label: 'إيجار غير مستقر وعليهم متأخرات' },
+                    { value: 'rent_stable', label: 'إيجار قديم أو مستقر' },
+                    { value: 'owned', label: 'ملك' },
+                  ]}
+                  ariaLabel="حالة السكن"
+                  triggerClassName="rounded-lg text-xs"
+                />
               </div>
 
               <div className="space-y-2">

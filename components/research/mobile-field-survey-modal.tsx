@@ -48,6 +48,7 @@ import {
   SurveyDraft,
 } from '@/services/offline-storage';
 import { useOnlineStatus } from '@/hooks/use-online-status';
+import { CustomSelect, CustomSelectOption } from '@/components/ui/custom-select';
 
 function formatDraftTimeAgo(timestamp: number | string): string {
   const timeNum = typeof timestamp === 'string' ? new Date(timestamp).getTime() : timestamp;
@@ -1645,36 +1646,33 @@ export function MobileFieldSurveyModal() {
                     <label className="text-slate-700 font-semibold mb-1 block">
                       اختر الحالة المستهدفة بالزيارة للتعبئة التلقائية:
                     </label>
-                    <select
+                    <CustomSelect
                       value={selectedCaseId}
-                      onChange={(e) => {
-                        setSelectedCaseId(e.target.value);
-                        loadCaseData(e.target.value);
-                        checkForDraft(`case_${e.target.value}`);
+                      onChange={(nextId) => {
+                        setSelectedCaseId(nextId);
+                        loadCaseData(nextId);
+                        checkForDraft(`case_${nextId}`);
                       }}
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-lg shadow-sm text-xs font-semibold text-slate-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-none transition-colors"
-                    >
-                      {cases.some((c) => c.status === 'pending_field_research') && (
-                        <optgroup label="📋 قائمة الانتظار · تحتاج بحث ميداني أولي">
-                          {cases
-                            .filter((c) => c.status === 'pending_field_research')
-                            .map((c) => (
-                              <option key={c.id} value={c.id}>
-                                [قيد الانتظار] {c.primaryName || c.fullName} {c.secondaryName ? `(${c.secondaryName})` : ''} - [{c.code}] - {c.district}
-                              </option>
-                            ))}
-                        </optgroup>
-                      )}
-                      <optgroup label="🔄 الحالات القائمة والمستحقة · التحديث الدوري">
-                        {cases
+                      options={[
+                        ...cases
+                          .filter((c) => c.status === 'pending_field_research')
+                          .map<CustomSelectOption>((c) => ({
+                            value: c.id,
+                            label: `[قيد الانتظار] ${c.primaryName || c.fullName}${c.secondaryName ? ` (${c.secondaryName})` : ''} - [${c.code}] - ${c.district}`,
+                            group: 'قائمة الانتظار · تحتاج بحث ميداني أولي',
+                          })),
+                        ...cases
                           .filter((c) => c.status !== 'pending_field_research')
-                          .map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.primaryName || c.fullName} {c.secondaryName ? `(${c.secondaryName})` : ''} - [{c.code}] - {c.district}
-                            </option>
-                          ))}
-                      </optgroup>
-                    </select>
+                          .map<CustomSelectOption>((c) => ({
+                            value: c.id,
+                            label: `${c.primaryName || c.fullName}${c.secondaryName ? ` (${c.secondaryName})` : ''} - [${c.code}] - ${c.district}`,
+                            group: 'الحالات القائمة والمستحقة · التحديث الدوري',
+                          })),
+                      ]}
+                      placeholder="اختر الحالة المستهدفة..."
+                      ariaLabel="اختيار الحالة المستهدفة بالزيارة"
+                      triggerClassName="rounded-lg text-xs font-semibold"
+                    />
 
                     {/* Informative Note when selecting a waiting-list case */}
                     {cases.find((c) => c.id === selectedCaseId)?.status === 'pending_field_research' && (
@@ -2209,20 +2207,22 @@ export function MobileFieldSurveyModal() {
                     تصنيف الاستحقاق
                   </span>
                 </div>
-                <select
+                <CustomSelect
                   value={requestedAidType}
-                  onChange={(e) => setRequestedAidType(e.target.value)}
-                  className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden transition-colors"
-                >
-                  <option value="كفالة نقدية شهرية">كفالة نقدية شهرية (إعانة كفاف دورية)</option>
-                  <option value="مساعدة علاجية / أدوية">مساعدة علاجية / أدوية لأمراض مزمنة</option>
-                  <option value="إجراء عملية جراحية">إجراء عملية جراحية وتدخل طبي عاجل</option>
-                  <option value="سداد ديون وغارمات">سداد ديون وغارمات / تفريج كرب</option>
-                  <option value="تحسين وترميم مسكن / سقف">تحسين وترميم مسكن / سقف وحماية</option>
-                  <option value="إطعام وسلة غذائية">إطعام وسلة غذائية / دعم معيشي</option>
-                  <option value="أجهزة تعويضية">أجهزة تعويضية وكراسي متحركة / ذوي همم</option>
-                  <option value="أخرى">أخرى (مساعدة استثنائية مشروطة)</option>
-                </select>
+                  onChange={setRequestedAidType}
+                  options={[
+                    { value: 'كفالة نقدية شهرية', label: 'كفالة نقدية شهرية (إعانة كفاف دورية)' },
+                    { value: 'مساعدة علاجية / أدوية', label: 'مساعدة علاجية / أدوية لأمراض مزمنة' },
+                    { value: 'إجراء عملية جراحية', label: 'إجراء عملية جراحية وتدخل طبي عاجل' },
+                    { value: 'سداد ديون وغارمات', label: 'سداد ديون وغارمات / تفريج كرب' },
+                    { value: 'تحسين وترميم مسكن / سقف', label: 'تحسين وترميم مسكن / سقف وحماية' },
+                    { value: 'إطعام وسلة غذائية', label: 'إطعام وسلة غذائية / دعم معيشي' },
+                    { value: 'أجهزة تعويضية', label: 'أجهزة تعويضية وكراسي متحركة / ذوي همم' },
+                    { value: 'أخرى', label: 'أخرى (مساعدة استثنائية مشروطة)' },
+                  ]}
+                  ariaLabel="نوع المساعدة المطلوبة"
+                  triggerClassName="text-xs font-bold"
+                />
               </div>
 
               {/* Health Assessment */}
@@ -2480,21 +2480,24 @@ export function MobileFieldSurveyModal() {
                         </div>
                         <div className="sm:col-span-4 space-y-0.5">
                           <label className="text-[10px] font-semibold text-slate-500">صلة القرابة</label>
-                          <select
+                          <CustomSelect
+                            size="sm"
                             value={m.relation}
-                            onChange={(e) => handleUpdateMember(m.id, 'relation', e.target.value)}
-                            className="w-full p-2 bg-white border border-slate-200 rounded-lg shadow-sm text-xs text-slate-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-none transition-colors"
-                          >
-                            <option value="رب الأسرة">رب الأسرة</option>
-                            <option value="زوجة">زوجة</option>
-                            <option value="ابن">ابن</option>
-                            <option value="ابنة">ابنة</option>
-                            <option value="أم">أم</option>
-                            <option value="أب">أب</option>
-                            <option value="أخ / أخت">أخ / أخت</option>
-                            <option value="حفيد / حفيدة">حفيد / حفيدة</option>
-                            <option value="آخر">آخر</option>
-                          </select>
+                            onChange={(val) => handleUpdateMember(m.id, 'relation', val)}
+                            options={[
+                              { value: 'رب الأسرة', label: 'رب الأسرة' },
+                              { value: 'زوجة', label: 'زوجة' },
+                              { value: 'ابن', label: 'ابن' },
+                              { value: 'ابنة', label: 'ابنة' },
+                              { value: 'أم', label: 'أم' },
+                              { value: 'أب', label: 'أب' },
+                              { value: 'أخ / أخت', label: 'أخ / أخت' },
+                              { value: 'حفيد / حفيدة', label: 'حفيد / حفيدة' },
+                              { value: 'آخر', label: 'آخر' },
+                            ]}
+                            ariaLabel="صلة القرابة"
+                            triggerClassName="rounded-lg text-xs"
+                          />
                         </div>
                         <div className="sm:col-span-2 space-y-0.5">
                           <label className="text-[10px] font-semibold text-slate-500">السن</label>
@@ -2514,63 +2517,75 @@ export function MobileFieldSurveyModal() {
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-slate-100">
                         <div className="space-y-0.5">
                           <label className="text-[10px] font-semibold text-slate-500">الحالة الاجتماعية</label>
-                          <select
+                          <CustomSelect
+                            size="sm"
                             value={m.maritalStatus || 'أعزب'}
-                            onChange={(e) => handleUpdateMember(m.id, 'maritalStatus', e.target.value)}
-                            className="w-full p-2 bg-white border border-slate-200 rounded-lg shadow-sm text-[11px] text-slate-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-none transition-colors"
-                          >
-                            <option value="متزوج">متزوج</option>
-                            <option value="أعزب">أعزب</option>
-                            <option value="أرمل">أرمل</option>
-                            <option value="مطلق">مطلق</option>
-                            <option value="قاصر / طفل">قاصر / طفل</option>
-                          </select>
+                            onChange={(val) => handleUpdateMember(m.id, 'maritalStatus', val)}
+                            options={[
+                              { value: 'متزوج', label: 'متزوج' },
+                              { value: 'أعزب', label: 'أعزب' },
+                              { value: 'أرمل', label: 'أرمل' },
+                              { value: 'مطلق', label: 'مطلق' },
+                              { value: 'قاصر / طفل', label: 'قاصر / طفل' },
+                            ]}
+                            ariaLabel="الحالة الاجتماعية"
+                            triggerClassName="rounded-lg text-[11px]"
+                          />
                         </div>
 
                         <div className="space-y-0.5">
                           <label className="text-[10px] font-semibold text-slate-500">الحالة الدراسية / التعليم</label>
-                          <select
+                          <CustomSelect
+                            size="sm"
                             value={m.educationLevel || 'ابتدائي'}
-                            onChange={(e) => handleUpdateMember(m.id, 'educationLevel', e.target.value)}
-                            className="w-full p-2 bg-white border border-slate-200 rounded-lg shadow-sm text-[11px] text-slate-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-none transition-colors"
-                          >
-                            <option value="ابتدائي">ابتدائي</option>
-                            <option value="إعدادي">إعدادي</option>
-                            <option value="ثانوي">ثانوي</option>
-                            <option value="دبلوم / فني">دبلوم / فني</option>
-                            <option value="جامعي">جامعي</option>
-                            <option value="أمي / بدون تعليم">أمي / بدون تعليم</option>
-                            <option value="طفل دون سن الدراسة">طفل دون سن الدراسة</option>
-                          </select>
+                            onChange={(val) => handleUpdateMember(m.id, 'educationLevel', val)}
+                            options={[
+                              { value: 'ابتدائي', label: 'ابتدائي' },
+                              { value: 'إعدادي', label: 'إعدادي' },
+                              { value: 'ثانوي', label: 'ثانوي' },
+                              { value: 'دبلوم / فني', label: 'دبلوم / فني' },
+                              { value: 'جامعي', label: 'جامعي' },
+                              { value: 'أمي / بدون تعليم', label: 'أمي / بدون تعليم' },
+                              { value: 'طفل دون سن الدراسة', label: 'طفل دون سن الدراسة' },
+                            ]}
+                            ariaLabel="الحالة الدراسية"
+                            triggerClassName="rounded-lg text-[11px]"
+                          />
                         </div>
 
                         <div className="space-y-0.5">
                           <label className="text-[10px] font-semibold text-slate-500">القدرة على العمل</label>
-                          <select
+                          <CustomSelect
+                            size="sm"
                             value={m.workCapacity || 'قادر على العمل'}
-                            onChange={(e) => handleUpdateMember(m.id, 'workCapacity', e.target.value)}
-                            className="w-full p-2 bg-white border border-slate-200 rounded-lg shadow-sm text-[11px] text-slate-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-none transition-colors"
-                          >
-                            <option value="قادر على العمل">قادر على العمل</option>
-                            <option value="عاجز كلياً">عاجز كلياً</option>
-                            <option value="عاجز جزئياً أو مسن">عاجز جزئياً أو مسن</option>
-                            <option value="طفل / قاصر">طفل / قاصر</option>
-                          </select>
+                            onChange={(val) => handleUpdateMember(m.id, 'workCapacity', val)}
+                            options={[
+                              { value: 'قادر على العمل', label: 'قادر على العمل' },
+                              { value: 'عاجز كلياً', label: 'عاجز كلياً' },
+                              { value: 'عاجز جزئياً أو مسن', label: 'عاجز جزئياً أو مسن' },
+                              { value: 'طفل / قاصر', label: 'طفل / قاصر' },
+                            ]}
+                            ariaLabel="القدرة على العمل"
+                            triggerClassName="rounded-lg text-[11px]"
+                          />
                         </div>
 
                         <div className="space-y-0.5">
                           <label className="text-[10px] font-semibold text-slate-500">العمل الحالي ومصدر الدخل</label>
-                          <select
+                          <CustomSelect
+                            size="sm"
                             value={m.workStatus || 'لا يعمل'}
-                            onChange={(e) => handleUpdateMember(m.id, 'workStatus', e.target.value)}
-                            className="w-full p-2 bg-white border border-slate-200 rounded-lg shadow-sm text-[11px] text-slate-800 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-none transition-colors"
-                          >
-                            <option value="لا يعمل">لا يعمل</option>
-                            <option value="يومية غير منتظمة">يومية غير منتظمة</option>
-                            <option value="عامل / موظف">عامل / موظف</option>
-                            <option value="طالب">طالب</option>
-                            <option value="ربة منزل">ربة منزل</option>
-                          </select>
+                            onChange={(val) => handleUpdateMember(m.id, 'workStatus', val)}
+                            options={[
+                              { value: 'لا يعمل', label: 'لا يعمل' },
+                              { value: 'يومية غير منتظمة', label: 'يومية غير منتظمة' },
+                              { value: 'عامل / موظف', label: 'عامل / موظف' },
+                              { value: 'طالب', label: 'طالب' },
+                              { value: 'ربة منزل', label: 'ربة منزل' },
+                            ]}
+                            ariaLabel="العمل الحالي ومصدر الدخل"
+                            triggerClassName="rounded-lg text-[11px]"
+                          />
                         </div>
                       </div>
                     </div>

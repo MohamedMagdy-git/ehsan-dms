@@ -38,6 +38,7 @@ import { CaseStatus } from '@/types';
 import { BeneficiaryNotes } from '@/components/beneficiaries/beneficiary-notes';
 import { ResearcherSelect } from './researcher-select';
 import { ResearcherVoicePlayer } from '@/components/common/researcher-voice-player';
+import { CustomSelect } from '@/components/ui/custom-select';
 
 export function CaseDetailsModal() {
   const {
@@ -973,18 +974,23 @@ export function CaseDetailsModal() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <select
+                  <CustomSelect
+                    size="sm"
                     value={currentCase.status}
-                    onChange={(e) => changeCaseStatus(currentCase.id, e.target.value as CaseStatus)}
-                    className="p-1.5 border border-slate-300 rounded-lg text-xs bg-white font-medium"
-                  >
-                    <option value="active_eligible">مستحقة للدعم</option>
-                    <option value="pending_exception">تحتاج موافقة استثنائية</option>
-                    <option value="under_review">تحت المراجعة</option>
-                    <option value="temporarily_suspended">إيقاف مؤقت</option>
-                    <option value="excluded_current_month">مستبعدة من صرف هذا الشهر</option>
-                    <option value="closed">إغلاق الملف</option>
-                  </select>
+                    onChange={(val) => changeCaseStatus(currentCase.id, val as CaseStatus)}
+                    options={[
+                      { value: 'active_eligible', label: 'مستحقة للدعم' },
+                      { value: 'pending_exception', label: 'تحتاج موافقة استثنائية' },
+                      { value: 'under_review', label: 'تحت المراجعة' },
+                      { value: 'temporarily_suspended', label: 'إيقاف مؤقت' },
+                      { value: 'excluded_current_month', label: 'مستبعدة من صرف هذا الشهر' },
+                      { value: 'closed', label: 'إغلاق الملف' },
+                    ]}
+                    ariaLabel="تغيير حالة الملف"
+                    className="w-auto min-w-[180px]"
+                    triggerClassName="h-8 rounded-lg text-xs font-medium"
+                    menuMinWidth={210}
+                  />
                 </div>
               </div>
             </div>
@@ -1563,17 +1569,20 @@ export function CaseDetailsModal() {
 
                 <div className="space-y-1">
                   <label className="text-slate-700 font-semibold">نوع المستند</label>
-                  <select
+                  <CustomSelect
+                    size="sm"
                     value={attachmentCategory}
-                    onChange={(e) => setAttachmentCategory(e.target.value as any)}
-                    className="w-full p-2 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15"
-                  >
-                    <option value="medical_report">تقرير طبي أو روشتة علاج</option>
-                    <option value="national_id">بطاقة رقم قومي أو شهادة ميلاد</option>
-                    <option value="income_proof">برنت تأمينات أو مفردات مرتب / معاش</option>
-                    <option value="housing_contract">عقد إيجار أو وصل كهرباء / مياه</option>
-                    <option value="field_video">فيديو معاينة ميدانية</option>
-                  </select>
+                    onChange={(val) => setAttachmentCategory(val as typeof attachmentCategory)}
+                    options={[
+                      { value: 'medical_report', label: 'تقرير طبي أو روشتة علاج' },
+                      { value: 'national_id', label: 'بطاقة رقم قومي أو شهادة ميلاد' },
+                      { value: 'income_proof', label: 'برنت تأمينات أو مفردات مرتب / معاش' },
+                      { value: 'housing_contract', label: 'عقد إيجار أو وصل كهرباء / مياه' },
+                      { value: 'field_video', label: 'فيديو معاينة ميدانية' },
+                    ]}
+                    ariaLabel="نوع المستند"
+                    triggerClassName="rounded-lg text-xs"
+                  />
                 </div>
 
                 <div className="space-y-1">

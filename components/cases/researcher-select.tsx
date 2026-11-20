@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useApp } from '@/context/app-context';
-import { UserCheck, Plus, Check, X, UserPlus, AlertCircle, ChevronDown } from 'lucide-react';
+import { UserCheck, Plus, Check, X, AlertCircle } from 'lucide-react';
+import { CustomSelect, CustomSelectOption } from '@/components/ui/custom-select';
 import { cn } from '@/lib/utils';
 
 export interface ResearcherSelectProps {
@@ -52,8 +53,21 @@ export function ResearcherSelect({
     }
   }, [isAddingNew]);
 
-  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selected = e.target.value;
+  const selectOptions = useMemo<CustomSelectOption[]>(() => {
+    const items: CustomSelectOption[] = allResearchers.map((researcher) => ({
+      value: researcher,
+      label: researcher,
+      group: 'الباحثون الميدانيون المعتمدون',
+    }));
+    items.push({
+      value: '__ADD_NEW__',
+      label: '+ إضافة باحث ميداني جديد...',
+      isAction: true,
+    });
+    return items;
+  }, [allResearchers]);
+
+  const handleSelectChange = (selected: string) => {
     if (selected === '__ADD_NEW__') {
       setIsAddingNew(true);
       setNewResearcherName('');
@@ -187,38 +201,15 @@ export function ResearcherSelect({
         </div>
       ) : (
         /* Standard Dropdown Selection Mode */
-        <div className="relative">
-          <select
-            value={value}
-            onChange={handleSelectChange}
-            disabled={disabled}
-            required={required}
-            className={cn(
-              'w-full h-10 px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-[#005756]/20 focus:border-[#005756] focus:outline-hidden font-medium text-slate-800 transition-colors disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer appearance-none pr-3 pl-8 shadow-2xs',
-              selectClassName
-            )}
-          >
-            <option value="" disabled={required}>
-              {placeholder}
-            </option>
-
-            <optgroup label="الباحثون الميدانيون المعتمدون">
-              {allResearchers.map((researcher) => (
-                <option key={researcher} value={researcher}>
-                  {researcher}
-                </option>
-              ))}
-            </optgroup>
-
-            <option
-              value="__ADD_NEW__"
-              className="font-bold text-[#005756] bg-teal-50/80 py-1"
-            >
-              ➕ إضافة باحث ميداني جديد...
-            </option>
-          </select>
-          <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-        </div>
+        <CustomSelect
+          value={value}
+          onChange={handleSelectChange}
+          options={selectOptions}
+          placeholder={placeholder}
+          disabled={disabled}
+          ariaLabel={label}
+          triggerClassName={cn('h-10 text-sm font-medium', selectClassName)}
+        />
       )}
 
       {helperText && !isAddingNew && (

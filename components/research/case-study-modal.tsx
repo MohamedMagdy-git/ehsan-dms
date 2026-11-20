@@ -51,6 +51,7 @@ import {
 } from '@/types';
 import { ResearcherSelect } from '@/components/cases/researcher-select';
 import { ResearcherVoicePlayer } from '@/components/common/researcher-voice-player';
+import { CustomSelect, CustomSelectOption } from '@/components/ui/custom-select';
 
 const LEGACY_DRAFT_STORAGE_KEY = 'ehsan_case_study_draft_v1';
 const getDraftStorageKey = (caseId: string | null) =>
@@ -2455,28 +2456,34 @@ export function CaseStudyModal() {
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="text-[11px] font-bold text-slate-700 block mb-1">مياه الشرب</label>
-                        <select
+                        <CustomSelect
+                          size="sm"
                           value={waterConnection}
-                          onChange={(e) => setWaterConnection(e.target.value as any)}
-                          className="w-full p-2 text-xs bg-white border border-slate-200 rounded-xl font-medium cursor-pointer"
-                        >
-                          <option value="independent">عداد مياه مستقل</option>
-                          <option value="shared">وصلة مياه مشتركة</option>
-                          <option value="none">بدون مياه بالمنزل</option>
-                        </select>
+                          onChange={(val) => setWaterConnection(val as typeof waterConnection)}
+                          options={[
+                            { value: 'independent', label: 'عداد مياه مستقل' },
+                            { value: 'shared', label: 'وصلة مياه مشتركة' },
+                            { value: 'none', label: 'بدون مياه بالمنزل' },
+                          ]}
+                          ariaLabel="مياه الشرب"
+                          triggerClassName="text-xs font-medium"
+                        />
                       </div>
 
                       <div>
                         <label className="text-[11px] font-bold text-slate-700 block mb-1">مصدر الكهرباء</label>
-                        <select
+                        <CustomSelect
+                          size="sm"
                           value={electricityMeter}
-                          onChange={(e) => setElectricityMeter(e.target.value as any)}
-                          className="w-full p-2 text-xs bg-white border border-slate-200 rounded-xl font-medium cursor-pointer"
-                        >
-                          <option value="formal">عداد رسمي مسجل</option>
-                          <option value="code_meter">عداد كودي / ممارسة</option>
-                          <option value="none">بدون عداد كهرباء</option>
-                        </select>
+                          onChange={(val) => setElectricityMeter(val as typeof electricityMeter)}
+                          options={[
+                            { value: 'formal', label: 'عداد رسمي مسجل' },
+                            { value: 'code_meter', label: 'عداد كودي / ممارسة' },
+                            { value: 'none', label: 'بدون عداد كهرباء' },
+                          ]}
+                          ariaLabel="مصدر الكهرباء"
+                          triggerClassName="text-xs font-medium"
+                        />
                       </div>
                     </div>
 
@@ -2656,20 +2663,23 @@ export function CaseStudyModal() {
                         <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
                           صلة القرابة بالنسبة للحالة
                         </label>
-                        <select
+                        <CustomSelect
+                          size="sm"
                           value={currentMember?.relation || 'نفس الحالة (صاحب الملف الأساسي)'}
-                          onChange={(e) => updateCurrentMember('relation', e.target.value)}
-                          className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg cursor-pointer font-bold text-teal-950"
-                        >
-                          <option value="نفس الحالة (صاحب الملف الأساسي)">نفس الحالة (صاحب الملف الأساسي)</option>
-                          <option value="الأب">الأب</option>
-                          <option value="الأم">الأم</option>
-                          <option value="الزوج / الزوجة">الزوج / الزوجة</option>
-                          <option value="الابن / الابنة">الابن / الابنة</option>
-                          <option value="الأخ / الأخت">الأخ / الأخت</option>
-                          <option value="الجد / الجدة">الجد / الجدة</option>
-                          <option value="قريب / كفيل آخر">قريب / كفيل آخر</option>
-                        </select>
+                          onChange={(val) => updateCurrentMember('relation', val)}
+                          options={[
+                            { value: 'نفس الحالة (صاحب الملف الأساسي)', label: 'نفس الحالة (صاحب الملف الأساسي)' },
+                            { value: 'الأب', label: 'الأب' },
+                            { value: 'الأم', label: 'الأم' },
+                            { value: 'الزوج / الزوجة', label: 'الزوج / الزوجة' },
+                            { value: 'الابن / الابنة', label: 'الابن / الابنة' },
+                            { value: 'الأخ / الأخت', label: 'الأخ / الأخت' },
+                            { value: 'الجد / الجدة', label: 'الجد / الجدة' },
+                            { value: 'قريب / كفيل آخر', label: 'قريب / كفيل آخر' },
+                          ]}
+                          ariaLabel="صلة القرابة بالنسبة للحالة"
+                          triggerClassName="rounded-lg text-xs font-bold"
+                        />
                       </div>
                     </div>
 
@@ -2703,33 +2713,39 @@ export function CaseStudyModal() {
                       </div>
                       <div>
                         <label className="text-[10px] font-bold text-slate-700 block mb-0.5">الحالة الدراسية</label>
-                        <select
+                        <CustomSelect
+                          size="sm"
                           value={currentMember?.educationLevel || 'إعدادي'}
-                          onChange={(e) => updateCurrentMember('educationLevel', e.target.value)}
-                          className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg cursor-pointer font-medium"
-                        >
-                          <option value="أمية">أمية</option>
-                          <option value="ابتدائي">ابتدائي</option>
-                          <option value="إعدادي">إعدادي</option>
-                          <option value="ثانوي / دبلوم">ثانوي / دبلوم</option>
-                          <option value="جامعي">جامعي</option>
-                          <option value="غير ملتحق">غير ملتحق</option>
-                        </select>
+                          onChange={(val) => updateCurrentMember('educationLevel', val)}
+                          options={[
+                            { value: 'أمية', label: 'أمية' },
+                            { value: 'ابتدائي', label: 'ابتدائي' },
+                            { value: 'إعدادي', label: 'إعدادي' },
+                            { value: 'ثانوي / دبلوم', label: 'ثانوي / دبلوم' },
+                            { value: 'جامعي', label: 'جامعي' },
+                            { value: 'غير ملتحق', label: 'غير ملتحق' },
+                          ]}
+                          ariaLabel="الحالة الدراسية"
+                          triggerClassName="rounded-lg text-xs font-medium"
+                        />
                       </div>
                       <div>
                         <label className="text-[10px] font-bold text-slate-700 block mb-0.5">القدرة على العمل</label>
-                        <select
+                        <CustomSelect
+                          size="sm"
                           value={currentMember?.workCapacity || 'قادر على العمل'}
-                          onChange={(e) => updateCurrentMember('workCapacity', e.target.value)}
-                          className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg cursor-pointer font-medium"
-                        >
-                          <option value="قادر على العمل">قادر على العمل</option>
-                          <option value="ربة منزل">ربة منزل</option>
-                          <option value="متفرغ لرعاية الأسرة">متفرغ لرعاية الأسرة</option>
-                          <option value="عاجز جزئياً أو مسن">عاجز جزئياً أو مسن</option>
-                          <option value="عاجز كلياً">عاجز كلياً</option>
-                          <option value="طفل / قاصر">طفل / قاصر</option>
-                        </select>
+                          onChange={(val) => updateCurrentMember('workCapacity', val)}
+                          options={[
+                            { value: 'قادر على العمل', label: 'قادر على العمل' },
+                            { value: 'ربة منزل', label: 'ربة منزل' },
+                            { value: 'متفرغ لرعاية الأسرة', label: 'متفرغ لرعاية الأسرة' },
+                            { value: 'عاجز جزئياً أو مسن', label: 'عاجز جزئياً أو مسن' },
+                            { value: 'عاجز كلياً', label: 'عاجز كلياً' },
+                            { value: 'طفل / قاصر', label: 'طفل / قاصر' },
+                          ]}
+                          ariaLabel="القدرة على العمل"
+                          triggerClassName="rounded-lg text-xs font-medium"
+                        />
                       </div>
                     </div>
 
@@ -2792,10 +2808,10 @@ export function CaseStudyModal() {
                                 <label className="text-[10px] font-bold text-slate-600 block mb-0.5">
                                   تشخيص المرض المزمن
                                 </label>
-                                <select
+                                <CustomSelect
+                                  size="sm"
                                   value={resolvedSelectValue}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
+                                  onChange={(val) => {
                                     if (val === '__other__') {
                                       updateCurrentMember('chronicIllness', {
                                         ...ci,
@@ -2815,20 +2831,24 @@ export function CaseStudyModal() {
                                       }
                                     }
                                   }}
-                                  className="w-full p-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-semibold cursor-pointer text-slate-900"
-                                >
-                                  {activeList.map((d) => (
-                                    <option key={d.id} value={d.id}>
-                                      {d.name} ({d.defaultMonthlyCost} ج.م)
-                                    </option>
-                                  ))}
-                                  {matchedById && !matchedById.isActive && (
-                                    <option value={matchedById.id}>
-                                      {matchedById.name} ({matchedById.defaultMonthlyCost} ج.م)
-                                    </option>
-                                  )}
-                                  <option value="__other__">مرض آخر (كتابة مخصصة)</option>
-                                </select>
+                                  options={[
+                                    ...activeList.map<CustomSelectOption>((d) => ({
+                                      value: d.id,
+                                      label: `${d.name} (${d.defaultMonthlyCost} ج.م)`,
+                                    })),
+                                    ...(matchedById && !matchedById.isActive
+                                      ? [
+                                          {
+                                            value: matchedById.id,
+                                            label: `${matchedById.name} (${matchedById.defaultMonthlyCost} ج.م)`,
+                                          },
+                                        ]
+                                      : []),
+                                    { value: '__other__', label: 'مرض آخر (كتابة مخصصة)' },
+                                  ]}
+                                  ariaLabel="تشخيص المرض المزمن"
+                                  triggerClassName="rounded-lg bg-slate-50 text-xs font-semibold"
+                                />
                               </div>
                               <div>
                                 <label className="text-[10px] font-bold text-slate-600 block mb-0.5">

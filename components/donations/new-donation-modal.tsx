@@ -6,6 +6,20 @@ import { useToast } from '@/context/toast-context';
 import { X, AlertCircle } from 'lucide-react';
 import { DonationChannel } from '@/types';
 import { AmountInput } from '@/components/common/amount-input';
+import { CustomSelect, CustomSelectOption } from '@/components/ui/custom-select';
+
+const PAYMENT_CHANNEL_OPTIONS: CustomSelectOption[] = [
+  { value: 'bank_transfer', label: 'تحويل بنكي' },
+  { value: 'instapay', label: 'إنستاباي (InstaPay)' },
+  { value: 'vodafone_cash', label: 'فودافون كاش أو محفظة إلكترونية' },
+  { value: 'cheque', label: 'شيك بنكي' },
+  { value: 'cash_hand', label: 'نقدي بإيصال' },
+];
+
+const DONATION_STATUS_OPTIONS: CustomSelectOption[] = [
+  { value: 'received', label: 'مستلم بالخزينة' },
+  { value: 'pledged', label: 'تعهد قيد التحصيل' },
+];
 
 interface NewDonationModalProps {
   isOpen: boolean;
@@ -152,30 +166,23 @@ export function NewDonationModal({ isOpen, onClose }: NewDonationModalProps) {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-slate-700 font-semibold block">طريقة الدفع</label>
-              <select
+              <CustomSelect
+                label="طريقة الدفع"
+                options={PAYMENT_CHANNEL_OPTIONS}
                 value={channel}
-                onChange={(e) => setChannel(e.target.value as DonationChannel)}
-                className={inputClass}
-              >
-                <option value="bank_transfer">تحويل بنكي</option>
-                <option value="instapay">إنستاباي (InstaPay)</option>
-                <option value="vodafone_cash">فودافون كاش أو محفظة إلكترونية</option>
-                <option value="cheque">شيك بنكي</option>
-                <option value="cash_hand">نقدي بإيصال</option>
-              </select>
+                onChange={(val) => setChannel(val as DonationChannel)}
+                placeholder="اختر طريقة الدفع"
+              />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-slate-700 font-semibold block">حالة المبلغ</label>
-              <select
+              <CustomSelect
+                label="حالة المبلغ"
+                options={DONATION_STATUS_OPTIONS}
                 value={status}
-                onChange={(e) => setStatus(e.target.value as 'received' | 'pledged')}
-                className={inputClass}
-              >
-                <option value="received">مستلم بالخزينة</option>
-                <option value="pledged">تعهد قيد التحصيل</option>
-              </select>
+                onChange={(val) => setStatus(val as 'received' | 'pledged')}
+                placeholder="اختر حالة المبلغ"
+              />
             </div>
 
             <div className="space-y-1.5 sm:col-span-2">

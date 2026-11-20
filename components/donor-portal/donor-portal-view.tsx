@@ -12,6 +12,7 @@ import {
   Heart,
 } from 'lucide-react';
 import { RoleInspirationalCard } from '@/components/common/role-inspirational-card';
+import { CustomSelect } from '@/components/ui/custom-select';
 
 // Emblem types for anonymous community contributions
 export type CommunityEmblemType = 'lion' | 'falcon' | 'lantern' | 'tree' | 'palm';
@@ -334,17 +335,19 @@ export function DonorPortalView() {
         </div>
 
         <div className="flex items-center gap-2">
-          <select
+          <CustomSelect
+            size="sm"
             value={activeDonorId}
-            onChange={(e) => setActiveDonorId(e.target.value)}
-            className="p-1.5 border border-teal-300 rounded-lg text-xs bg-white font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer shadow-xs"
-          >
-            {donorsList.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
+            onChange={setActiveDonorId}
+            options={donorsList.map((d) => ({
+              value: d.id,
+              label: d.name,
+            }))}
+            ariaLabel="اختيار حساب المتبرع للمعاينة"
+            className="w-full sm:w-auto min-w-[220px]"
+            triggerClassName="border-slate-200 text-xs font-medium"
+            menuMinWidth={220}
+          />
         </div>
       </div>
 

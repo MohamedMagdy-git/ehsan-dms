@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { FastTrackDisbursementOrder } from '@/types';
 import { tafqeetNumberToArabicWords } from '@/lib/tafqeet';
+import { CustomSelect } from '@/components/ui/custom-select';
 
 export interface UrgentVoucherPrintModalProps {
   isOpen: boolean;
@@ -144,20 +145,22 @@ export function UrgentVoucherPrintModal({
             {/* Quick order switcher + print CTA */}
             <div className="flex flex-col xs:flex-row sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
               {availableOrders.length > 1 && onSelectOrder && (
-                <select
+                <CustomSelect
+                  size="sm"
                   value={order.id}
-                  onChange={(e) => {
-                    const found = availableOrders.find((o) => o.id === e.target.value);
+                  onChange={(selectedId) => {
+                    const found = availableOrders.find((o) => o.id === selectedId);
                     if (found) onSelectOrder(found);
                   }}
-                  className="w-full sm:w-auto min-h-[40px] sm:min-h-0 bg-white border border-slate-200 text-slate-800 rounded-xl px-2.5 py-2 text-xs font-semibold focus:border-[#005756] focus:outline-hidden cursor-pointer"
-                >
-                  {availableOrders.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.voucherCode} - {o.beneficiaryPrimaryName} ({o.amount.toLocaleString('ar-EG')} ج.م)
-                    </option>
-                  ))}
-                </select>
+                  options={availableOrders.map((o) => ({
+                    value: o.id,
+                    label: `${o.voucherCode} - ${o.beneficiaryPrimaryName} (${o.amount.toLocaleString('ar-EG')} ج.م)`,
+                  }))}
+                  ariaLabel="اختيار إذن الصرف"
+                  className="w-full sm:w-auto"
+                  triggerClassName="min-h-[40px] sm:min-h-[36px] text-xs font-semibold sm:max-w-[260px]"
+                  menuMinWidth={240}
+                />
               )}
 
               <button

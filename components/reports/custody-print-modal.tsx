@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { MonthlyAllocation, BeneficiaryCase, AllocationItem } from '@/types';
 import { tafqeetNumberToArabicWords } from '@/lib/tafqeet';
+import { CustomSelect } from '@/components/ui/custom-select';
 
 interface CustodyPrintModalProps {
   isOpen: boolean;
@@ -226,21 +227,20 @@ export function CustodyPrintModal({
               {/* Researcher Filter */}
               <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
                 <span className="text-xs text-slate-500 font-medium shrink-0">الباحث:</span>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 flex-1 sm:flex-initial">
-                  <User size={13} className="text-slate-400 shrink-0" />
-                  <select
-                    value={selectedResearcher}
-                    onChange={(e) => setSelectedResearcher(e.target.value)}
-                    className="bg-transparent focus:outline-hidden cursor-pointer text-xs font-bold text-slate-800 w-full sm:w-auto"
-                  >
-                    <option value="all">كافة الباحثين (الكشف الشامل)</option>
-                    {researchers.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <CustomSelect
+                  size="sm"
+                  value={selectedResearcher}
+                  onChange={setSelectedResearcher}
+                  options={[
+                    { value: 'all', label: 'كافة الباحثين (الكشف الشامل)' },
+                    ...researchers.map((r) => ({ value: r, label: r })),
+                  ]}
+                  prefix={<User size={13} className="text-slate-400 shrink-0" />}
+                  ariaLabel="تصفية حسب الباحث"
+                  className="flex-1 sm:flex-initial sm:w-auto"
+                  triggerClassName="bg-slate-50 font-bold text-xs min-w-[200px]"
+                  menuMinWidth={220}
+                />
               </div>
             </div>
           </div>

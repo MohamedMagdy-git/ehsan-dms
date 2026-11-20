@@ -11,10 +11,10 @@ import {
   ShieldAlert,
   HeartHandshake,
   CheckCircle2,
-  ChevronDown,
 } from 'lucide-react';
 import { AmountInput } from '@/components/common/amount-input';
 import { SearchableSelect } from '@/components/common/searchable-select';
+import { CustomSelect } from '@/components/ui/custom-select';
 import { EGYPT_GOVERNORATES, getCitiesByGovernorateName } from '@/lib/egypt-locations';
 import { ResearcherSelect } from './researcher-select';
 
@@ -372,27 +372,20 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="font-semibold text-slate-700 block">نوع المساعدة المبدئية</label>
-                <div className="relative">
-                  <select
-                    value={initialNeedType}
-                    onChange={(e) => {
-                      const next = e.target.value;
-                      setInitialNeedType(next);
-                      if (next !== 'other') setCustomNeedType('');
-                    }}
-                    className="w-full h-10 pr-3 pl-8 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 bg-white appearance-none cursor-pointer focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden transition-colors"
-                  >
-                    {NEED_CATEGORIES.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={15}
-                    className="text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                  />
-                </div>
+                <CustomSelect
+                  value={initialNeedType}
+                  onChange={(next) => {
+                    setInitialNeedType(next);
+                    if (next !== 'other') setCustomNeedType('');
+                  }}
+                  options={NEED_CATEGORIES.map((cat) => ({
+                    value: cat.id,
+                    label: cat.label,
+                  }))}
+                  placeholder="اختر نوع المساعدة..."
+                  triggerClassName="h-10 text-xs font-medium"
+                  ariaLabel="نوع المساعدة المبدئية"
+                />
               </div>
 
               <div className="space-y-1.5">

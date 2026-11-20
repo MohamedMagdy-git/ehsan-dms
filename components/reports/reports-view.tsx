@@ -14,7 +14,6 @@ import {
   User,
   Users,
   CheckCircle2,
-  ChevronDown,
   ChevronUp,
 } from 'lucide-react';
 import {
@@ -33,6 +32,7 @@ import { QuickFieldDeliveryModal } from '@/components/reports/quick-field-delive
 import { UrgentVoucherPrintModal } from '@/components/reports/urgent-voucher-print-modal';
 import { tafqeetNumberToArabicWords } from '@/lib/tafqeet';
 import { formatAllocationCycleDropdownLabel } from '@/services/allocation-engine';
+import { CustomSelect } from '@/components/ui/custom-select';
 
 function formatBeneficiaryDisplayName(caseObj?: BeneficiaryCase, fallbackName?: string): string {
   if (!caseObj) return fallbackName || 'غير محدد';
@@ -214,28 +214,24 @@ export function ReportsView() {
                 <Calendar size={13} className="text-[#005756] shrink-0" />
                 <span className="truncate">الدفعة المعتمدة:</span>
               </label>
-              <div className="relative">
-                <select
-                  value={currentPeriod}
-                  onChange={(e) => {
-                    const selected = e.target.value;
-                    setCurrentPeriod(selected);
-                    if (!allocations[selected]) {
-                      generateOrRefreshAllocation(selected);
-                    } else if (allocations[selected].status === 'draft') {
-                      syncDraftAllocations(selected);
-                    }
-                  }}
-                  className="w-full h-9 px-2.5 py-1.5 pr-2.5 pl-7 text-xs sm:text-sm font-normal text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] appearance-none shadow-xs transition-colors cursor-pointer"
-                >
-                  {Object.entries(allocations).map(([key, alloc]) => (
-                    <option key={key} value={key}>
-                      {formatAllocationCycleDropdownLabel(alloc, key)}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
+              <CustomSelect
+                size="sm"
+                value={currentPeriod}
+                onChange={(selected) => {
+                  setCurrentPeriod(selected);
+                  if (!allocations[selected]) {
+                    generateOrRefreshAllocation(selected);
+                  } else if (allocations[selected].status === 'draft') {
+                    syncDraftAllocations(selected);
+                  }
+                }}
+                options={Object.entries(allocations).map(([key, alloc]) => ({
+                  value: key,
+                  label: formatAllocationCycleDropdownLabel(alloc, key),
+                }))}
+                ariaLabel="اختيار الدفعة المعتمدة"
+                triggerClassName="rounded-lg text-xs sm:text-sm font-normal"
+              />
             </div>
 
             {/* Researcher Selector */}
@@ -244,21 +240,17 @@ export function ReportsView() {
                 <User size={13} className="text-[#005756] shrink-0" />
                 <span className="truncate">الباحث المسؤول:</span>
               </label>
-              <div className="relative">
-                <select
-                  value={selectedResearcher}
-                  onChange={(e) => setSelectedResearcher(e.target.value)}
-                  className="w-full h-9 px-2.5 py-1.5 pr-2.5 pl-7 text-xs sm:text-sm font-normal text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] appearance-none shadow-xs transition-colors cursor-pointer"
-                >
-                  <option value="all">كافة الباحثين (شامل)</option>
-                  {researchers.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
+              <CustomSelect
+                size="sm"
+                value={selectedResearcher}
+                onChange={setSelectedResearcher}
+                options={[
+                  { value: 'all', label: 'كافة الباحثين (شامل)' },
+                  ...researchers.map((r) => ({ value: r, label: r })),
+                ]}
+                ariaLabel="اختيار الباحث المسؤول"
+                triggerClassName="rounded-lg text-xs sm:text-sm font-normal"
+              />
             </div>
           </div>
 

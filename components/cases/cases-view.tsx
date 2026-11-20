@@ -8,13 +8,13 @@ import {
   Eye,
   ShieldCheck,
   FileText,
-  ChevronDown,
   MapPin,
   RotateCcw,
   ArrowLeft,
 } from 'lucide-react';
 import { CaseStatus, PriorityLevel, BeneficiaryCase } from '@/types';
 import { CaseReviewApprovalModal } from '@/components/cases/case-review-approval-modal';
+import { CustomSelect } from '@/components/ui/custom-select';
 
 const getPriorityDisplay = (priority: PriorityLevel): { label: string; className: string } => {
   switch (priority) {
@@ -192,43 +192,39 @@ export function CasesView({ onOpenNewCase }: { onOpenNewCase: () => void }) {
           </div>
 
           {/* Status filter */}
-          <div className="relative">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              aria-label="تصفية حسب الحالة"
-              className="w-full h-10 pr-3 pl-8 py-2 text-xs sm:text-sm font-medium border border-slate-200/80 rounded-xl bg-slate-50/60 focus:bg-white focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 appearance-none text-slate-700 transition-colors cursor-pointer"
-            >
-              <option value="all">كل الحالات</option>
-              <option value="pending_review">بانتظار المراجعة</option>
-              <option value="needs_revision">راجعة للاستكمال</option>
-              <option value="pending_field_research">بانتظار النزول الميداني</option>
-              <option value="active_eligible">معتمدة للصرف</option>
-              <option value="pending_exception">بانتظار استثناء</option>
-              <option value="under_review">قيد المراجعة</option>
-              <option value="excluded_current_month">مستبعدة هذا الشهر</option>
-              <option value="temporarily_suspended">موقوفة مؤقتاً</option>
-              <option value="closed">ملف مغلق</option>
-            </select>
-            <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
+          <CustomSelect
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: 'all', label: 'كل الحالات' },
+              { value: 'pending_review', label: 'بانتظار المراجعة' },
+              { value: 'needs_revision', label: 'راجعة للاستكمال' },
+              { value: 'pending_field_research', label: 'بانتظار النزول الميداني' },
+              { value: 'active_eligible', label: 'معتمدة للصرف' },
+              { value: 'pending_exception', label: 'بانتظار استثناء' },
+              { value: 'under_review', label: 'قيد المراجعة' },
+              { value: 'excluded_current_month', label: 'مستبعدة هذا الشهر' },
+              { value: 'temporarily_suspended', label: 'موقوفة مؤقتاً' },
+              { value: 'closed', label: 'ملف مغلق' },
+            ]}
+            ariaLabel="تصفية حسب الحالة"
+            triggerClassName="h-10 bg-slate-50/60 border-slate-200/80 font-medium"
+          />
 
           {/* Priority filter */}
-          <div className="relative">
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              aria-label="تصفية حسب الأولوية"
-              className="w-full h-10 pr-3 pl-8 py-2 text-xs sm:text-sm font-medium border border-slate-200/80 rounded-xl bg-slate-50/60 focus:bg-white focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 appearance-none text-slate-700 transition-colors cursor-pointer"
-            >
-              <option value="all">كل الأولويات</option>
-              <option value="critical">حالة حرجة</option>
-              <option value="high">أولوية عالية</option>
-              <option value="medium">أولوية متوسطة</option>
-              <option value="low">أولوية عادية</option>
-            </select>
-            <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
+          <CustomSelect
+            value={priorityFilter}
+            onChange={setPriorityFilter}
+            options={[
+              { value: 'all', label: 'كل الأولويات' },
+              { value: 'critical', label: 'حالة حرجة' },
+              { value: 'high', label: 'أولوية عالية' },
+              { value: 'medium', label: 'أولوية متوسطة' },
+              { value: 'low', label: 'أولوية عادية' },
+            ]}
+            ariaLabel="تصفية حسب الأولوية"
+            triggerClassName="h-10 bg-slate-50/60 border-slate-200/80 font-medium"
+          />
         </div>
 
         {/* Secondary filters row */}
@@ -237,22 +233,19 @@ export function CasesView({ onOpenNewCase }: { onOpenNewCase: () => void }) {
             {/* Researcher Filter */}
             <div className="flex items-center gap-2">
               <span className="text-slate-500 font-medium">الباحث المسؤول:</span>
-              <div className="relative">
-                <select
-                  value={researcherFilter}
-                  onChange={(e) => setResearcherFilter(e.target.value)}
-                  aria-label="تصفية حسب الباحث"
-                  className="h-8 py-1 pr-2.5 pl-7 border border-slate-200/80 rounded-lg text-xs font-medium bg-slate-50/60 focus:bg-white focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 appearance-none text-slate-700 transition-colors cursor-pointer"
-                >
-                  <option value="all">كل الباحثين</option>
-                  {researchers.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute left-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
+              <CustomSelect
+                size="sm"
+                value={researcherFilter}
+                onChange={setResearcherFilter}
+                options={[
+                  { value: 'all', label: 'كل الباحثين' },
+                  ...researchers.map((r) => ({ value: r, label: r })),
+                ]}
+                ariaLabel="تصفية حسب الباحث"
+                className="w-auto min-w-[140px]"
+                triggerClassName="h-8 py-1 px-2.5 bg-slate-50/60 border-slate-200/80 rounded-lg text-xs font-medium"
+                menuMinWidth={170}
+              />
             </div>
 
             {/* Overdue Checkbox */}

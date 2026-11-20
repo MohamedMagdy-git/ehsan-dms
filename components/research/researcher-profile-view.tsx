@@ -19,6 +19,7 @@ import {
 import { INITIAL_RESEARCHERS, INITIAL_VISITS } from '@/data/initial-mock-data';
 import { checkVisitOverdueStatus } from '@/services/scoring-engine';
 import { BeneficiaryCase, CaseStatus, ResearcherProfile } from '@/types';
+import { CustomSelect } from '@/components/ui/custom-select';
 
 type ProfileTab = 'cases' | 'reports';
 type CaseQuickFilter = 'all' | 'overdue' | 'revision' | 'first_visit';
@@ -405,23 +406,24 @@ export function ResearcherProfileView() {
             >
               اختار الباحث:
             </label>
-            <select
+            <CustomSelect
               id="researcher-profile-selector"
               value={currentResearcher.id}
-              onChange={(e) => handleSelectResearcher(e.target.value)}
-              className="h-10 min-w-[240px] max-w-full px-3 bg-white border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#005756] focus-visible:border-[#005756] transition-colors cursor-pointer"
-            >
-              {allResearcherProfiles.map((r) => {
+              onChange={handleSelectResearcher}
+              options={allResearcherProfiles.map((r) => {
                 const count = cases.filter(
                   (c) => c.assignedResearcher?.trim() === r.name.trim() && c.status !== 'closed'
                 ).length;
-                return (
-                  <option key={r.id} value={r.id}>
-                    {r.name} — {count} {count === 1 ? 'حالة' : 'حالات'}
-                  </option>
-                );
+                return {
+                  value: r.id,
+                  label: `${r.name} — ${count} ${count === 1 ? 'حالة' : 'حالات'}`,
+                };
               })}
-            </select>
+              ariaLabel="اختار الباحث"
+              className="w-full sm:w-auto min-w-[240px]"
+              triggerClassName="h-10 border-slate-200/80 text-xs font-semibold"
+              menuMinWidth={240}
+            />
           </div>
         ) : (
           <div className="flex items-center gap-2 text-xs text-slate-500 min-w-0">

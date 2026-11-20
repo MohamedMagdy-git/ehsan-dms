@@ -16,12 +16,12 @@ import {
   MapPin,
   LayoutGrid,
   List,
-  ChevronDown,
 } from 'lucide-react';
 import { BeneficiaryCase, PriorityLevel } from '@/types';
 import { CaseReviewApprovalModal } from './case-review-approval-modal';
 import { calculateFieldSurveyCompleteness, getCoreDocumentsStats } from '@/lib/survey-completeness';
 import { ResearcherVoicePlayer } from '@/components/common/researcher-voice-player';
+import { CustomSelect } from '@/components/ui/custom-select';
 
 /* Circular Progress Gauge for Survey Completeness */
 function CircularProgressGauge({
@@ -311,36 +311,30 @@ export function CaseReviewApprovalView() {
             />
           </div>
 
-          <div className="relative">
-            <select
-              value={selectedPriority}
-              onChange={(e) => setSelectedPriority(e.target.value)}
-              className="w-full h-10 px-3 py-2 text-xs font-medium bg-slate-50/70 border border-slate-200 rounded-lg text-slate-800 pr-3 pl-8 appearance-none focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] cursor-pointer"
-            >
-              <option value="all">كل الأولويات</option>
-              <option value="critical">أولوية حرجة</option>
-              <option value="high">أولوية عالية</option>
-              <option value="medium">أولوية متوسطة</option>
-              <option value="low">أولوية منخفضة</option>
-            </select>
-            <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
+          <CustomSelect
+            value={selectedPriority}
+            onChange={setSelectedPriority}
+            options={[
+              { value: 'all', label: 'كل الأولويات' },
+              { value: 'critical', label: 'أولوية حرجة' },
+              { value: 'high', label: 'أولوية عالية' },
+              { value: 'medium', label: 'أولوية متوسطة' },
+              { value: 'low', label: 'أولوية منخفضة' },
+            ]}
+            ariaLabel="تصفية حسب الأولوية"
+            triggerClassName="h-10 text-xs font-medium bg-slate-50/70 rounded-lg"
+          />
 
-          <div className="relative">
-            <select
-              value={selectedResearcher}
-              onChange={(e) => setSelectedResearcher(e.target.value)}
-              className="w-full h-10 px-3 py-2 text-xs font-medium bg-slate-50/70 border border-slate-200 rounded-lg text-slate-800 pr-3 pl-8 appearance-none focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] cursor-pointer"
-            >
-              <option value="all">كل الباحثين</option>
-              {researchersList.map((res) => (
-                <option key={res} value={res}>
-                  {res}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
+          <CustomSelect
+            value={selectedResearcher}
+            onChange={setSelectedResearcher}
+            options={[
+              { value: 'all', label: 'كل الباحثين' },
+              ...researchersList.map((res) => ({ value: res, label: res })),
+            ]}
+            ariaLabel="تصفية حسب الباحث"
+            triggerClassName="h-10 text-xs font-medium bg-slate-50/70 rounded-lg"
+          />
         </div>
 
         {/* View Mode Toggle: Cards vs Table (Only visible on lg+ desktop) */}

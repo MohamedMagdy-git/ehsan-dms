@@ -36,6 +36,7 @@ import { exportMonthlyAllocationToExcel } from '@/services/excel-export';
 import { MoneyDisplay } from '@/components/common/money-display';
 import { AmountInput } from '@/components/common/amount-input';
 import { NewAllocationCycleModal } from '@/components/allocation/new-allocation-cycle-modal';
+import { CustomSelect } from '@/components/ui/custom-select';
 
 const getPriorityMeta = (priority: PriorityLevel): { label: string; className: string } => {
   switch (priority) {
@@ -333,13 +334,11 @@ export function AllocationView() {
     return (
       <>
         <div className="p-8 text-center bg-white rounded-xl border border-slate-200/80 shadow-none space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs font-medium text-slate-700">
-            <Calendar size={14} className="text-slate-400" />
-            <span className="text-slate-500">الدورة:</span>
-            <select
+          <div className="inline-block w-full max-w-xs">
+            <CustomSelect
+              size="sm"
               value={currentPeriod}
-              onChange={(e) => {
-                const selected = e.target.value;
+              onChange={(selected) => {
                 setCurrentPeriod(selected);
                 if (!allocations[selected]) {
                   generateOrRefreshAllocation(selected);
@@ -347,14 +346,19 @@ export function AllocationView() {
                   syncDraftAllocations(selected);
                 }
               }}
-              className="bg-transparent font-semibold text-slate-900 focus:outline-hidden cursor-pointer"
-            >
-              {Object.entries(allocations).map(([key, alloc]) => (
-                <option key={key} value={key}>
-                  {formatAllocationCycleDropdownLabel(alloc, key)}
-                </option>
-              ))}
-            </select>
+              options={Object.entries(allocations).map(([key, alloc]) => ({
+                value: key,
+                label: formatAllocationCycleDropdownLabel(alloc, key),
+              }))}
+              prefix={
+                <>
+                  <Calendar size={14} className="text-slate-400" />
+                  <span className="text-slate-500 font-medium">الدورة:</span>
+                </>
+              }
+              ariaLabel="اختيار دورة الصرف"
+              triggerClassName="bg-slate-50 border-slate-200/80 font-semibold"
+            />
           </div>
           <p className="text-slate-600 font-semibold text-sm">لسه متعملش مقترح توزيع للدورة دي</p>
           <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -419,33 +423,32 @@ export function AllocationView() {
         {/* Header Actions */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Cycle Dropdown */}
-          <div className="flex items-center gap-1.5 px-3 h-9 rounded-xl bg-white border border-slate-200/80 text-xs font-medium text-slate-700 max-w-full">
-            <Calendar size={14} className="text-slate-400 shrink-0" />
-            <span className="text-slate-400 font-medium text-[11px] shrink-0">الدورة:</span>
-            <div className="relative flex items-center min-w-0">
-              <select
-                value={currentPeriod}
-                onChange={(e) => {
-                  const selected = e.target.value;
-                  setCurrentPeriod(selected);
-                  if (!allocations[selected]) {
-                    generateOrRefreshAllocation(selected);
-                  } else if (allocations[selected].status === 'draft') {
-                    syncDraftAllocations(selected);
-                  }
-                }}
-                aria-label="اختيار دورة الصرف"
-                className="bg-transparent font-semibold text-slate-800 focus:outline-hidden cursor-pointer text-xs pr-1 pl-5 appearance-none max-w-[230px] sm:max-w-[280px] truncate"
-              >
-                {Object.entries(allocations).map(([key, alloc]) => (
-                  <option key={key} value={key}>
-                    {formatAllocationCycleDropdownLabel(alloc, key)}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
+          <CustomSelect
+            size="sm"
+            value={currentPeriod}
+            onChange={(selected) => {
+              setCurrentPeriod(selected);
+              if (!allocations[selected]) {
+                generateOrRefreshAllocation(selected);
+              } else if (allocations[selected].status === 'draft') {
+                syncDraftAllocations(selected);
+              }
+            }}
+            options={Object.entries(allocations).map(([key, alloc]) => ({
+              value: key,
+              label: formatAllocationCycleDropdownLabel(alloc, key),
+            }))}
+            prefix={
+              <>
+                <Calendar size={14} className="text-slate-400 shrink-0" />
+                <span className="text-slate-400 font-medium text-[11px] shrink-0">الدورة:</span>
+              </>
+            }
+            ariaLabel="اختيار دورة الصرف"
+            className="w-auto max-w-full"
+            triggerClassName="border-slate-200/80 font-semibold max-w-[300px] sm:max-w-[350px]"
+            menuMinWidth={260}
+          />
 
           {/* Open New Disbursement Cycle (Secondary White Calm CTA) */}
           {permissions.canEditAllocation && (

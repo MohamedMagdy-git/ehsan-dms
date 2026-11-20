@@ -7,11 +7,11 @@ import {
   Search,
   CheckCircle2,
   Clock,
-  ChevronDown,
   RotateCcw,
 } from 'lucide-react';
 import { DonationChannel } from '@/types';
 import { MoneyDisplay } from '@/components/common/money-display';
+import { CustomSelect } from '@/components/ui/custom-select';
 
 interface DonationsViewProps {
   onOpenNewDonation: () => void;
@@ -180,37 +180,33 @@ export function DonationsView({ onOpenNewDonation }: DonationsViewProps) {
           </div>
 
           {/* Payment Channel Filter */}
-          <div className="relative">
-            <select
-              value={channelFilter}
-              onChange={(e) => setChannelFilter(e.target.value)}
-              aria-label="تصفية حسب طريقة الدفع"
-              className="w-full h-10 px-3 py-2 text-xs font-medium text-slate-800 bg-white border border-slate-200/80 rounded-xl focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 pr-3 pl-8 appearance-none transition-colors cursor-pointer"
-            >
-              <option value="all">كل طرق الدفع</option>
-              <option value="bank_transfer">تحويل بنكي</option>
-              <option value="instapay">إنستاباي (InstaPay)</option>
-              <option value="vodafone_cash">فودافون كاش أو محفظة إلكترونية</option>
-              <option value="cheque">شيك بنكي</option>
-              <option value="cash_hand">نقدي بإيصال</option>
-            </select>
-            <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
+          <CustomSelect
+            value={channelFilter}
+            onChange={setChannelFilter}
+            options={[
+              { value: 'all', label: 'كل طرق الدفع' },
+              { value: 'bank_transfer', label: 'تحويل بنكي' },
+              { value: 'instapay', label: 'إنستاباي (InstaPay)' },
+              { value: 'vodafone_cash', label: 'فودافون كاش أو محفظة إلكترونية' },
+              { value: 'cheque', label: 'شيك بنكي' },
+              { value: 'cash_hand', label: 'نقدي بإيصال' },
+            ]}
+            ariaLabel="تصفية حسب طريقة الدفع"
+            triggerClassName="h-10 text-xs font-medium border-slate-200/80"
+          />
 
           {/* Donation Status Filter */}
-          <div className="relative">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              aria-label="تصفية حسب حالة المبلغ"
-              className="w-full h-10 px-3 py-2 text-xs font-medium text-slate-800 bg-white border border-slate-200/80 rounded-xl focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 pr-3 pl-8 appearance-none transition-colors cursor-pointer"
-            >
-              <option value="all">كل الحالات</option>
-              <option value="received">مستلم بالخزينة</option>
-              <option value="pledged">تعهد قيد التحصيل</option>
-            </select>
-            <ChevronDown className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
+          <CustomSelect
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: 'all', label: 'كل الحالات' },
+              { value: 'received', label: 'مستلم بالخزينة' },
+              { value: 'pledged', label: 'تعهد قيد التحصيل' },
+            ]}
+            ariaLabel="تصفية حسب حالة المبلغ"
+            triggerClassName="h-10 text-xs font-medium border-slate-200/80"
+          />
         </div>
 
         {hasActiveFilters && (

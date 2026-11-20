@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import { RoleInspirationalCard } from '@/components/common/role-inspirational-card';
+import { CustomSelect } from '@/components/ui/custom-select';
 
 function getVisitStatusLabel(status: FieldVisit['status']): string {
   switch (status) {
@@ -642,17 +643,17 @@ export function ResearchView() {
             <form onSubmit={handleCreateVisit} className="p-6 overflow-y-auto space-y-4 text-xs">
               <div className="space-y-1">
                 <label className="text-slate-700 font-semibold">اختار الحالة *</label>
-                <select
+                <CustomSelect
                   value={selectedCaseForVisit}
-                  onChange={(e) => setSelectedCaseForVisit(e.target.value)}
-                  className="w-full p-2.5 border border-slate-200 rounded-lg text-xs text-slate-800 bg-white focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15"
-                >
-                  {cases.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.fullName} ({c.code}) - {c.district}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setSelectedCaseForVisit}
+                  options={cases.map((c) => ({
+                    value: c.id,
+                    label: `${c.fullName} (${c.code}) - ${c.district}`,
+                  }))}
+                  placeholder="اختار الحالة..."
+                  ariaLabel="اختار الحالة"
+                  triggerClassName="rounded-lg text-xs"
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
