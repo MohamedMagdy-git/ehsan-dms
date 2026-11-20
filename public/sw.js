@@ -1,7 +1,7 @@
 // Service Worker for Ehsan Platform (منظومة إحسان)
 // Provides offline resilience, app-shell caching, and network resilience for field researchers.
 
-const CACHE_NAME = 'ehsan-app-v1';
+const CACHE_NAME = 'ehsan-app-v2';
 const PRECACHE_ASSETS = [
   '/',
   '/manifest.webmanifest',
@@ -22,7 +22,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate Event: Clean up stale caches
+// Activate Event: Clean up stale caches (automatically removes ehsan-app-v1)
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -37,7 +37,9 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch Event: Network-first for HTML pages with cache fallback; Cache-first for static assets
+// Fetch Event:
+// - HTML navigation, /_next/static/*, JS & CSS: Network-first with cache fallback (prevents stale UI in dev/updates)
+// - Static media (images, fonts): Cache-first with background revalidation
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
@@ -47,7 +49,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Handle navigation requests (HTML): Network first with cache fallback
+  // Handle navigation requests (HTML): Network-first with cache fallback
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
@@ -67,15 +69,30 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Handle static assets (_next/static, images, fonts): Cache-first with network fallback
+  // Handle JS, CSS, and Next.js static bundles: Network-first with cache fallback
   if (
     url.pathname.startsWith('/_next/static/') ||
-    url.pathname.match(/\.(png|jpg|jpeg|svg|webp|ico|woff2?|css|js)$/)
+    url.pathname.match(/\.(css|js)$/)
   ) {
+    event.respondWith(
+      fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Handle images and fonts: Cache-first with background revalidation
+  if (url.pathname.match(/\.(png|jpg|jpeg|svg|webp|ico|woff2?)$/)) {
     event.respondWith(
       caches.match(request).then((cached) => {
         if (cached) {
-          // Fetch in background to revalidate (stale-while-revalidate)
           fetch(request).then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {
               caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse));
