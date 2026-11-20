@@ -13,18 +13,21 @@ function subscribeOnline(callback: () => void) {
 }
 
 function getOnlineSnapshot() {
-  return navigator.onLine;
+  return typeof navigator !== 'undefined' ? navigator.onLine : true;
 }
 
 function getOnlineServerSnapshot() {
   return true;
 }
 
-const emptySubscribe = () => () => {};
-
 export function useOnlineStatus() {
+  const isOnline = useSyncExternalStore(
+    subscribeOnline,
+    getOnlineSnapshot,
+    getOnlineServerSnapshot
+  );
+
   const [mounted, setMounted] = useState(false);
-  const [isOnline, setIsOnline] = useState(true);
   const [syncQueueCount, setSyncQueueCount] = useState<number>(0);
 
   const refreshQueueCount = useCallback(() => {
@@ -40,17 +43,9 @@ export function useOnlineStatus() {
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setMounted(true);
-    if (typeof navigator !== 'undefined') {
-      setIsOnline(navigator.onLine);
-    }
 
     const handleOnline = () => {
-      setIsOnline(true);
       refreshQueueCount();
-    };
-
-    const handleOffline = () => {
-      setIsOnline(false);
     };
 
     const handleQueueUpdated = () => {
@@ -58,7 +53,6 @@ export function useOnlineStatus() {
     };
 
     window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
     window.addEventListener('ehsan_sync_queue_updated', handleQueueUpdated);
 
     refreshQueueCount();
@@ -68,7 +62,6 @@ export function useOnlineStatus() {
 
     return () => {
       window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
       window.removeEventListener('ehsan_sync_queue_updated', handleQueueUpdated);
       clearInterval(interval);
     };

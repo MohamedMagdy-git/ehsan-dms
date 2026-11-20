@@ -19,6 +19,8 @@ import {
   HandHeart,
 } from 'lucide-react';
 import { NAVIGATION_SECTIONS } from '@/lib/navigation-config';
+import { useOnlineStatus } from '@/hooks/use-online-status';
+import { getActiveUserProfile } from './header';
 import { PWAInstallWidget } from './pwa-install-widget';
 
 interface SidebarProps {
@@ -38,9 +40,16 @@ export function Sidebar({
     activeSection,
     setActiveSection,
     metrics,
+    currentUserRole,
     currentSessionProfile,
     cases,
   } = useApp();
+
+  const { isOnline } = useOnlineStatus();
+  const currentUser = getActiveUserProfile(
+    currentUserRole,
+    currentSessionProfile
+  );
 
   const pendingReviewCount = cases?.filter((c) => c.status === 'pending_review').length ?? 0;
 
@@ -222,6 +231,36 @@ export function Sidebar({
               <ChevronLeft size={19} />
             </button>
           )}
+        </div>
+
+        {/* Mobile Drawer User Profile Card (Visible on mobile/tablet only) */}
+        <div className="lg:hidden px-2.5 pt-3 pb-2.5 border-b border-white/10 shrink-0">
+          <div
+            className="flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-2.5 mx-1 transition-all"
+            aria-label={`${currentUser.name} - ${currentUser.role}`}
+          >
+            <div className="relative w-9 h-9 rounded-full bg-white/20 text-white flex items-center justify-center font-bold text-sm shrink-0">
+              <span>{currentUser.avatarInitial}</span>
+              <span
+                title={isOnline ? 'متصل بالإنترنت' : 'غير متصل بالإنترنت'}
+                aria-label={isOnline ? 'متصل بالإنترنت' : 'غير متصل بالإنترنت'}
+                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-[#005756] transition-colors duration-200 ${
+                  isOnline ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'
+                }`}
+              />
+            </div>
+
+            {!collapsed && (
+              <div className="flex flex-col justify-center text-right min-w-0 flex-1">
+                <span className="text-white font-semibold text-sm leading-tight truncate">
+                  {currentUser.name}
+                </span>
+                <span className="text-emerald-100/70 text-xs font-normal leading-tight mt-0.5 truncate">
+                  {currentUser.role}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Categorized Navigation Groups */}

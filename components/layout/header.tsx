@@ -6,20 +6,37 @@ import { Menu, Plus } from 'lucide-react';
 import { AppUserRole } from '@/types';
 import { NetworkStatusBadge } from '@/components/common/network-status-badge';
 import { getSectionMeta } from '@/lib/navigation-config';
+import { useOnlineStatus } from '@/hooks/use-online-status';
 
-interface HeaderUser {
+export interface ActiveUserProfile {
   name: string;
   role: string;
   roleKey: AppUserRole;
   avatarInitial: string;
 }
 
-const DEFAULT_EXECUTIVE_USER: HeaderUser = {
+const DEFAULT_EXECUTIVE_USER: ActiveUserProfile = {
   name: 'أحمد الجزار',
   role: 'مدير المنظومة',
   roleKey: 'admin',
   avatarInitial: 'أ',
 };
+
+export function getActiveUserProfile(
+  role: AppUserRole,
+  sessionProfile: { name: string; badgeLabel: string; avatarInitial?: string }
+): ActiveUserProfile {
+  if (role === 'admin') {
+    return DEFAULT_EXECUTIVE_USER;
+  }
+  return {
+    name: sessionProfile.name,
+    role: sessionProfile.badgeLabel,
+    roleKey: role,
+    avatarInitial:
+      sessionProfile.avatarInitial || sessionProfile.name.charAt(0),
+  };
+}
 
 interface HeaderProps {
   onOpenMobile: () => void;
@@ -44,18 +61,13 @@ export function Header({
     isSyncing,
   } = useApp();
 
+  const { isOnline } = useOnlineStatus();
+
   // كائن مستخدم جاهز للتوسع المستقبلي (يدعم التبديل الديناميكي لمنظور الباحث لاحقاً دون إعادة بناء الواجهة)
-  const currentUser: HeaderUser =
-    currentUserRole === 'admin'
-      ? DEFAULT_EXECUTIVE_USER
-      : {
-          name: currentSessionProfile.name,
-          role: currentSessionProfile.badgeLabel,
-          roleKey: currentUserRole,
-          avatarInitial:
-            currentSessionProfile.avatarInitial ||
-            currentSessionProfile.name.charAt(0),
-        };
+  const currentUser = getActiveUserProfile(
+    currentUserRole,
+    currentSessionProfile
+  );
 
   const sectionMeta = getSectionMeta(activeSection);
   const desktopTitle = title || sectionMeta.headerTitle;
@@ -104,12 +116,15 @@ export function Header({
           className="hidden lg:flex items-center gap-2.5 bg-slate-50 border border-slate-200/80 rounded-full px-3 py-1.5 shrink-0"
           aria-label={`${currentUser.name} - ${currentUser.role}`}
         >
-          {/* Avatar Circle with Active Indicator Dot */}
+          {/* Avatar Circle with Live Network Status Dot */}
           <div className="relative w-9 h-9 rounded-full bg-[#005756] text-white flex items-center justify-center font-bold text-sm shrink-0">
             <span>{currentUser.avatarInitial}</span>
             <span
-              className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-slate-50"
-              aria-hidden="true"
+              title={isOnline ? 'متصل بالإنترنت' : 'غير متصل بالإنترنت'}
+              aria-label={isOnline ? 'متصل بالإنترنت' : 'غير متصل بالإنترنت'}
+              className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-white transition-colors duration-200 ${
+                isOnline ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'
+              }`}
             />
           </div>
 
