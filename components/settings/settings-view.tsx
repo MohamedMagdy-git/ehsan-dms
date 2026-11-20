@@ -266,7 +266,9 @@ export function SettingsView() {
       {/* Calm Segmented Navigation Tabs */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div
-          className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/70"
+          className={`w-full grid ${
+            SHOW_SHARIA_TAB ? 'grid-cols-3' : 'grid-cols-2'
+          } sm:inline-flex sm:w-auto sm:items-center gap-1 p-1 bg-slate-100/90 rounded-2xl border border-slate-200/80`}
           role="tablist"
           aria-label="أقسام الإعدادات"
         >
@@ -275,17 +277,19 @@ export function SettingsView() {
             role="tab"
             aria-selected={activeTab === 'rules'}
             onClick={() => setActiveTab('rules')}
-            className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-700 ${
+            className={`flex items-center justify-center gap-1.5 sm:gap-2 py-2 px-2 sm:px-4 text-xs font-medium sm:font-semibold rounded-xl transition-all cursor-pointer whitespace-nowrap min-w-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#005756]/40 ${
               activeTab === 'rules'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Sliders
-              size={14}
-              className={activeTab === 'rules' ? 'text-[#005756]' : 'text-slate-400'}
+              className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${
+                activeTab === 'rules' ? 'text-[#005756]' : 'text-slate-400'
+              }`}
             />
-            <span>قواعد التقييم والصرف</span>
+            <span className="sm:hidden truncate">قواعد التقييم</span>
+            <span className="hidden sm:inline">قواعد التقييم والصرف</span>
           </button>
 
           {SHOW_SHARIA_TAB && (
@@ -294,18 +298,19 @@ export function SettingsView() {
               role="tab"
               aria-selected={activeTab === 'sharia'}
               onClick={() => setActiveTab('sharia')}
-              className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-700 ${
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 py-2 px-2 sm:px-4 text-xs font-medium sm:font-semibold rounded-xl transition-all cursor-pointer whitespace-nowrap min-w-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#005756]/40 ${
                 activeTab === 'sharia'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Tag
-                size={14}
-                className={activeTab === 'sharia' ? 'text-[#005756]' : 'text-slate-400'}
+                className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${
+                  activeTab === 'sharia' ? 'text-[#005756]' : 'text-slate-400'
+                }`}
               />
-              <span>المصارف الشرعية</span>
-              <span className="tabular-nums text-[11px] font-medium text-slate-500">
+              <span className="truncate">المصارف الشرعية</span>
+              <span className="tabular-nums text-[11px] font-medium text-slate-500 shrink-0">
                 ({shariaCategories.length})
               </span>
             </button>
@@ -316,18 +321,20 @@ export function SettingsView() {
             role="tab"
             aria-selected={activeTab === 'chronic_diseases'}
             onClick={() => setActiveTab('chronic_diseases')}
-            className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-700 ${
+            className={`flex items-center justify-center gap-1.5 sm:gap-2 py-2 px-2 sm:px-4 text-xs font-medium sm:font-semibold rounded-xl transition-all cursor-pointer whitespace-nowrap min-w-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#005756]/40 ${
               activeTab === 'chronic_diseases'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Activity
-              size={14}
-              className={activeTab === 'chronic_diseases' ? 'text-[#005756]' : 'text-slate-400'}
+              className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${
+                activeTab === 'chronic_diseases' ? 'text-[#005756]' : 'text-slate-400'
+              }`}
             />
-            <span>الأمراض المزمنة والتكاليف</span>
-            <span className="tabular-nums text-[11px] font-medium text-slate-500">
+            <span className="sm:hidden truncate">الأمراض المزمنة</span>
+            <span className="hidden sm:inline">الأمراض المزمنة والتكاليف</span>
+            <span className="tabular-nums text-[11px] font-medium text-slate-500 shrink-0">
               ({chronicDiseases.length})
             </span>
           </button>
