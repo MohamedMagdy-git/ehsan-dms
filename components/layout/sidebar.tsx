@@ -92,17 +92,17 @@ export function Sidebar({
           badge: metrics.totalCases,
         },
         {
-          id: 'cases-review',
-          label: NAVIGATION_SECTIONS['cases-review'].sidebarLabel,
-          icon: ShieldCheck,
-          badge: pendingReviewCount > 0 ? `${pendingReviewCount}` : null,
-        },
-        {
           id: 'research',
           label: NAVIGATION_SECTIONS.research.sidebarLabel,
           icon: ClipboardList,
           badge: metrics.overdueVisitsCases > 0 ? `${metrics.overdueVisitsCases} متأخر` : null,
           badgeUrgent: metrics.overdueVisitsCases > 0,
+        },
+        {
+          id: 'cases-review',
+          label: NAVIGATION_SECTIONS['cases-review'].sidebarLabel,
+          icon: ShieldCheck,
+          badge: pendingReviewCount > 0 ? `${pendingReviewCount}` : null,
         },
         {
           id: 'researcher-profile',
