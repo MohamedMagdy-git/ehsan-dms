@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { Printer, X } from 'lucide-react';
 import { MonthlyAllocation, BeneficiaryCase, AllocationItem } from '@/types';
 import { tafqeetNumberToArabicWords } from '@/lib/tafqeet';
+import { getDefaultDeliveryNote } from '@/lib/payout-helpers';
 
 interface QuickFieldDeliveryModalProps {
   isOpen: boolean;
@@ -103,9 +104,10 @@ export function QuickFieldDeliveryModal({
           {columnItems.map((item, idx) => {
             const caseObj = caseMap.get(item.caseId);
             const displayName = formatBeneficiaryDisplayName(caseObj, item.caseName);
-            const noteText = fieldNotes[item.id] !== undefined
-              ? fieldNotes[item.id]
-              : item.reasoning;
+            const noteText =
+              fieldNotes[item.id] !== undefined
+                ? fieldNotes[item.id]
+                : getDefaultDeliveryNote(caseObj);
             const globalIndex = startIndex + idx + 1;
 
             return (

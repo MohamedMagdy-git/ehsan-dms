@@ -14,6 +14,7 @@ export type PriorityLevel = 'critical' | 'high' | 'medium' | 'low';
 export type HousingCondition = 'owned' | 'rent_stable' | 'rent_unstable' | 'dilapidated_urgent';
 export type WorkCapacity = 'none' | 'partial' | 'full';
 export type FoodInsecurityLevel = 'secure' | 'moderate' | 'severe';
+export type PayoutMethod = 'cash_researcher' | 'e_wallet';
 
 export interface HouseholdMember {
   id: string;
@@ -74,6 +75,41 @@ export interface DocumentsChecklist {
   deathOrDivorceCertificates: boolean;
 }
 
+export interface CaseSurveyAnswers {
+  schemaVersion: 1;                     // إصدار لقطة الاستمارة (يطابق عمود survey_answers jsonb في Supabase)
+  submittedAt?: string;                 // وقت وتاريخ إرسال الاستمارة (س24)
+  visitDate?: string;                   // تاريخ النزول الميداني (س24)
+  caseName?: string;                    // س1: اسم الحالة (رب الأسرة)
+  visitorName?: string;                 // س2: الباحث الميداني المسؤول
+  contactPhone?: string;                // س3: رقم هاتف التواصل الأساسي
+  secondaryPhone?: string;              // س4: رقم هاتف بديل (اختياري)
+  address?: string;                     // س5: العنوان التفصيلي
+  referralSource?: string;              // س6: مصدر الترشيح / الإحالة
+  priorityLevel?: PriorityLevel;        // س7: درجة الأولوية / الاستعجال
+  housingStatus?: string;               // س8: الحالة السكنية ونوع الحيازة
+  housingFacilities?: HousingFacilities;// س9: مرافق السكن
+  caseSummary?: string;                 // س9: وصف المعاينة الميدانية
+  landmarkAddress?: string;             // س10: أقرب علامة مميزة (اختياري)
+  basicIncomeSources?: string;          // س12: مصادر الدخل الأساسي
+  basicIncomeAmount?: number;           // س12: قيمة الدخل الأساسي الشهري
+  additionalIncomeSources?: string;     // س13: مصادر الدخل الإضافي / اليوميات
+  additionalIncomeAmount?: number;      // س13: قيمة الدخل الإضافي الشهري
+  familyAssets?: string;                // س14: الممتلكات والأصول
+  monthlyBasicExpenses?: number;        // س15: المصروفات الأساسية الشهرية
+  monthlyDebtsInstallments?: number;    // س16: أقساط الديون الشهرية
+  debtsAndObligations?: string;         // س16: تفاصيل الديون والالتزامات
+  netFinancialGap?: number;             // س17: صافي الفجوة المالية الشهرية
+  financialGapDocumentation?: string;   // س17: توثيق ومبررات الفجوة المالية
+  medicalConditionDescription?: string; // س18: الوصف الطبي والأمراض المزمنة
+  chronicVerification?: string;         // س19: توثيق الأمراض المزمنة
+  stateHealthInsuranceDetails?: string; // س20: التأمين الصحي ونفقة الدولة
+  monthlyMedicalCosts?: number;         // س21: تكاليف العلاج الشهرية
+  recommendedAssistanceType?: string;   // س23: نوع المساعدة المقترح من الباحث
+  recommendedMonthlyAmount?: number;    // س23: المبلغ الشهري المقترح من الباحث
+  additionalNotesAndRemarks?: string;   // س23: مبررات وتوصيات الباحث الميداني
+  finalConfirmationChecked?: boolean;   // س24: تأكيد المراجعة الختامية والإرسال
+}
+
 export interface BeneficiaryCase {
   id: string;
   code: string;                   // كود الحالة مثل: EHS-101
@@ -83,10 +119,13 @@ export interface BeneficiaryCase {
   nationalId: string;             // الرقم القومي المصري (14 رقم)
   phone: string;
   secondaryPhone?: string;
+  payoutMethod?: PayoutMethod;    // طريقة استلام المساعدة: نقدي عبر الباحث افتراضياً أو محفظة إلكترونية
+  walletNumber?: string;          // رقم المحفظة الإلكترونية عند اختيار e_wallet
   governorate: string;            // المحافظة
   district: string;               // الحي أو القرية (بولاق، المطرية...)
   address: string;
-  assignedResearcher: string;     // الباحث الميداني المسؤول
+  assignedResearcher: string;     // الباحث الميداني المسؤول (الاسم المعروض)
+  researcherId?: string;          // المعرّف القياسي للباحث (يطابق profiles.researcher_id في Supabase)
   registrationDate: string;
   status: CaseStatus;
   priority: PriorityLevel;
@@ -118,6 +157,7 @@ export interface BeneficiaryCase {
   directionsNote?: string;
   voiceNoteUrl?: string;
   voiceNoteDuration?: number;
+  surveyAnswers?: CaseSurveyAnswers; // لقطة منظمة لإجابات الـ 24 سؤالاً (Supabase jsonb: survey_answers)
 }
 
 export interface CaseResearchReport {
@@ -126,6 +166,7 @@ export interface CaseResearchReport {
   caseCode: string;
   caseName: string;
   researcherName: string;
+  researcherId?: string;          // المعرّف القياسي للباحث الميداني
   reportDate: string;
   visitType: 'initial_field' | 'periodic_followup' | 'emergency_check';
   housingNotes: string;
@@ -143,6 +184,7 @@ export interface FieldVisit {
   caseCode: string;
   caseName: string;
   researcherName: string;
+  researcherId?: string;          // المعرّف القياسي للباحث الميداني
   visitDate: string;
   scheduledNextDate: string;
   status: 'completed' | 'scheduled' | 'overdue';
@@ -311,6 +353,49 @@ export interface AuditLog {
 
 export type AppUserRole = 'admin' | 'finance' | 'researcher' | 'donor';
 
+export type SystemAuthRole = 'admin' | 'researcher';
+
+/**
+ * عقد المستخدم المطابق لبنية Supabase Auth + public.profiles
+ * يتيح التبديل المستقبلي إلى supabase.auth.getUser() دون تعديل الواجهات
+ */
+export interface AuthUser {
+  id: string;                     // يطابق auth.users.id (UUID في Supabase)
+  email: string;                  // يطابق auth.users.email
+  name: string;                   // الاسم المعروض
+  role: SystemAuthRole;           // يطابق profiles.role / JWT claim
+  title: string;                  // المسمى الوظيفي
+  badgeLabel: string;             // الوسم المختصر
+  avatarInitial: string;          // حرف الأفاتار
+  researcherId: string | null;    // يطابق profiles.researcher_id للباحث أو null للإدارة
+  assignedDistricts?: string[];   // نطاقات العمل الميداني
+}
+
+export interface CustodyDeliveryItem {
+  id: string;
+  sourceType: 'allocation_cycle' | 'fast_track';
+  sourceLabel: string;            // اسم الدورة المعتمدة أو كود الإذن الفوري
+  cyclePeriod?: string;
+  voucherCode?: string;
+  caseId: string;
+  caseCode: string;
+  caseName: string;
+  beneficiaryPhone: string;
+  beneficiaryAddress: string;
+  district: string;
+  payoutMethod?: PayoutMethod;
+  walletNumber?: string;
+  researcherId?: string;
+  assignedResearcher: string;
+  amount: number;
+  status: 'pending_delivery' | 'delivered';
+  issuedDate: string;
+  dueDeadlineDate?: string;
+  deliveredDate?: string;
+  purposeNote?: string;
+  fastTrackOrderId?: string;
+}
+
 export interface UserSessionProfile {
   role: AppUserRole;
   name: string;
@@ -353,6 +438,7 @@ export interface FastTrackDisbursementOrder {
   shariaCategoryColor: string;
   amount: number;
   assignedResearcher: string;     // مسؤول التسليم الميداني
+  researcherId?: string;          // المعرّف القياسي للباحث الميداني
   issuedDate: string;             // تاريخ إصدار الأمر
   dueDeadlineDate: string;        // أقصى مهلة للتسليم (افتراضياً 7 أيام)
   status: 'pending_delivery' | 'delivered' | 'cancelled';
@@ -374,6 +460,7 @@ export interface CaseNote {
   authorName: string;
   authorRole: string;
   authorId?: string;
+  authorUserId?: string;          // يطابق AuthUser.id / Supabase auth.uid() لعزل الملاحظات الخاصة
   isPrivate: boolean; // true = خاصة بي (Private), false = عامة للفريق (Public)
   content: string;
   createdAt: string;

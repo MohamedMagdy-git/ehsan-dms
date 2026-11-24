@@ -31,6 +31,7 @@ import { CustodyPrintModal } from '@/components/reports/custody-print-modal';
 import { QuickFieldDeliveryModal } from '@/components/reports/quick-field-delivery-modal';
 import { UrgentVoucherPrintModal } from '@/components/reports/urgent-voucher-print-modal';
 import { tafqeetNumberToArabicWords } from '@/lib/tafqeet';
+import { getDefaultDeliveryNote } from '@/lib/payout-helpers';
 import { formatAllocationCycleDropdownLabel } from '@/services/allocation-engine';
 import { CustomSelect } from '@/components/ui/custom-select';
 
@@ -310,7 +311,7 @@ export function ReportsView() {
                     const currentNote =
                       fieldNotes[item.id] !== undefined
                         ? fieldNotes[item.id]
-                        : (item.reasoning || 'تسليم باليد في مقر السكن');
+                        : getDefaultDeliveryNote(caseObj);
 
                     return (
                       <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
@@ -348,7 +349,7 @@ export function ReportsView() {
                                 [item.id]: val,
                               }));
                             }}
-                            placeholder="اكتب ملاحظة للباحث بالشارع (مثال: تسليم باليد للأم، التأكد من البطاقة)..."
+                            placeholder="ملاحظة تسليم اختيارية للباحث..."
                             className="w-full h-10 px-3 py-2 bg-slate-50/70 hover:bg-white focus:bg-white border border-slate-200 focus:border-[#005756] rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-[#005756] transition"
                           />
                         </td>
@@ -373,7 +374,7 @@ export function ReportsView() {
                 const currentNote =
                   fieldNotes[item.id] !== undefined
                     ? fieldNotes[item.id]
-                    : (item.reasoning || 'تسليم باليد في مقر السكن');
+                    : getDefaultDeliveryNote(caseObj);
 
                 return (
                   <div key={item.id} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs space-y-3">
@@ -408,7 +409,7 @@ export function ReportsView() {
                             [item.id]: val,
                           }));
                         }}
-                        placeholder="اكتب ملاحظة التسليم الميداني..."
+                        placeholder="ملاحظة تسليم اختيارية للباحث..."
                         className="w-full h-9 px-2.5 py-1.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 rounded-lg text-xs sm:text-sm font-normal text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-[#005756] focus:ring-1 focus:ring-[#005756] transition"
                       />
                     </div>

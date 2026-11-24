@@ -3,6 +3,9 @@
 import React from 'react';
 import { motion, MotionConfig } from 'motion/react';
 import { useApp } from '@/context/app-context';
+import { useAuth } from '@/context/auth-context';
+import { useScopedData } from '@/hooks/use-scoped-data';
+import { useToast } from '@/context/toast-context';
 import {
   LayoutDashboard,
   Users,
@@ -17,10 +20,11 @@ import {
   Zap,
   ShieldCheck,
   HandHeart,
+  Wallet,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { NAVIGATION_SECTIONS } from '@/lib/navigation-config';
 import { useOnlineStatus } from '@/hooks/use-online-status';
-import { getActiveUserProfile } from './header';
 import { PWAInstallWidget } from './pwa-install-widget';
 
 interface SidebarProps {
@@ -40,18 +44,17 @@ export function Sidebar({
     activeSection,
     setActiveSection,
     metrics,
-    currentUserRole,
     currentSessionProfile,
     cases,
   } = useApp();
 
+  const { user, demoUsers, switchDemoUser } = useAuth();
+  const { isResearcherPOV, researcherMetrics } = useScopedData();
+  const { toast } = useToast();
   const { isOnline } = useOnlineStatus();
-  const currentUser = getActiveUserProfile(
-    currentUserRole,
-    currentSessionProfile
-  );
 
-  const pendingReviewCount = cases?.filter((c) => c.status === 'pending_review').length ?? 0;
+  const pendingReviewCount =
+    cases?.filter((c) => c.status === 'pending_review').length ?? 0;
 
   interface NavItem {
     id: string;
@@ -68,7 +71,7 @@ export function Sidebar({
     items: NavItem[];
   }
 
-  const navGroups: NavGroup[] = [
+  const adminNavGroups: NavGroup[] = [
     {
       id: 'overview',
       title: 'نظرة عامة',
@@ -95,7 +98,10 @@ export function Sidebar({
           id: 'research',
           label: NAVIGATION_SECTIONS.research.sidebarLabel,
           icon: ClipboardList,
-          badge: metrics.overdueVisitsCases > 0 ? `${metrics.overdueVisitsCases} متأخر` : null,
+          badge:
+            metrics.overdueVisitsCases > 0
+              ? `${metrics.overdueVisitsCases} متأخر`
+              : null,
           badgeUrgent: metrics.overdueVisitsCases > 0,
         },
         {
@@ -164,7 +170,56 @@ export function Sidebar({
     },
   ];
 
-  // Filter groups and items based on user role permissions
+  const researcherNavGroups: NavGroup[] = [
+    {
+      id: 'researcher_overview',
+      title: 'نظرة عامة',
+      items: [
+        {
+          id: 'dashboard',
+          label: 'الرئيسية',
+          icon: LayoutDashboard,
+          badge: null,
+        },
+      ],
+    },
+    {
+      id: 'researcher_field',
+      title: 'العمل الميداني والعهدة',
+      items: [
+        {
+          id: 'research',
+          label: 'حالاتي وزياراتي',
+          icon: ClipboardList,
+          badge:
+            researcherMetrics.awaitingVisitCount > 0
+              ? `${researcherMetrics.awaitingVisitCount}`
+              : null,
+          badgeUrgent:
+            researcherMetrics.needsRevisionCount > 0 ||
+            researcherMetrics.overdueVisitsCount > 0,
+        },
+        {
+          id: 'my-custody',
+          label: NAVIGATION_SECTIONS['my-custody'].sidebarLabel,
+          icon: Wallet,
+          badge:
+            researcherMetrics.approvedReadyForDeliveryCount > 0
+              ? `${researcherMetrics.approvedReadyForDeliveryCount}`
+              : null,
+        },
+        {
+          id: 'researcher-profile',
+          label: 'ملفي الميداني',
+          icon: UserCheck,
+          badge: null,
+        },
+      ],
+    },
+  ];
+
+  const navGroups = isResearcherPOV ? researcherNavGroups : adminNavGroups;
+
   const visibleGroups = navGroups
     .map((group) => ({
       ...group,
@@ -174,9 +229,20 @@ export function Sidebar({
     }))
     .filter((group) => group.items.length > 0);
 
+  const handleToggleMobileRole = () => {
+    const nextRole = isResearcherPOV ? 'admin' : 'researcher';
+    const nextUser = demoUsers[nextRole];
+    switchDemoUser(nextRole);
+    onCloseMobile();
+    if (nextRole === 'researcher') {
+      toast.info(`أهلاً ${nextUser.name} — أنت الآن في منظور الباحث الميداني`);
+    } else {
+      toast.info(`تم العودة لمنظور المدير التنفيذي — ${nextUser.name}`);
+    }
+  };
+
   return (
     <>
-      {/* Mobile backdrop with backdrop blur */}
       {mobileOpen && (
         <div
           className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-40 lg:hidden animate-in fade-in duration-200"
@@ -205,11 +271,12 @@ export function Sidebar({
                   <h1 className="font-bold text-base leading-tight tracking-tight text-white">
                     منظومة إحسان
                   </h1>
-                  <p className="text-xs text-teal-100/70 mt-0.5">كفالة ودعم الأسر</p>
+                  <p className="text-xs text-teal-100/70 mt-0.5">
+                    {isResearcherPOV ? 'منظور الباحث الميداني' : 'كفالة ودعم الأسر'}
+                  </p>
                 </div>
               </div>
 
-              {/* Desktop Collapse Toggle */}
               <button
                 type="button"
                 onClick={onToggleCollapse}
@@ -235,15 +302,17 @@ export function Sidebar({
 
         {/* Categorized Navigation Groups */}
         <MotionConfig reducedMotion="user">
-          <nav className={`flex-1 py-3 space-y-2.5 overflow-y-auto ${collapsed ? 'px-2' : 'px-2.5'}`}>
+          <nav
+            className={`flex-1 py-3 space-y-2.5 overflow-y-auto ${
+              collapsed ? 'px-2' : 'px-2.5'
+            }`}
+          >
             {visibleGroups.map((group, groupIdx) => (
               <div key={group.id} className="space-y-1">
-                {/* Divider between icon groups in collapsed mode */}
                 {groupIdx > 0 && collapsed && (
                   <div className="w-8 mx-auto border-t border-teal-800/50 my-2" />
                 )}
 
-                {/* Subheader title in expanded mode */}
                 {!collapsed && (
                   <div className="px-3 pt-2 pb-0.5 text-[10.5px] font-bold text-teal-300/70 tracking-wider">
                     {group.title}
@@ -289,7 +358,11 @@ export function Sidebar({
                         <motion.span
                           layoutId="active-sidebar-pill"
                           aria-hidden="true"
-                          transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                          transition={{
+                            type: 'spring',
+                            stiffness: 350,
+                            damping: 30,
+                          }}
                           className="absolute inset-0 bg-white/10 backdrop-blur-xs rounded-xl border border-white/5 pointer-events-none"
                         />
                       )}
@@ -317,7 +390,7 @@ export function Sidebar({
                         <span
                           className={`relative z-10 text-[11px] px-2 py-0.5 rounded-full tabular-nums shrink-0 font-medium border ${
                             item.badgeUrgent
-                              ? 'bg-rose-500/15 text-rose-300 border-rose-500/20'
+                              ? 'bg-rose-500/15 text-rose-200 border-rose-400/25'
                               : 'bg-white/[0.08] text-teal-100/85 border-white/10'
                           }`}
                         >
@@ -332,35 +405,56 @@ export function Sidebar({
           </nav>
         </MotionConfig>
 
-        {/* Custom PWA Install Widget (Placed at the bottom of the sidebar) */}
+        {/* Custom PWA Install Widget */}
         <PWAInstallWidget collapsed={collapsed} />
 
-        {/* Mobile Drawer Footer User Profile Card (Pinned to bottom on mobile/tablet only) */}
+        {/* Mobile Drawer Footer User Profile Card + Demo Role Switcher */}
         <div className="mt-auto lg:hidden px-2.5 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] border-t border-white/10 shrink-0">
           <div
-            className="flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-2.5 mx-1 transition-all"
-            aria-label={`${currentUser.name} - ${currentUser.role}`}
+            className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-2.5 mx-1 transition-all"
+            aria-label={`${user.name} - ${user.badgeLabel}`}
           >
-            <div className="relative w-9 h-9 rounded-full bg-white/20 text-white flex items-center justify-center font-bold text-sm shrink-0">
-              <span>{currentUser.avatarInitial}</span>
-              <span
-                title={isOnline ? 'متصل بالإنترنت' : 'غير متصل بالإنترنت'}
-                aria-label={isOnline ? 'متصل بالإنترنت' : 'غير متصل بالإنترنت'}
-                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-[#005756] transition-colors duration-200 ${
-                  isOnline ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'
-                }`}
-              />
+            <div className="flex items-center gap-3">
+              <div className="relative w-9 h-9 rounded-full bg-white/20 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                <span>{user.avatarInitial}</span>
+                <span
+                  title={isOnline ? 'متصل بالإنترنت' : 'غير متصل بالإنترنت'}
+                  aria-label={isOnline ? 'متصل بالإنترنت' : 'غير متصل بالإنترنت'}
+                  className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-[#005756] transition-colors duration-200 ${
+                    isOnline ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'
+                  }`}
+                />
+              </div>
+
+              {!collapsed && (
+                <div className="flex flex-col justify-center text-right min-w-0 flex-1">
+                  <span className="text-white font-semibold text-sm leading-tight truncate">
+                    {user.name}
+                  </span>
+                  <span className="text-emerald-100/70 text-xs font-normal leading-tight mt-0.5 truncate">
+                    {user.badgeLabel}
+                  </span>
+                </div>
+              )}
             </div>
 
             {!collapsed && (
-              <div className="flex flex-col justify-center text-right min-w-0 flex-1">
-                <span className="text-white font-semibold text-sm leading-tight truncate">
-                  {currentUser.name}
+              <button
+                type="button"
+                onClick={handleToggleMobileRole}
+                className="w-full mt-2.5 flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 active:scale-[0.98] border border-white/15 text-xs font-medium text-white/95 transition-all cursor-pointer"
+              >
+                <span className="truncate">
+                  {isResearcherPOV
+                    ? 'العودة لمنظور المدير التنفيذي'
+                    : 'التبديل لمنظور الباحث الميداني'}
                 </span>
-                <span className="text-emerald-100/70 text-xs font-normal leading-tight mt-0.5 truncate">
-                  {currentUser.role}
-                </span>
-              </div>
+                <ArrowLeftRight
+                  size={14}
+                  className="text-emerald-100/80 shrink-0"
+                  aria-hidden="true"
+                />
+              </button>
             )}
           </div>
         </div>

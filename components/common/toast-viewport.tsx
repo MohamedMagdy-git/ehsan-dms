@@ -2,10 +2,15 @@
 
 import React, { useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { CheckCircle2, Info, AlertTriangle, AlertCircle, X } from 'lucide-react';
+import { CheckCircle2, Info, AlertTriangle, AlertCircle, X, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type ToastVariant = 'success' | 'info' | 'warning' | 'error';
+
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
 
 export interface ToastItem {
   id: string;
@@ -13,6 +18,7 @@ export interface ToastItem {
   description?: string;
   variant: ToastVariant;
   duration: number;
+  action?: ToastAction;
 }
 
 interface ToastCardProps {
@@ -124,6 +130,21 @@ function ToastCard({ item, onDismiss }: ToastCardProps) {
           <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
             {item.description}
           </p>
+        )}
+        {item.action && (
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={() => {
+                item.action?.onClick();
+                onDismiss(item.id);
+              }}
+              className="inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1.5 rounded-lg bg-[#005756]/10 hover:bg-[#005756]/15 active:scale-[0.98] text-[#005756] text-xs font-semibold transition-all cursor-pointer"
+            >
+              <span>{item.action.label}</span>
+              <ArrowLeft size={13} className="shrink-0" aria-hidden="true" />
+            </button>
+          </div>
         )}
       </div>
 

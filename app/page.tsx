@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { AuthProvider, useAuth } from '@/context/auth-context';
 import { AppProvider, useApp } from '@/context/app-context';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
@@ -23,8 +24,11 @@ import { CaseStudyModal } from '@/components/research/case-study-modal';
 import { GlobalConnectivityBanner } from '@/components/common/global-connectivity-banner';
 import { Footer } from '@/components/layout/footer';
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
+import { ResearcherDashboardView } from '@/components/dashboard/researcher-dashboard-view';
+import { ResearcherCustodyView } from '@/components/custody/researcher-custody-view';
 
 function MainApp() {
+  const { user } = useAuth();
   const {
     activeSection,
     currentSessionProfile,
@@ -39,8 +43,11 @@ function MainApp() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  // Guard section by role's allowed tabs
-  const isSectionAllowed = currentSessionProfile?.allowedTabs.includes(activeSection);
+  const isResearcherPOV = user.role === 'researcher';
+
+  // Strict Route Guard by role's allowed tabs
+  const isSectionAllowed =
+    currentSessionProfile?.allowedTabs.includes(activeSection);
   const effectiveSection = isSectionAllowed
     ? activeSection
     : currentSessionProfile?.defaultTab || 'dashboard';
@@ -59,10 +66,10 @@ function MainApp() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900 font-sans">
-      {/* YouTube-style floating slide-down connectivity banner for dashboard shell */}
+      {/* Floating slide-down connectivity banner */}
       <GlobalConnectivityBanner />
 
-      {/* Sidebar - hidden in donor-portal for a dedicated, distraction-free portal experience */}
+      {/* Sidebar */}
       {!isDonorPortal && (
         <Sidebar
           collapsed={sidebarCollapsed}
@@ -74,7 +81,7 @@ function MainApp() {
 
       {/* Main Content Area */}
       <div
-        className={`flex-1 flex flex-col transition-all duration-200 ${
+        className={`flex-1 flex flex-col min-w-0 overflow-x-clip transition-all duration-200 ${
           !isDonorPortal
             ? sidebarCollapsed
               ? 'lg:mr-20'
@@ -89,23 +96,49 @@ function MainApp() {
           onOpenNewDonation={() => setIsNewDonationModalOpen(true)}
         />
 
-        {/* View Content Viewport */}
+        {/* View Content Viewport (Role-Guarded) */}
         <main className="flex-1 px-3.5 pt-3.5 sm:px-4 sm:pt-4 lg:px-8 lg:pt-8 max-w-7xl w-full mx-auto pb-24 md:pb-6">
-          {effectiveSection === 'dashboard' && <DashboardView />}
-          {effectiveSection === 'cases' && (
+          {effectiveSection === 'dashboard' &&
+            (isResearcherPOV ? (
+              <ResearcherDashboardView
+                onOpenNewCase={() => setIsNewCaseModalOpen(true)}
+              />
+            ) : (
+              <DashboardView />
+            ))}
+          {effectiveSection === 'my-custody' && isResearcherPOV && (
+            <ResearcherCustodyView />
+          )}
+          {effectiveSection === 'research' && <ResearchView />}
+          {effectiveSection === 'researcher-profile' && (
+            <ResearcherProfileView />
+          )}
+
+          {/* Admin & Governance Routes (Strictly blocked in Researcher POV) */}
+          {!isResearcherPOV && effectiveSection === 'cases' && (
             <CasesView onOpenNewCase={() => setIsNewCaseModalOpen(true)} />
           )}
-          {effectiveSection === 'cases-review' && <CaseReviewApprovalView />}
-          {effectiveSection === 'research' && <ResearchView />}
-          {effectiveSection === 'researcher-profile' && <ResearcherProfileView />}
-          {effectiveSection === 'donations' && (
-            <DonationsView onOpenNewDonation={() => setIsNewDonationModalOpen(true)} />
+          {!isResearcherPOV && effectiveSection === 'cases-review' && (
+            <CaseReviewApprovalView />
           )}
-          {effectiveSection === 'fast-track' && <FastTrackView />}
-          {effectiveSection === 'allocation' && <AllocationView />}
-          {effectiveSection === 'donor-portal' && <DonorPortalView />}
-          {effectiveSection === 'reports' && <ReportsView />}
-          {effectiveSection === 'settings' && <SettingsView />}
+          {!isResearcherPOV && effectiveSection === 'donations' && (
+            <DonationsView
+              onOpenNewDonation={() => setIsNewDonationModalOpen(true)}
+            />
+          )}
+          {!isResearcherPOV && effectiveSection === 'fast-track' && (
+            <FastTrackView />
+          )}
+          {!isResearcherPOV && effectiveSection === 'allocation' && (
+            <AllocationView />
+          )}
+          {!isResearcherPOV && effectiveSection === 'donor-portal' && (
+            <DonorPortalView />
+          )}
+          {!isResearcherPOV && effectiveSection === 'reports' && <ReportsView />}
+          {!isResearcherPOV && effectiveSection === 'settings' && (
+            <SettingsView />
+          )}
         </main>
 
         {/* Footer */}
@@ -126,10 +159,12 @@ function MainApp() {
         isOpen={isNewCaseModalOpen}
         onClose={() => setIsNewCaseModalOpen(false)}
       />
-      <NewDonationModal
-        isOpen={isNewDonationModalOpen}
-        onClose={() => setIsNewDonationModalOpen(false)}
-      />
+      {!isResearcherPOV && (
+        <NewDonationModal
+          isOpen={isNewDonationModalOpen}
+          onClose={() => setIsNewDonationModalOpen(false)}
+        />
+      )}
       <CaseStudyModal />
     </div>
   );
@@ -137,8 +172,10 @@ function MainApp() {
 
 export default function Page() {
   return (
-    <AppProvider>
-      <MainApp />
-    </AppProvider>
+    <AuthProvider>
+      <AppProvider>
+        <MainApp />
+      </AppProvider>
+    </AuthProvider>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useAuth } from '@/context/auth-context';
 import { useApp } from '@/context/app-context';
 import { useToast } from '@/context/toast-context';
 import {
@@ -104,6 +105,8 @@ export interface AttachmentItem {
 }
 
 export function CaseStudyModal() {
+  const { user: authUser } = useAuth();
+  const isResearcherPOV = authUser.role === 'researcher';
   const {
     isFieldSurveyModalOpen,
     setIsFieldSurveyModalOpen,
@@ -763,18 +766,26 @@ export function CaseStudyModal() {
   // Refs to prevent stale closures & avoid re-initializing on visitorName/cases updates
   const casesRef = useRef(cases);
   const profileNameRef = useRef(currentSessionProfile.name);
+  const authUserRef = useRef(authUser);
   useEffect(() => {
     casesRef.current = cases;
   }, [cases]);
   useEffect(() => {
     profileNameRef.current = currentSessionProfile.name;
   }, [currentSessionProfile.name]);
+  useEffect(() => {
+    authUserRef.current = authUser;
+  }, [authUser]);
 
   const resetFormToDefaults = useCallback(() => {
     setCurrentQuestion(1);
     setActiveMemberIndex(0);
     setCaseName('');
-    setVisitorName(profileNameRef.current || 'أ. هبة الشامي');
+    setVisitorName(
+      authUserRef.current.role === 'researcher'
+        ? authUserRef.current.name
+        : profileNameRef.current || 'أ. هبة الشامي'
+    );
     setVisitDate(new Date().toISOString().split('T')[0]);
     setContactPhone('');
     setSecondaryPhone('');
@@ -887,7 +898,11 @@ export function CaseStudyModal() {
     if (!target) return;
 
     setCaseName(target.primaryName || target.fullName || '');
-    setVisitorName(target.assignedResearcher || profileNameRef.current || 'أ. هبة الشامي');
+    setVisitorName(
+      authUserRef.current.role === 'researcher'
+        ? authUserRef.current.name
+        : target.assignedResearcher || profileNameRef.current || 'أ. هبة الشامي'
+    );
     setContactPhone(target.phone || '');
     setSecondaryPhone(target.secondaryPhone || '');
 
@@ -1403,7 +1418,7 @@ export function CaseStudyModal() {
       case 1:
         return caseName.trim().length > 0;
       case 2:
-        return visitorName.trim().length > 0;
+        return isResearcherPOV ? authUser.name.trim().length > 0 : visitorName.trim().length > 0;
       case 3:
         return contactPhone.trim().length > 0;
       case 4:
@@ -1577,11 +1592,15 @@ export function CaseStudyModal() {
         ? `أخرى: ${otherReferralSource.trim()}`
         : referralSource;
 
+    const effectiveVisitorName = isResearcherPOV
+      ? authUser.name
+      : visitorName || 'أ. هبة الشامي';
+
     const reportPayload: CaseStudyReport = {
       id: `csr-${Date.now()}`,
       caseId: surveyTargetCaseId || undefined,
       caseName: caseName.trim(),
-      visitorName: visitorName || 'أ. هبة الشامي',
+      visitorName: effectiveVisitorName,
       visitDate,
       contactPhone: contactPhone.trim(),
       secondaryPhone: secondaryPhone.trim() || undefined,
@@ -1661,7 +1680,7 @@ export function CaseStudyModal() {
     setSubmittedSummary({
       caseName: caseName.trim(),
       gap: netFinancialGap,
-      researcher: visitorName || 'أ. هبة الشامي',
+      researcher: effectiveVisitorName,
       membersCount: familyMembers.length,
     });
     setIsSuccessSubmitted(true);
@@ -2004,11 +2023,11 @@ export function CaseStudyModal() {
                 type="button"
                 onClick={() => {
                   setIsFieldSurveyModalOpen(false);
-                  setActiveSection('cases');
+                  setActiveSection(isResearcherPOV ? 'research' : 'cases');
                 }}
-                className="w-full py-3.5 bg-teal-800 hover:bg-teal-900 text-white rounded-2xl font-bold text-xs shadow-md transition-all cursor-pointer"
+                className="w-full py-3.5 bg-[#005756] hover:bg-[#004241] text-white rounded-2xl font-bold text-xs shadow-sm transition-all cursor-pointer"
               >
-                الانتقال لجدول الحالات والمراجعة
+                {isResearcherPOV ? 'العودة إلى حالاتي وزياراتي' : 'الانتقال لجدول الحالات والمراجعة'}
               </button>
             </div>
           ) : (
@@ -2067,26 +2086,47 @@ export function CaseStudyModal() {
               {currentQuestion === 2 && (
                 <div className="space-y-3">
                   <div className="space-y-1">
-                    <span className="text-xs font-bold text-teal-800 flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-[#005756] flex items-center gap-1.5">
                       <ShieldCheck size={15} />
                       <span>التكليف الميداني</span>
                     </span>
                     <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
-                      من هو الباحث الميداني المسؤول؟
+                      {isResearcherPOV ? 'تأكيد اسم الباحث الميداني' : 'من هو الباحث الميداني المسؤول؟'}
                     </h2>
                     <p className="text-xs text-slate-500">
-                      اختر الباحث المكلف بالنزول أو أضف باحثاً جديداً.
+                      {isResearcherPOV
+                        ? 'الاستمارة بتتسجل تلقائياً باسم حسابك الميداني النشط عشان تترفع للمراجعة باسمك.'
+                        : 'اختر الباحث المكلف بالنزول أو أضف باحثاً جديداً.'}
                     </p>
                   </div>
 
-                  <div className="p-2 bg-slate-50 rounded-2xl border border-slate-200">
-                    <ResearcherSelect
-                      value={visitorName}
-                      onChange={(val) => setVisitorName(val)}
-                      label="الباحث الميداني المسؤول"
-                      required
-                    />
-                  </div>
+                  {isResearcherPOV ? (
+                    <div className="p-4 bg-white rounded-2xl border border-slate-200 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-slate-500">
+                          الباحث الميداني المسؤول
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-semibold">
+                          تلقائي من الحساب
+                        </span>
+                      </div>
+                      <p className="text-base font-bold text-slate-900">{authUser.name}</p>
+                      {authUser.assignedDistricts && authUser.assignedDistricts.length > 0 && (
+                        <p className="text-xs text-slate-500">
+                          نطاق التغطية: {authUser.assignedDistricts.join(' · ')}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-2 bg-slate-50 rounded-2xl border border-slate-200">
+                      <ResearcherSelect
+                        value={visitorName}
+                        onChange={(val) => setVisitorName(val)}
+                        label="الباحث الميداني المسؤول"
+                        required
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 

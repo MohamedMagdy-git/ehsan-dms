@@ -1,13 +1,14 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { ToastItem, ToastVariant, ToastViewport } from '@/components/common/toast-viewport';
+import { ToastAction, ToastItem, ToastVariant, ToastViewport } from '@/components/common/toast-viewport';
 
 export interface ToastOptions {
   title: string;
   description?: string;
   variant?: ToastVariant;
   duration?: number;
+  action?: ToastAction;
 }
 
 export type ToastInput = string | ToastOptions;
@@ -25,6 +26,7 @@ interface ToastContextValue {
 }
 
 const DEFAULT_DURATION_MS = 3800;
+const ACTION_TOAST_DURATION_MS = 5500;
 const MAX_VISIBLE_TOASTS = 3;
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
@@ -46,7 +48,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       title: normalized.title,
       description: normalized.description,
       variant: normalized.variant ?? 'success',
-      duration: normalized.duration ?? DEFAULT_DURATION_MS,
+      duration:
+        normalized.duration ??
+        (normalized.action ? ACTION_TOAST_DURATION_MS : DEFAULT_DURATION_MS),
+      action: normalized.action,
     };
 
     setToasts((prev) => {

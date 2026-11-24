@@ -12,8 +12,23 @@ import {
   DollarSign,
   Heart,
   Save,
+  Banknote,
+  Smartphone,
 } from 'lucide-react';
-import { BeneficiaryCase, HousingCondition, WorkCapacity, FoodInsecurityLevel, HouseholdMember, CaseStatus } from '@/types';
+import {
+  BeneficiaryCase,
+  HousingCondition,
+  WorkCapacity,
+  FoodInsecurityLevel,
+  HouseholdMember,
+  CaseStatus,
+  PayoutMethod,
+} from '@/types';
+import {
+  getEffectivePayoutMethod,
+  isValidEgyptianWalletNumber,
+  normalizeWalletDigits,
+} from '@/lib/payout-helpers';
 import { AmountInput } from '@/components/common/amount-input';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { ResearcherSelect } from './researcher-select';
@@ -37,6 +52,8 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
   const [address, setAddress] = useState('');
   const [assignedResearcher, setAssignedResearcher] = useState('أ. هبة الشامي');
   const [status, setStatus] = useState<CaseStatus>('active_eligible');
+  const [payoutMethod, setPayoutMethod] = useState<PayoutMethod>('cash_researcher');
+  const [walletNumber, setWalletNumber] = useState('');
 
   // Financials
   const [directIncome, setDirectIncome] = useState<number>(0);
@@ -73,6 +90,8 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
       setAddress(caseItem.address);
       setAssignedResearcher(caseItem.assignedResearcher);
       setStatus(caseItem.status);
+      setPayoutMethod(getEffectivePayoutMethod(caseItem.payoutMethod));
+      setWalletNumber(caseItem.walletNumber || '');
 
       setDirectIncome(caseItem.financials.directIncome);
       setIndirectIncome(caseItem.financials.indirectIncome);
@@ -150,12 +169,26 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
       return;
     }
 
+    const cleanedWallet = normalizeWalletDigits(walletNumber);
+    if (payoutMethod === 'e_wallet') {
+      if (!cleanedWallet) {
+        setErrorMessage('يرجى إدخال رقم المحفظة الإلكترونية عند اختيار الاستلام عبر محفظة');
+        return;
+      }
+      if (!isValidEgyptianWalletNumber(cleanedWallet)) {
+        setErrorMessage('رقم المحفظة الإلكترونية يجب أن يتكون من 11 رقماً ويبدأ بـ 010 أو 011 أو 012 أو 015');
+        return;
+      }
+    }
+
     updateCase(caseItem.id, {
       primaryName: primaryName.trim(),
       secondaryName: secondaryName.trim() || undefined,
       fullName: primaryName.trim(),
       nationalId: nationalId.trim(),
       phone: phone.trim() || 'غير مسجل',
+      payoutMethod,
+      walletNumber: payoutMethod === 'e_wallet' ? cleanedWallet : undefined,
       governorate,
       district: district.trim(),
       address: address.trim(),
@@ -327,6 +360,72 @@ export function EditCaseModal({ caseItem, isOpen, onClose }: EditCaseModalProps)
                 label="الباحث الميداني المسؤول"
                 required
               />
+            </div>
+
+            {/* Payout Method */}
+            <div className="p-3 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-2.5">
+              <label className="text-slate-700 font-semibold block">
+                طريقة استلام المساعدة{' '}
+                <span className="text-slate-400 font-normal">(اختياري · نقدي افتراضياً)</span>
+              </label>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPayoutMethod('cash_researcher')}
+                  className={`min-h-[38px] px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                    payoutMethod === 'cash_researcher'
+                      ? 'bg-[#005756] border-[#005756] text-white'
+                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <Banknote size={14} className="shrink-0" aria-hidden="true" />
+                  <span className="truncate">نقدي عبر الباحث</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPayoutMethod('e_wallet')}
+                  className={`min-h-[38px] px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                    payoutMethod === 'e_wallet'
+                      ? 'bg-[#005756] border-[#005756] text-white'
+                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <Smartphone size={14} className="shrink-0" aria-hidden="true" />
+                  <span className="truncate">محفظة إلكترونية</span>
+                </button>
+              </div>
+
+              {payoutMethod === 'e_wallet' && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <label className="text-slate-700 font-semibold">
+                      رقم المحفظة الإلكترونية <span className="text-rose-600">*</span>
+                    </label>
+                    {normalizeWalletDigits(phone).length === 11 &&
+                      walletNumber !== normalizeWalletDigits(phone) && (
+                        <button
+                          type="button"
+                          onClick={() => setWalletNumber(normalizeWalletDigits(phone))}
+                          className="text-[11px] font-semibold text-[#005756] hover:underline cursor-pointer"
+                        >
+                          استخدام نفس رقم الهاتف
+                        </button>
+                      )}
+                  </div>
+                  <input
+                    type="tel"
+                    dir="ltr"
+                    inputMode="numeric"
+                    maxLength={11}
+                    placeholder="01012345678"
+                    value={walletNumber}
+                    onChange={(e) => setWalletNumber(normalizeWalletDigits(e.target.value))}
+                    className="w-full p-2 bg-white border border-slate-200 rounded-lg font-mono tabular-nums text-xs text-right focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 focus:outline-hidden"
+                  />
+                </div>
+              )}
             </div>
           </div>
 

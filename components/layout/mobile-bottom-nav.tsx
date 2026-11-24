@@ -3,20 +3,30 @@
 import React from 'react';
 import { motion, LayoutGroup, useReducedMotion } from 'motion/react';
 import { useApp } from '@/context/app-context';
+import { useAuth } from '@/context/auth-context';
+import { useScopedData } from '@/hooks/use-scoped-data';
 import {
   LayoutGrid,
   ClipboardList,
   ShieldCheck,
   Wallet,
   FileSpreadsheet,
+  FilePlus2,
 } from 'lucide-react';
 
+interface MobileNavItem {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  badge: number | null;
+  isUrgentBadge?: boolean;
+  onPress?: () => void;
+}
+
 export function MobileBottomNav() {
-  const {
-    activeSection,
-    setActiveSection,
-    cases,
-  } = useApp();
+  const { activeSection, setActiveSection, cases, openFieldSurvey } = useApp();
+  const { user } = useAuth();
+  const { isResearcherPOV, researcherMetrics } = useScopedData();
 
   const prefersReducedMotion = useReducedMotion();
 
@@ -26,7 +36,7 @@ export function MobileBottomNav() {
   const pendingReviewCount =
     cases?.filter((c) => c.status === 'pending_review').length ?? 0;
 
-  const navItems = [
+  const adminNavItems: MobileNavItem[] = [
     {
       id: 'dashboard',
       label: 'الرئيسية',
@@ -44,6 +54,7 @@ export function MobileBottomNav() {
       label: 'الاعتماد',
       icon: ShieldCheck,
       badge: pendingReviewCount > 0 ? pendingReviewCount : null,
+      isUrgentBadge: true,
     },
     {
       id: 'allocation',
@@ -59,6 +70,47 @@ export function MobileBottomNav() {
     },
   ];
 
+  const researcherUrgentVisits =
+    researcherMetrics.needsRevisionCount + researcherMetrics.overdueVisitsCount;
+
+  const researcherNavItems: MobileNavItem[] = [
+    {
+      id: 'dashboard',
+      label: 'الرئيسية',
+      icon: LayoutGrid,
+      badge: null,
+    },
+    {
+      id: 'research',
+      label: 'حالاتي وزياراتي',
+      icon: ClipboardList,
+      badge:
+        researcherMetrics.awaitingVisitCount > 0
+          ? researcherMetrics.awaitingVisitCount
+          : null,
+      isUrgentBadge: researcherUrgentVisits > 0,
+    },
+    {
+      id: 'survey-action',
+      label: 'استمارة بحث',
+      icon: FilePlus2,
+      badge: null,
+      onPress: () => openFieldSurvey(),
+    },
+    {
+      id: 'my-custody',
+      label: 'عهدتي',
+      icon: Wallet,
+      badge:
+        researcherMetrics.approvedReadyForDeliveryCount > 0
+          ? researcherMetrics.approvedReadyForDeliveryCount
+          : null,
+      isUrgentBadge: false,
+    },
+  ];
+
+  const navItems = isResearcherPOV ? researcherNavItems : adminNavItems;
+
   const indicatorTransition = prefersReducedMotion
     ? { duration: 0 }
     : { type: 'spring' as const, stiffness: 380, damping: 32 };
@@ -72,17 +124,28 @@ export function MobileBottomNav() {
       aria-label="شريط التنقل السريع للهاتف"
       className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/80 backdrop-blur-lg border-t border-slate-200/80 shadow-[0_-4px_16px_rgba(0,0,0,0.03)] pb-[max(0.45rem,env(safe-area-inset-bottom,0px))]"
     >
-      <LayoutGroup id="mobile-bottom-nav">
-        <div className="grid grid-cols-5 items-center gap-1 h-[60px] px-2 max-w-lg mx-auto">
+      <LayoutGroup id={`mobile-bottom-nav-${user.role}`}>
+        <div
+          className={`grid items-center gap-1 h-[60px] px-2 max-w-lg mx-auto ${
+            isResearcherPOV ? 'grid-cols-4' : 'grid-cols-5'
+          }`}
+        >
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeSection === item.id;
+            const isActionItem = Boolean(item.onPress);
+            const isActive = !isActionItem && activeSection === item.id;
             return (
               <motion.button
                 key={item.id}
                 type="button"
                 aria-current={isActive ? 'page' : undefined}
-                onClick={() => setActiveSection(item.id)}
+                onClick={() => {
+                  if (item.onPress) {
+                    item.onPress();
+                  } else {
+                    setActiveSection(item.id);
+                  }
+                }}
                 whileTap={prefersReducedMotion ? undefined : { scale: 0.92 }}
                 transition={tapTransition}
                 className={`relative flex flex-col items-center justify-center h-[48px] min-h-[44px] py-1 px-1 rounded-xl cursor-pointer select-none transition-colors duration-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-[#005756]/30 ${
@@ -109,7 +172,13 @@ export function MobileBottomNav() {
                       }`}
                     />
                     {item.badge !== null && (
-                      <span className="absolute -top-1.5 -left-2 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold tabular-nums flex items-center justify-center bg-rose-600 text-white">
+                      <span
+                        className={`absolute -top-1.5 -left-2 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold tabular-nums flex items-center justify-center ${
+                          item.isUrgentBadge
+                            ? 'bg-rose-600 text-white'
+                            : 'bg-[#005756] text-white'
+                        }`}
+                      >
                         {item.badge}
                       </span>
                     )}

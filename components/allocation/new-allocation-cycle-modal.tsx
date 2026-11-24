@@ -368,7 +368,7 @@ export function NewAllocationCycleModal({
                     />
                     <div className="flex flex-wrap items-center gap-1.5 pt-1">
                       {[
-                        { label: 'كامل الصندوق', val: unrestrictedBalance },
+                        { label: 'كامل الرصيد المتاح', val: unrestrictedBalance },
                         { label: '50 ألف', val: 50000 },
                         { label: '100 ألف', val: 100000 },
                       ].map((p) => (
@@ -522,14 +522,14 @@ export function NewAllocationCycleModal({
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
-                  <span>المتاح حالياً بالصندوق العام:</span>
+                  <span>المتاح حالياً بالخزينة الموحدة:</span>
                   <span className="font-mono tabular-nums font-medium text-slate-700">
                     {unrestrictedBalance.toLocaleString('ar-EG')} ج.م
                   </span>
                 </div>
                 {exceedsGeneralPool && (
                   <p className="text-[11px] text-rose-600 font-medium pt-1">
-                    تنبيه: الميزانية المحددة أكبر من الرصيد المتاح حالياً في الصندوق العام، تقدر تكمل التجهيز كمسودة وتعدّل المبالغ قبل الاعتماد.
+                    تنبيه: الميزانية المحددة أكبر من الرصيد المتاح حالياً في الخزينة الموحدة، تقدر تكمل التجهيز كمسودة وتعدّل المبالغ قبل الاعتماد.
                   </p>
                 )}
               </div>

@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useAuth } from '@/context/auth-context';
 import { useApp } from '@/context/app-context';
 import { useToast } from '@/context/toast-context';
+import { canUserReadCaseNote } from '@/lib/researcher-relations';
 import {
   Lock,
   Globe,
@@ -21,12 +23,11 @@ interface BeneficiaryNotesProps {
 }
 
 export function BeneficiaryNotes({ caseId, caseCode }: BeneficiaryNotesProps) {
+  const { user } = useAuth();
   const {
     caseNotes,
     addCaseNote,
     deleteCaseNote,
-    currentUserRole,
-    currentSessionProfile,
   } = useApp();
 
   const [noteContent, setNoteContent] = useState('');
@@ -43,15 +44,10 @@ export function BeneficiaryNotes({ caseId, caseCode }: BeneficiaryNotesProps) {
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   }, [caseNotes, caseId]);
 
-  // All notes accessible to the current user (before applying public/private filter)
+  // All notes accessible to the current user (RLS-style isolation for private notes)
   const accessibleNotes = useMemo(() => {
-    return caseNotesList.filter((note) => {
-      const isAuthor =
-        note.authorId === currentUserRole ||
-        note.authorName === currentSessionProfile.name;
-      return !note.isPrivate || isAuthor || currentUserRole === 'admin';
-    });
-  }, [caseNotesList, currentUserRole, currentSessionProfile.name]);
+    return caseNotesList.filter((note) => canUserReadCaseNote(note, user));
+  }, [caseNotesList, user]);
 
   // Apply privacy / view filters
   const visibleNotes = useMemo(() => {
@@ -80,8 +76,8 @@ export function BeneficiaryNotes({ caseId, caseCode }: BeneficiaryNotesProps) {
       content: noteContent.trim(),
       isPrivate,
       category: noteCategory,
-      authorName: currentSessionProfile.name,
-      authorRole: currentSessionProfile.title || currentSessionProfile.badgeLabel,
+      authorName: user.name,
+      authorRole: user.title,
     });
 
     setNoteContent('');
@@ -334,10 +330,10 @@ export function BeneficiaryNotes({ caseId, caseCode }: BeneficiaryNotesProps) {
           /* Ordered Timeline List (Newest first) */
           <div className="space-y-3 relative before:absolute before:top-3 before:bottom-3 before:right-3 before:w-px before:bg-slate-200 before:hidden sm:before:block">
             {visibleNotes.map((note) => {
-              const isAuthor =
-                note.authorId === currentUserRole ||
-                note.authorName === currentSessionProfile.name;
-              const canDelete = isAuthor || currentUserRole === 'admin';
+              const isAuthor = note.authorUserId
+                ? note.authorUserId === user.id
+                : note.authorName === user.name;
+              const canDelete = isAuthor || user.role === 'admin';
               const isUrgent = note.category === 'urgent' || note.category === 'warning';
 
               return (

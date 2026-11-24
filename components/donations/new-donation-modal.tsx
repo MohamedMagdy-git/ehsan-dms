@@ -200,7 +200,7 @@ export function NewDonationModal({ isOpen, onClose }: NewDonationModalProps) {
 
             <div className="space-y-1.5 sm:col-span-2">
               <label className="text-slate-700 font-semibold block">
-                ملاحظات أو شرط المتبرع (اختياري)
+                ملاحظات أو رغبة المتبرع (اختياري)
               </label>
               <textarea
                 rows={2}
@@ -209,6 +209,9 @@ export function NewDonationModal({ isOpen, onClose }: NewDonationModalProps) {
                 placeholder="أي ملاحظة أو رغبة للمتبرع أو رقم إشعار التحويل..."
                 className={inputClass}
               />
+              <p className="text-[11px] text-slate-400">
+                كل التبرعات المستلمة تدخل الخزينة الموحدة لصالح الدورات الشهرية، وتُحفظ رغبة المتبرع كملاحظة توثيقية فقط.
+              </p>
             </div>
           </div>
 

@@ -2,7 +2,9 @@
 
 import React, { useState } from 'react';
 import { motion, MotionConfig } from 'motion/react';
+import { useAuth } from '@/context/auth-context';
 import { useApp } from '@/context/app-context';
+import { useScopedData } from '@/hooks/use-scoped-data';
 import { useToast } from '@/context/toast-context';
 import { FieldVisit } from '@/types';
 import {
@@ -34,13 +36,14 @@ function getVisitStatusLabel(status: FieldVisit['status']): string {
 }
 
 export function ResearchView() {
+  const { user } = useAuth();
+  const isResearcherPOV = user.role === 'researcher';
   const {
-    visits,
-    cases,
     addVisit,
     setSelectedCaseId,
     openFieldSurvey,
   } = useApp();
+  const { scopedCases: cases, scopedVisits: visits } = useScopedData();
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<'first_visit' | 'overdue' | 'revision' | 'all'>('first_visit');
@@ -53,6 +56,11 @@ export function ResearchView() {
   const [researcherName, setResearcherName] = useState('أ. هبة الشامي');
   const [observations, setObservations] = useState('');
   const [recommendedChanges, setRecommendedChanges] = useState('');
+
+  const effectiveSelectedCaseId = cases.some((c) => c.id === selectedCaseForVisit)
+    ? selectedCaseForVisit
+    : cases[0]?.id || '';
+  const effectiveResearcherName = isResearcherPOV ? user.name : researcherName;
 
   // الحالات الجديدة التي لم يسبق لها إجراء زيارة ميدانية أولى
   const firstVisitCases = cases.filter(
@@ -87,7 +95,7 @@ export function ResearchView() {
 
   const handleCreateVisit = (e: React.FormEvent) => {
     e.preventDefault();
-    const targetCase = cases.find((c) => c.id === selectedCaseForVisit);
+    const targetCase = cases.find((c) => c.id === effectiveSelectedCaseId);
     if (!targetCase) return;
 
     const nextDate = new Date(visitDate);
@@ -97,7 +105,8 @@ export function ResearchView() {
       caseId: targetCase.id,
       caseCode: targetCase.code,
       caseName: targetCase.fullName,
-      researcherName,
+      researcherName: effectiveResearcherName,
+      researcherId: isResearcherPOV ? user.researcherId || undefined : undefined,
       visitDate,
       scheduledNextDate: nextDate.toISOString().split('T')[0],
       status: 'completed',
@@ -113,11 +122,13 @@ export function ResearchView() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 w-full min-w-0">
       {/* Top Action & Summary Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="flex items-center flex-wrap gap-2 text-xs text-slate-500 tabular-nums">
-          <span className="font-semibold text-slate-800">ملخص المتابعة</span>
+          <span className="font-semibold text-slate-800">
+            {isResearcherPOV ? 'حالاتي وزياراتي' : 'ملخص المتابعة'}
+          </span>
           <span className="text-slate-300" aria-hidden="true">·</span>
           <span className={firstVisitCases.length > 0 ? 'font-medium text-[#005756]' : ''}>
             زيارات أولى: {firstVisitCases.length}
@@ -264,12 +275,10 @@ export function ResearchView() {
                       <p className="text-xs text-slate-500 mt-1">{c.governorate} · {c.district}</p>
                     </div>
 
-                    <div className="inline-flex items-center gap-1.5 shrink-0">
-                      <UserPlus size={14} className="text-[#005756] shrink-0" />
-                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100/70 text-xs font-medium text-slate-700 whitespace-nowrap">
-                        حالة جديدة تتطلب زيارة
-                      </span>
-                    </div>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap shrink-0 bg-[#005756]/[0.07] text-[#005756] border border-[#005756]/15">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#005756] shrink-0" aria-hidden="true" />
+                      <span>زيارة أولى</span>
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50/80 p-3 rounded-lg border border-slate-200/70">
@@ -357,12 +366,10 @@ export function ResearchView() {
                       </p>
                     </div>
 
-                    <div className="inline-flex items-center gap-1.5 shrink-0">
-                      <RotateCcw size={14} className="text-slate-500 shrink-0" />
-                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100/70 text-xs font-medium text-slate-700 whitespace-nowrap">
-                        راجعة لتعديل البيانات
-                      </span>
-                    </div>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap shrink-0 bg-amber-50 text-amber-800 border border-amber-200/70">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" aria-hidden="true" />
+                      <span>تحتاج تعديل</span>
+                    </span>
                   </div>
 
                   {/* Notes / Instructions from Management */}
@@ -443,12 +450,10 @@ export function ResearchView() {
                       <p className="text-xs text-slate-500 mt-1">{c.governorate} · {c.district}</p>
                     </div>
 
-                    <div className="inline-flex items-center gap-1.5 shrink-0">
-                      <Clock size={14} className="text-rose-500 shrink-0" />
-                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100/70 text-xs font-medium text-slate-700 whitespace-nowrap">
-                        متأخرة عن موعدها
-                      </span>
-                    </div>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap shrink-0 bg-rose-50 text-rose-700 border border-rose-200/70">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" aria-hidden="true" />
+                      <span>متأخرة عن موعدها</span>
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50/70 p-3 rounded-lg border border-slate-200/60">
@@ -644,7 +649,7 @@ export function ResearchView() {
               <div className="space-y-1">
                 <label className="text-slate-700 font-semibold">اختار الحالة *</label>
                 <CustomSelect
-                  value={selectedCaseForVisit}
+                  value={effectiveSelectedCaseId}
                   onChange={setSelectedCaseForVisit}
                   options={cases.map((c) => ({
                     value: c.id,
@@ -670,13 +675,20 @@ export function ResearchView() {
 
                 <div className="space-y-1">
                   <label className="text-slate-700 font-semibold">اسم الباحث *</label>
-                  <input
-                    type="text"
-                    required
-                    value={researcherName}
-                    onChange={(e) => setResearcherName(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15"
-                  />
+                  {isResearcherPOV ? (
+                    <div className="w-full p-2.5 bg-slate-50 border border-slate-200/80 rounded-lg text-xs text-slate-800 font-semibold flex items-center justify-between gap-2">
+                      <span className="truncate">{user.name}</span>
+                      <span className="text-[10px] font-medium text-slate-500 shrink-0">تلقائي</span>
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      required
+                      value={researcherName}
+                      onChange={(e) => setResearcherName(e.target.value)}
+                      className="w-full p-2.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15"
+                    />
+                  )}
                 </div>
               </div>
 

@@ -84,6 +84,13 @@ export const NAVIGATION_SECTIONS: Record<string, SectionMeta> = {
     headerTitle: 'التقارير واستخراج الكشوف',
     headerDescription: 'إعداد وطباعة كشوف الصرف الميدانية وتصدير البيانات.',
   },
+  'my-custody': {
+    id: 'my-custody',
+    sidebarLabel: 'كشف عهدتي للتسليم',
+    mobileTitle: 'عهدتي',
+    headerTitle: 'كشف عهدتي للتسليم الميداني',
+    headerDescription: 'المستحقات المعتمدة المسندة إليك لتسليمها للأسر في نطاق عملك.',
+  },
   settings: {
     id: 'settings',
     sidebarLabel: 'قواعد التقييم والإعدادات',
@@ -93,14 +100,43 @@ export const NAVIGATION_SECTIONS: Record<string, SectionMeta> = {
   },
 };
 
-export function getSectionMeta(sectionId: string): SectionMeta {
-  return (
+const RESEARCHER_SECTION_OVERRIDES: Record<string, Partial<SectionMeta>> = {
+  dashboard: {
+    sidebarLabel: 'الرئيسية',
+    mobileTitle: 'الرئيسية',
+    headerTitle: 'لوحة الباحث الميداني',
+    headerDescription: 'متابعة حالاتك المسندة، مهام الزيارات اليومية، وعهدة التسليم الميداني.',
+  },
+  research: {
+    sidebarLabel: 'حالاتي وزياراتي',
+    mobileTitle: 'حالاتي وزياراتي',
+    headerTitle: 'حالاتي وزياراتي الميدانية',
+    headerDescription: 'ملفات الأسر المسندة إليك، الزيارات المطلوبة، وتقارير البحث الميداني.',
+  },
+  'researcher-profile': {
+    sidebarLabel: 'ملفي الميداني',
+    mobileTitle: 'ملفي الميداني',
+    headerTitle: 'ملفي الميداني وإحصائياتي',
+    headerDescription: 'نطاقات التغطية المكلف بها، سجل الزيارات المنجزة، ومؤشرات الأداء.',
+  },
+};
+
+export function getSectionMeta(sectionId: string, role?: string): SectionMeta {
+  const base =
     NAVIGATION_SECTIONS[sectionId] || {
       id: sectionId,
       sidebarLabel: 'لوحة التحكم',
       mobileTitle: 'الرئيسية',
       headerTitle: 'الصفحة الرئيسية وأبرز الأرقام',
       headerDescription: 'إدارة ومتابعة منظومة إحسان للتكافل الاجتماعي.',
-    }
-  );
+    };
+
+  if (role === 'researcher' && RESEARCHER_SECTION_OVERRIDES[sectionId]) {
+    return {
+      ...base,
+      ...RESEARCHER_SECTION_OVERRIDES[sectionId],
+    };
+  }
+
+  return base;
 }

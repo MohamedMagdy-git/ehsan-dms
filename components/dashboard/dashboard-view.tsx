@@ -230,7 +230,7 @@ export function DashboardView() {
                   iconSize={13}
                   content={
                     <p suppressHydrationWarning>
-                      إجمالي كل التبرعات المستلمة فعلياً في الخزينة ({metrics.receivedDonationsTotal.toLocaleString('en-US')} ج.م) قبل خصم الدورات المعتمدة وأوامر الصرف الفوري.
+                      إجمالي كل التبرعات المستلمة فعلياً في الخزينة الموحدة ({metrics.receivedDonationsTotal.toLocaleString('en-US')} ج.م) قبل خصم الدورات الشهرية المعتمدة.
                     </p>
                   }
                 />
@@ -289,7 +289,7 @@ export function DashboardView() {
             </div>
           </div>
 
-          {/* Card 3: Actually Disbursed (Cumulative Approved Cycles + Active Fast-Track Custody) */}
+          {/* Card 3: Actually Disbursed (Cumulative Approved Monthly Cycles Only - Phase 1) */}
           <div className="p-4 bg-white rounded-xl border border-slate-200/80 shadow-none flex flex-col justify-between hover:border-slate-300 transition-colors">
             <div>
               <div className="flex items-center justify-between gap-1">
@@ -305,37 +305,25 @@ export function DashboardView() {
                   content={
                     <div className="space-y-1.5 text-xs tabular-nums" suppressHydrationWarning>
                       <p>
-                        إجمالي المبالغ الخارجة فعلياً من الخزينة عبر جميع الدورات المعتمدة وأوامر الصرف الفوري:
+                        إجمالي المبالغ الخارجة فعلياً من الخزينة الموحدة عبر الدورات الشهرية المعتمدة فقط:
                       </p>
                       <div className="bg-slate-800 p-2 rounded-lg space-y-1 text-[11px] text-slate-200">
                         <div className="flex items-center justify-between gap-3">
-                          <span>الدورات المعتمدة ({metrics.approvedCyclesCount}):</span>
+                          <span>الدورات الشهرية المعتمدة ({metrics.approvedCyclesCount}):</span>
                           <strong className="font-mono">{metrics.approvedCyclesDisbursedTotal.toLocaleString('en-US')} ج.م</strong>
-                        </div>
-                        <div className="flex items-center justify-between gap-3 pt-1 border-t border-slate-700">
-                          <span>صرف فوري (مُسلّم للمستحقين):</span>
-                          <strong className="font-mono">{metrics.fastTrackDeliveredTotal.toLocaleString('en-US')} ج.م</strong>
-                        </div>
-                        <div className="flex items-center justify-between gap-3">
-                          <span>صرف فوري (بعهدة الباحث قيد التسليم):</span>
-                          <strong className="font-mono">{metrics.fastTrackPendingTotal.toLocaleString('en-US')} ج.م</strong>
                         </div>
                       </div>
                       <p className="text-[11px] text-slate-400">
-                        يُحتسب الصرف الفوري قيد التسليم كمخصوم فعلياً لأنه خرج كعهدة مع الباحث، ولا تُحتسب أي مسودات غير معتمدة.
+                        تُخصم الدورات المعتمدة فقط من الخزينة، ولا تُحتسب أي مسودات مفتوحة قيد الإعداد.
                       </p>
                     </div>
                   }
                 />
               </div>
               <span className="text-[11px] text-slate-500 block mt-0.5 truncate">
-                {metrics.approvedCyclesCount > 0 && metrics.activeFastTrackTotal > 0
-                  ? `${metrics.approvedCyclesCount} ${metrics.approvedCyclesCount === 1 ? 'دورة معتمدة' : 'دورات معتمدة'} + صرف فوري`
-                  : metrics.approvedCyclesCount > 0
-                  ? `${metrics.approvedCyclesCount} ${metrics.approvedCyclesCount === 1 ? 'دورة معتمدة' : 'دورات معتمدة'}`
-                  : metrics.activeFastTrackTotal > 0
-                  ? 'أذونات صرف فوري وعُهد'
-                  : 'المسلم والمنفذ فعلياً'}
+                {metrics.approvedCyclesCount > 0
+                  ? `${metrics.approvedCyclesCount} ${metrics.approvedCyclesCount === 1 ? 'دورة شهرية معتمدة' : 'دورات شهرية معتمدة'}`
+                  : 'لم تُعتمد دورات صرف بعد'}
               </span>
             </div>
             <div className="mt-3">
@@ -349,8 +337,6 @@ export function DashboardView() {
                 >
                   {metrics.approvedCyclesCount > 0
                     ? `${metrics.approvedCyclesCount} ${metrics.approvedCyclesCount === 1 ? 'دورة معتمدة' : 'دورات معتمدة'}`
-                    : metrics.activeFastTrackTotal > 0
-                    ? 'صرف فوري مفعل'
                     : 'بانتظار الاعتماد'}
                 </span>
               </div>
@@ -374,10 +360,10 @@ export function DashboardView() {
                     <div className="space-y-1.5 text-xs">
                       <p className="font-semibold text-slate-200">المعادلة المحاسبية:</p>
                       <div className="bg-slate-800 p-2 rounded-lg font-mono text-[11px] text-slate-200" suppressHydrationWarning>
-                        التبرعات المتاحة ({metrics.receivedDonationsTotal.toLocaleString('en-US')}) - المنصرف فعلياً ({metrics.disbursedAssistanceTotal.toLocaleString('en-US')}) = {metrics.netTreasuryBalance.toLocaleString('en-US')} ج.م
+                        إجمالي التبرعات ({metrics.receivedDonationsTotal.toLocaleString('en-US')}) - الدورات المعتمدة ({metrics.approvedCyclesDisbursedTotal.toLocaleString('en-US')}) = {metrics.netTreasuryBalance.toLocaleString('en-US')} ج.م
                       </div>
                       <p>
-                        الرصيد الفعلي المتاح للتوزيع والصرف بعد خصم كافة الدورات المعتمدة وأوامر الصرف الفوري (دون خصم المسودات غير المعتمدة).
+                        الرصيد الفعلي المتاح للتوزيع والصرف في الخزينة الموحدة بعد خصم الدورات الشهرية المعتمدة فقط (دون خصم المسودات غير المعتمدة).
                       </p>
                     </div>
                   }

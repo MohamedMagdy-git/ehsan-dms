@@ -2,7 +2,15 @@
 
 import React, { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { motion, MotionConfig, useMotionValue, animate } from 'motion/react';
+import { useAuth } from '@/context/auth-context';
 import { useApp } from '@/context/app-context';
+import { useToast } from '@/context/toast-context';
+import { canUserReadCaseNote } from '@/lib/researcher-relations';
+import {
+  copyTextToClipboard,
+  getEffectivePayoutMethod,
+  getPayoutMethodLabel,
+} from '@/lib/payout-helpers';
 import {
   X,
   User,
@@ -32,6 +40,10 @@ import {
   MessageSquare,
   Wallet,
   MessageSquareText,
+  Banknote,
+  Smartphone,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { calculateCaseAssessment, getPriorityLabel, getStatusLabel } from '@/services/scoring-engine';
 import { CaseStatus } from '@/types';
@@ -41,6 +53,8 @@ import { ResearcherVoicePlayer } from '@/components/common/researcher-voice-play
 import { CustomSelect } from '@/components/ui/custom-select';
 
 export function CaseDetailsModal() {
+  const { user } = useAuth();
+  const isResearcherPOV = user.role === 'researcher';
   const {
     selectedCaseId,
     setSelectedCaseId,
@@ -82,6 +96,8 @@ export function CaseDetailsModal() {
   const [attachmentTitle, setAttachmentTitle] = useState('');
   const [attachmentCategory, setAttachmentCategory] = useState<'national_id' | 'medical_report' | 'income_proof' | 'housing_contract' | 'field_video'>('medical_report');
   const [attachmentFileName, setAttachmentFileName] = useState('');
+  const { toast } = useToast();
+  const [copiedWallet, setCopiedWallet] = useState(false);
   const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
   const [ledgerFilter, setLedgerFilter] = useState<'all' | 'periodic' | 'fast_track'>('all');
 
@@ -226,8 +242,10 @@ export function CaseDetailsModal() {
   }, [fastTrackOrders, selectedCaseId]);
 
   const thisCaseNotes = useMemo(() => {
-    return selectedCaseId ? caseNotes.filter((n) => n.caseId === selectedCaseId) : [];
-  }, [caseNotes, selectedCaseId]);
+    return selectedCaseId
+      ? caseNotes.filter((n) => n.caseId === selectedCaseId && canUserReadCaseNote(n, user))
+      : [];
+  }, [caseNotes, selectedCaseId, user]);
 
   // تجميع كشف الحساب المالي الموحد للمستفيد (سجل المساعدات والدورات المصروفة)
   type LedgerEntry = {
@@ -632,6 +650,54 @@ export function CaseDetailsModal() {
               <MapPin size={13} className="text-slate-400 shrink-0" />
               <span>{currentCase.governorate} · {currentCase.district}</span>
             </span>
+            <span className="flex items-center gap-1.5">
+              {getEffectivePayoutMethod(currentCase.payoutMethod) === 'e_wallet' ? (
+                <Smartphone size={13} className="text-[#005756] shrink-0" />
+              ) : (
+                <Banknote size={13} className="text-slate-400 shrink-0" />
+              )}
+              <span className="font-medium text-slate-600">
+                {getPayoutMethodLabel(currentCase.payoutMethod)}
+              </span>
+              {getEffectivePayoutMethod(currentCase.payoutMethod) === 'e_wallet' &&
+                currentCase.walletNumber && (
+                  <>
+                    <span className="font-mono tabular-nums text-slate-800 font-semibold" dir="ltr">
+                      {permissions.canViewBeneficiaryPII
+                        ? currentCase.walletNumber
+                        : '010********'}
+                    </span>
+                    {permissions.canViewBeneficiaryPII && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const ok = await copyTextToClipboard(currentCase.walletNumber || '');
+                          if (ok) {
+                            setCopiedWallet(true);
+                            toast.success('تم نسخ رقم المحفظة الإلكترونية');
+                            setTimeout(() => setCopiedWallet(false), 2000);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 hover:text-[#005756] text-[11px] font-semibold transition-colors cursor-pointer"
+                        title="نسخ رقم المحفظة"
+                        aria-label="نسخ رقم المحفظة الإلكترونية"
+                      >
+                        {copiedWallet ? (
+                          <>
+                            <Check size={11} className="text-[#005756]" />
+                            <span className="text-[#005756]">تم النسخ</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={11} />
+                            <span>نسخ</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </>
+                )}
+            </span>
           </div>
 
           {/* Dedicated Action Buttons Grid (thumb-friendly, ≥ 44px touch targets) */}
@@ -892,6 +958,80 @@ export function CaseDetailsModal() {
                 </div>
               </div>
 
+              {/* Payout Method Card (Calm UI) */}
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-500 shrink-0">
+                    {getEffectivePayoutMethod(currentCase.payoutMethod) === 'e_wallet' ? (
+                      <Smartphone size={15} className="text-[#005756]" />
+                    ) : (
+                      <Banknote size={15} className="text-slate-500" />
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <span className="block text-[11px] text-slate-500">طريقة استلام المساعدة</span>
+                    <div className="flex items-center flex-wrap gap-2 mt-0.5">
+                      <span className="font-bold text-slate-800">
+                        {getPayoutMethodLabel(currentCase.payoutMethod)}
+                      </span>
+                      {getEffectivePayoutMethod(currentCase.payoutMethod) === 'e_wallet' &&
+                        currentCase.walletNumber && (
+                          <span
+                            dir="ltr"
+                            className="font-mono tabular-nums text-xs font-semibold text-[#005756]"
+                          >
+                            {permissions.canViewBeneficiaryPII
+                              ? currentCase.walletNumber
+                              : '010********'}
+                          </span>
+                        )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {getEffectivePayoutMethod(currentCase.payoutMethod) === 'e_wallet' &&
+                    currentCase.walletNumber &&
+                    permissions.canViewBeneficiaryPII && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const ok = await copyTextToClipboard(currentCase.walletNumber || '');
+                          if (ok) {
+                            setCopiedWallet(true);
+                            toast.success('تم نسخ رقم المحفظة الإلكترونية');
+                            setTimeout(() => setCopiedWallet(false), 2000);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 hover:text-[#005756] text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        {copiedWallet ? (
+                          <>
+                            <Check size={13} className="text-[#005756]" />
+                            <span className="text-[#005756]">تم النسخ</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={13} />
+                            <span>نسخ الرقم</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                  {permissions.canManageCases && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingCase(currentCase)}
+                      className="inline-flex items-center gap-1 min-h-[36px] px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      <Edit3 size={12} />
+                      <span>تعديل</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
               {/* Researcher Voice Memo Player (if available or pending review) */}
               {(currentCase.voiceNoteUrl ||
                 currentCase.status === 'pending_review' ||
@@ -954,44 +1094,53 @@ export function CaseDetailsModal() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-900">الباحث المسؤول: {currentCase.assignedResearcher}</span>
-                    <button
-                      onClick={() => {
-                        setNewResearcherInput(currentCase.assignedResearcher || '');
-                        setShowReassignDialog(true);
-                      }}
-                      className="text-xs text-teal-800 underline hover:text-teal-950 font-semibold cursor-pointer"
-                    >
-                      تغيير الباحث
-                    </button>
+                    {!isResearcherPOV && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewResearcherInput(currentCase.assignedResearcher || '');
+                          setShowReassignDialog(true);
+                        }}
+                        className="text-xs text-[#005756] underline hover:text-[#004241] font-semibold cursor-pointer"
+                      >
+                        تغيير الباحث
+                      </button>
+                    )}
                   </div>
-                  <div className="flex items-center gap-4 text-slate-500 font-mono text-[11px]">
+                  <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-slate-500 font-mono text-[11px]">
                     <span>تاريخ التسجيل: {currentCase.registrationDate}</span>
-                    <span>آخر زيارة: {currentCase.lastVisitDate}</span>
+                    <span>آخر زيارة: {currentCase.lastVisitDate || 'لم تتم بعد'}</span>
                     <span className={currentCase.isVisitOverdue ? 'text-rose-600 font-bold' : ''}>
                       الزيارة القادمة: {currentCase.nextVisitDueDate}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <CustomSelect
-                    size="sm"
-                    value={currentCase.status}
-                    onChange={(val) => changeCaseStatus(currentCase.id, val as CaseStatus)}
-                    options={[
-                      { value: 'active_eligible', label: 'مستحقة للدعم' },
-                      { value: 'pending_exception', label: 'تحتاج موافقة استثنائية' },
-                      { value: 'under_review', label: 'تحت المراجعة' },
-                      { value: 'temporarily_suspended', label: 'إيقاف مؤقت' },
-                      { value: 'excluded_current_month', label: 'مستبعدة من صرف هذا الشهر' },
-                      { value: 'closed', label: 'إغلاق الملف' },
-                    ]}
-                    ariaLabel="تغيير حالة الملف"
-                    className="w-auto min-w-[180px]"
-                    triggerClassName="h-8 rounded-lg text-xs font-medium"
-                    menuMinWidth={210}
-                  />
-                </div>
+                {!isResearcherPOV ? (
+                  <div className="flex items-center gap-2">
+                    <CustomSelect
+                      size="sm"
+                      value={currentCase.status}
+                      onChange={(val) => changeCaseStatus(currentCase.id, val as CaseStatus)}
+                      options={[
+                        { value: 'active_eligible', label: 'مستحقة للدعم' },
+                        { value: 'pending_exception', label: 'تحتاج موافقة استثنائية' },
+                        { value: 'under_review', label: 'تحت المراجعة' },
+                        { value: 'temporarily_suspended', label: 'إيقاف مؤقت' },
+                        { value: 'excluded_current_month', label: 'مستبعدة من صرف هذا الشهر' },
+                        { value: 'closed', label: 'إغلاق الملف' },
+                      ]}
+                      ariaLabel="تغيير حالة الملف"
+                      className="w-auto min-w-[180px]"
+                      triggerClassName="h-8 rounded-lg text-xs font-medium"
+                      menuMinWidth={210}
+                    />
+                  </div>
+                ) : (
+                  <span className="px-2.5 py-1 rounded-full bg-white border border-slate-200/80 text-slate-700 text-[11px] font-semibold shrink-0">
+                    {getStatusLabel(currentCase.status)}
+                  </span>
+                )}
               </div>
             </div>
           )}

@@ -159,16 +159,16 @@ export function generateMonthlyAllocationProposal({
     exceptionalDistributionMode === 'split_budget' ? 'split_budget' : 'flat_per_case';
   const effectiveFlatAmount = Math.max(0, Number(flatAmountPerCase) || 0);
 
-  // 1. حساب الأرصدة المتاحة من التبرعات المحصلة
+  // 1. حساب الرصيد المتاح من الخزينة الموحدة (كافة التبرعات المستلمة فعلياً بدون فصل مقيد/غير مقيد)
   const availableReceivedDonations = donations.filter((d) => d.status === 'received');
 
-  // الصندوق العام (غير المقيد): المخصص حصرياً للميزانية الدورية والمنح الاستثنائية من الصندوق العام
-  const unrestrictedFunds = availableReceivedDonations
-    .filter((d) => d.restrictionType === 'unrestricted')
-    .reduce((sum, d) => sum + (d.remainingAmount ?? d.amount), 0);
+  const unifiedTreasuryFunds = availableReceivedDonations.reduce(
+    (sum, d) => sum + (d.remainingAmount ?? d.amount),
+    0
+  );
 
-  // ميزانية الدورة: ممولة حصرياً وافتراضياً من الصندوق العام غير المقيد
-  const totalBudget = customTotalBudget !== undefined ? customTotalBudget : unrestrictedFunds;
+  // ميزانية الدورة: ممولة بالكامل من الخزينة الموحدة
+  const totalBudget = customTotalBudget !== undefined ? customTotalBudget : unifiedTreasuryFunds;
   const unrestrictedBudget = totalBudget;
   const restrictedBudget = 0;
 
@@ -240,7 +240,7 @@ export function generateMonthlyAllocationProposal({
   for (const { caseItem, priority, score, gap, usedResearcherRecommendation } of scoredCases) {
     let proposedAmount = 0;
     const fundSource: AllocationItem['fundSource'] = 'unrestricted_pool';
-    let fundSourceName = 'الصندوق العام (غير مقيد)';
+    let fundSourceName = 'الخزينة الموحدة';
     const reasons: string[] = [];
 
     // التحقق الحسابي من تأخر الزيارة الميدانية للأسرة
@@ -282,7 +282,7 @@ export function generateMonthlyAllocationProposal({
         if (share > 0) {
           proposedAmount = share;
           remainingBudget -= share;
-          fundSourceName = 'الصندوق العام (غير مقيد)';
+          fundSourceName = 'الخزينة الموحدة';
           reasons.push(
             share >= targetFlat
               ? `منحة استثنائية موحدة بقيمة ${share.toLocaleString('en-US')} ج.م لكل أسرة مستحقة`
@@ -294,7 +294,7 @@ export function generateMonthlyAllocationProposal({
         if (share > 0) {
           proposedAmount = share;
           remainingBudget -= share;
-          fundSourceName = 'الصندوق العام (غير مقيد)';
+          fundSourceName = 'الخزينة الموحدة';
           reasons.push(
             `توزيع متساوٍ لميزانية الدورة الاستثنائية (${share.toLocaleString('en-US')} ج.م لكل أسرة من أصل ${activeNonOverdueCount} أسرة مستحقة)`
           );
@@ -314,7 +314,7 @@ export function generateMonthlyAllocationProposal({
       if (shareRounded > 0) {
         proposedAmount = shareRounded;
         remainingBudget -= shareRounded;
-        fundSourceName = 'الصندوق العام (غير مقيد)';
+        fundSourceName = 'الخزينة الموحدة';
 
         const capText = coverageMultiplier > 1
           ? `سقف مضاعف ${effectiveMaxCap.toLocaleString('en-US')} ج.م (${coverageMultiplier} أشهر)`
@@ -354,11 +354,11 @@ export function generateMonthlyAllocationProposal({
         if (shareRounded > 0) {
           proposedAmount = shareRounded;
           remainingBudget -= shareRounded;
-          fundSourceName = 'الصندوق العام (غير مقيد)';
+          fundSourceName = 'الخزينة الموحدة';
           const capText = coverageMultiplier > 1
             ? `سقف مضاعف ${effectiveMaxCap.toLocaleString('en-US')} ج.م (${coverageMultiplier} أشهر)`
             : `سقف ${effectiveMaxCap.toLocaleString('en-US')} ج.م`;
-          reasons.push(`دعم شهري دوري ${shareRounded.toLocaleString('en-US')} ج.م من الصندوق العام استناداً للأولوية (${score}/100) و${capText}`);
+          reasons.push(`دعم شهري دوري ${shareRounded.toLocaleString('en-US')} ج.م من الخزينة الموحدة استناداً للأولوية (${score}/100) و${capText}`);
         }
       }
     }

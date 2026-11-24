@@ -19,7 +19,11 @@ import {
 } from 'lucide-react';
 import { BeneficiaryCase, PriorityLevel } from '@/types';
 import { CaseReviewApprovalModal } from './case-review-approval-modal';
-import { calculateFieldSurveyCompleteness, getCoreDocumentsStats } from '@/lib/survey-completeness';
+import {
+  calculateFieldSurveyCompleteness,
+  FIELD_SURVEY_TOTAL_QUESTIONS,
+  getCoreDocumentsStats,
+} from '@/lib/survey-completeness';
 import { ResearcherVoicePlayer } from '@/components/common/researcher-voice-player';
 import { CustomSelect } from '@/components/ui/custom-select';
 
@@ -86,7 +90,13 @@ export function CaseReviewApprovalView() {
 
   const handleDirectApprove = (caseId: string) => {
     approveCaseReview(caseId);
-    toast.success('تم اعتماد الحالة وإدراجها في كشوف الصرف بنجاح');
+    toast.success('تم اعتماد الحالة وإدراجها في كشوف الصرف بنجاح', {
+      duration: 6000,
+      action: {
+        label: 'عرض في الميزانية',
+        onClick: () => setActiveSection('allocation'),
+      },
+    });
   };
 
   const handleReturnSuccess = () => {
@@ -153,9 +163,15 @@ export function CaseReviewApprovalView() {
     return Math.round((totalActual / totalPossible) * 100);
   }, [pendingCases]);
 
-  // Exact dynamic calculation of field survey completeness across all pending cases (22 fields)
+  // Exact dynamic calculation of field survey completeness across all pending cases (24 questions)
   const overallSurveyCompleteness = useMemo(() => {
-    if (pendingCases.length === 0) return { percentage: 100, completed: 22, total: 22 };
+    if (pendingCases.length === 0) {
+      return {
+        percentage: 100,
+        completed: FIELD_SURVEY_TOTAL_QUESTIONS,
+        total: FIELD_SURVEY_TOTAL_QUESTIONS,
+      };
+    }
     const totals = pendingCases.reduce(
       (acc, c) => {
         const res = calculateFieldSurveyCompleteness(c);
@@ -282,7 +298,7 @@ export function CaseReviewApprovalView() {
               {overallSurveyCompleteness.percentage}%
             </span>
             <span className="text-[11px] text-slate-400 font-mono tabular-nums">
-              {overallSurveyCompleteness.completed}/{overallSurveyCompleteness.total} حقل
+              {overallSurveyCompleteness.completed}/{overallSurveyCompleteness.total} سؤال
             </span>
           </div>
 
@@ -519,7 +535,7 @@ export function CaseReviewApprovalView() {
                               </span>
                               <span className="text-xs sm:text-sm font-mono font-bold text-slate-800 block tabular-nums">
                                 {surveyComp.completedFields}/{surveyComp.totalFields}{' '}
-                                <span className="text-[10px] font-medium text-slate-500 font-sans">حقل</span>
+                                <span className="text-[10px] font-medium text-slate-500 font-sans">سؤال</span>
                               </span>
                               <span className="text-[11px] font-medium text-slate-500 block">
                                 {surveyComp.statusBadge.label}
@@ -699,7 +715,7 @@ export function CaseReviewApprovalView() {
                               <div className="pt-0.5 space-y-1 max-w-[210px]">
                                 <div className="flex items-center justify-between text-[11px] text-slate-500 tabular-nums">
                                   <span>
-                                    الاستمارة: {surveyComp.completedFields}/22 ({surveyComp.percentage}%)
+                                    الاستمارة: {surveyComp.completedFields}/{surveyComp.totalFields} ({surveyComp.percentage}%)
                                   </span>
                                   <span className={surveyComp.statusBadge.badgeClass}>
                                     {surveyComp.statusBadge.label}

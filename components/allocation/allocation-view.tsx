@@ -98,7 +98,7 @@ export function AllocationView() {
   const currentAllocation = allocations[currentPeriod];
 
   const prefersReducedMotion = useReducedMotion();
-  const actualUnrestricted = metrics?.unrestrictedDonationsBalance ?? 113000;
+  const actualUnrestricted = Math.max(0, metrics?.netTreasuryBalance ?? 0);
 
   const [budgetInput, setBudgetInput] = useState<number>(
     currentAllocation?.totalBudget ?? actualUnrestricted
@@ -746,7 +746,7 @@ export function AllocationView() {
             <div className="text-[11px] text-slate-400">
               {isExceptionalCycle
                 ? 'سقف الصرف المخصص لهذه المنحة'
-                : 'المتاح في الصندوق العام للدورة'}
+                : 'المتاح في الخزينة الموحدة للدورة'}
             </div>
           </div>
 
@@ -773,7 +773,7 @@ export function AllocationView() {
             </div>
             <div className="text-[11px] text-slate-400">
               {isExceptionalCycle
-                ? 'يفضل ضمن رصيد الصندوق العام'
+                ? 'يفضل ضمن رصيد الخزينة الموحدة'
                 : 'يرجع كرصيد متاح للدورة الجاية'}
             </div>
           </div>
@@ -785,7 +785,7 @@ export function AllocationView() {
             <div className="flex flex-wrap items-center gap-1.5 text-xs">
               <span className="text-xs font-medium text-slate-500 ml-1">سقف الصرف:</span>
               {[
-                { label: 'كامل الصندوق العام', val: actualUnrestricted },
+                { label: 'كامل الرصيد المتاح', val: actualUnrestricted },
                 { label: '50 ألف', val: 50000 },
                 { label: '100 ألف', val: 100000 },
                 { label: '150 ألف', val: 150000 },
@@ -1679,18 +1679,16 @@ export function AllocationView() {
                 </span>
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
                   <div className="p-2.5 bg-white rounded-lg border border-slate-200/80">
-                    <span className="text-slate-500 font-medium block mb-1">يخصم من الصندوق العام:</span>
+                    <span className="text-slate-500 font-medium block mb-1">يُخصم من الخزينة الموحدة:</span>
                     <MoneyDisplay
-                      amount={currentAllocation.items
-                        .filter((i) => !i.isExcluded && i.fundSource === 'unrestricted_pool')
-                        .reduce((s, i) => s + i.approvedAmount, 0)}
+                      amount={currentAllocation.summary.totalAllocated}
                       size="md"
                       variant="neutral"
                     />
                   </div>
                   <div className="p-2.5 bg-white rounded-lg border border-slate-200/80">
                     <span className="text-slate-500 font-medium block mb-1">
-                      {isExceptionalCycle ? 'المتبقي بالصندوق العام:' : 'المتبقي للدورة الجاية:'}
+                      {isExceptionalCycle ? 'المتبقي بالخزينة الموحدة:' : 'المتبقي للدورة الجاية:'}
                     </span>
                     <MoneyDisplay
                       amount={currentAllocation.summary.unallocatedBalance}

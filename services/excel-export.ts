@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import { MonthlyAllocation, BeneficiaryCase, AllocationItem, FastTrackDisbursementOrder, Donation } from '@/types';
 import { getPriorityLabel } from './scoring-engine';
 import { tafqeetNumberToArabicWords } from '@/lib/tafqeet';
+import { getDefaultDeliveryNote } from '@/lib/payout-helpers';
 
 /**
  * دالة مساعدة لتنسيق اسم المستفيد شاملاً الأساسي والثانوي
@@ -319,7 +320,7 @@ export function exportQuickFieldDeliveryToExcel(
       const noteText =
         fieldNotes[item.id] !== undefined
           ? fieldNotes[item.id]
-          : (item.reasoning || '');
+          : getDefaultDeliveryNote(caseObj);
 
       aoa.push([
         index + 1,

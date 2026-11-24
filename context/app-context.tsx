@@ -24,6 +24,8 @@ import {
   FastTrackDisbursementOrder,
   DocumentsChecklist,
   HousingCondition,
+  CustodyDeliveryItem,
+  CaseSurveyAnswers,
 } from '@/types';
 import {
   INITIAL_CASES,
@@ -50,14 +52,22 @@ import {
   reconcileDraftAllocationWithCases,
   formatPeriodLabelFromDate,
 } from '@/services/allocation-engine';
+import { useAuth } from '@/context/auth-context';
+import {
+  normalizeCaseResearcher,
+  normalizeFastTrackResearcher,
+  normalizeReportResearcher,
+  normalizeVisitResearcher,
+  resolveResearcherId,
+} from '@/lib/researcher-relations';
 
 export const ROLE_PROFILES: Record<AppUserRole, UserSessionProfile> = {
   admin: {
     role: 'admin',
-    name: 'أ. أحمد الجزار',
+    name: 'أحمد الجزار',
     title: 'مدير الجمعية والنظام',
     avatarInitial: 'أ',
-    badgeLabel: 'مدير النظام',
+    badgeLabel: 'مدير المنظومة',
     defaultTab: 'dashboard',
     allowedTabs: [
       'dashboard',
@@ -86,13 +96,13 @@ export const ROLE_PROFILES: Record<AppUserRole, UserSessionProfile> = {
   },
   researcher: {
     role: 'researcher',
-    name: 'م. كريم عادل',
-    title: 'باحث ميداني معتمد',
-    avatarInitial: 'ك',
+    name: 'د. طارق المنشاوي',
+    title: 'استشاري تقييم الحالات الطبية وباحث ميداني',
+    avatarInitial: 'ط',
     badgeLabel: 'باحث ميداني',
-    defaultTab: 'research',
-    allowedTabs: ['dashboard', 'cases', 'research', 'researcher-profile', 'fast-track'],
-    description: 'استقصاء الحالات الميدانية، تحديث المستندات، وتنفيذ الزيارات الدورية',
+    defaultTab: 'dashboard',
+    allowedTabs: ['dashboard', 'research', 'my-custody', 'researcher-profile'],
+    description: 'متابعة الحالات المسندة، تنفيذ الزيارات الميدانية، وكشف عهدة التسليم',
   },
   donor: {
     role: 'donor',
@@ -118,6 +128,7 @@ const STORAGE_KEYS = {
   FAST_TRACK_ORDERS: 'ehsan_fast_track_orders_v1',
   CASE_NOTES: 'ehsan_case_notes_v1',
   RESEARCHERS: 'ehsan_researchers_v1',
+  DELIVERED_CUSTODY: 'ehsan_delivered_custody_v1',
 };
 
 export const DEFAULT_RESEARCHERS: string[] = Array.from(
@@ -179,6 +190,7 @@ interface AppContextType {
   shariaCategories: ShariaDonationCategory[];
   chronicDiseases: ChronicDiseaseConfig[];
   fastTrackOrders: FastTrackDisbursementOrder[];
+  deliveredCustodyIds: string[];
   caseNotes: CaseNote[];
   researchers: string[];
 
@@ -315,6 +327,7 @@ interface AppContextType {
       deliveryNotes?: string;
     }
   ) => void;
+  confirmCustodyItemDelivered: (item: CustodyDeliveryItem) => void;
   fastTrackTriggerData: {
     caseId: string;
     suggestedAmount?: number;
@@ -355,7 +368,113 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+/**
+ * دالة التأسيس الموحدة للإصدار الأول (Phase 1):
+ * - الخزينة الموحدة تبدأ بكامل التبرعات المستلمة (188,000 ج.م) بدون أي فصل مقيد/غير مقيد أو صرف فوري.
+ * - تبدأ دورة «كفالات أكتوبر 2026» معتمدة رسمياً مع خصم مبالغها بدقة من التبرعات المستلمة،
+ *   وتبقى دورة «كفالات نوفمبر 2026» كمسودة مفتوحة بالرصيد المتبقي الفعلي بالخزينة الموحدة،
+ *   مما يضمن تطابق المعادلة الذهبية وعمل كشف عهدة الباحث (د. طارق) فوراً من الدورات الشهرية فقط.
+ */
+function buildUnifiedSeedFinancials(
+  seededCases: BeneficiaryCase[],
+  config: ScoringRulesConfig = DEFAULT_SCORING_CONFIG
+): {
+  seededDonations: Donation[];
+  seededAllocations: Record<string, MonthlyAllocation>;
+} {
+  const baseDonations: Donation[] = INITIAL_DONATIONS.map((d) => ({
+    ...d,
+    restrictionType: 'unrestricted',
+    allocatedAmount: 0,
+    remainingAmount: d.amount,
+  }));
+
+  const receivedTotal = baseDonations
+    .filter((d) => d.status === 'received')
+    .reduce((sum, d) => sum + d.amount, 0);
+
+  const octDraft = generateMonthlyAllocationProposal({
+    period: '2026-10',
+    periodLabel: 'أكتوبر 2026',
+    batchTitle: 'كفالات أكتوبر 2026',
+    cycleType: 'regular',
+    periodDate: '2026-10-15',
+    executionDate: '2026-10-15',
+    coverageMonths: 1,
+    cases: seededCases,
+    donations: baseDonations,
+    customTotalBudget: receivedTotal,
+    config,
+  });
+
+  const octAllocatedTotal = octDraft.summary.totalAllocated;
+  const remainingTreasuryAfterOct = Math.max(0, receivedTotal - octAllocatedTotal);
+
+  // خصم إجمالي دورة أكتوبر المعتمدة من التبرعات المستلمة في الخزينة الموحدة بالتتابع
+  let remainingToDeduct = octAllocatedTotal;
+  const seededDonations = baseDonations.map((d) => {
+    if (d.status !== 'received' || remainingToDeduct <= 0) return d;
+    const deduct = Math.min(remainingToDeduct, d.amount);
+    remainingToDeduct -= deduct;
+    return {
+      ...d,
+      allocatedAmount: deduct,
+      remainingAmount: Math.max(0, d.amount - deduct),
+    };
+  });
+
+  const octApproved: MonthlyAllocation = {
+    ...octDraft,
+    status: 'approved',
+    generatedDate: '2026-10-14T10:00:00.000Z',
+    approvedDate: '2026-10-15 11:00',
+    approvedBy: 'أ. أحمد الجزار (رئيس المبادرة)',
+    sessionMinutesNumber: 'محضر رقم 10/2026-إد',
+    sessionMinutesDate: '2026-10-14',
+    treasuryDeduction: {
+      approvedUnrestricted: octAllocatedTotal,
+      approvedRestricted: 0,
+      totalDeducted: octAllocatedTotal,
+      carriedOverSurplus: remainingTreasuryAfterOct,
+      nextPeriod: '2026-11',
+      nextPeriodLabel: 'كفالات نوفمبر 2026',
+    },
+  };
+
+  const novDraft = generateMonthlyAllocationProposal({
+    period: '2026-11',
+    periodLabel: 'نوفمبر 2026',
+    batchTitle: 'كفالات نوفمبر 2026',
+    cycleType: 'regular',
+    periodDate: '2026-11-15',
+    executionDate: '2026-11-15',
+    coverageMonths: 1,
+    cases: seededCases,
+    donations: seededDonations,
+    customTotalBudget: remainingTreasuryAfterOct,
+    config,
+    carriedOverFromPreviousPeriod: {
+      previousPeriod: '2026-10',
+      previousPeriodLabel: 'كفالات أكتوبر 2026',
+      carriedOverAmount: remainingTreasuryAfterOct,
+    },
+  });
+  novDraft.generatedDate = '2026-11-14T10:00:00.000Z';
+  novDraft.sessionMinutesNumber = 'محضر رقم 11/2026-إد';
+  novDraft.sessionMinutesDate = '2026-11-14';
+
+  return {
+    seededDonations,
+    seededAllocations: {
+      '2026-10': octApproved,
+      '2026-11': novDraft,
+    },
+  };
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const { user: authUser, role: authRole, switchDemoUser } = useAuth();
+
   const [activeSection, setActiveSection] = useState<string>('dashboard');
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [selectedCaseTab, setSelectedCaseTab] = useState<CaseDetailsTab>('profile');
@@ -365,9 +484,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSelectedCaseTab(defaultTab);
     setSelectedCaseId(caseId);
   }, []);
-  const [currentUserRole, setCurrentUserRole] = useState<AppUserRole>('admin');
+  const [currentUserRole, setCurrentUserRole] = useState<AppUserRole>(authRole);
+  const prevAuthRoleRef = useRef(authRole);
+
   const [activeDonorId, setActiveDonorId] = useState<string>('donor-ahmed-hossam');
-  const [currentPeriod, setCurrentPeriod] = useState<string>('2026-10');
+  const [currentPeriod, setCurrentPeriod] = useState<string>('2026-11');
   const [isNewCaseModalOpen, setIsNewCaseModalOpen] = useState<boolean>(false);
   const [isNewDonationModalOpen, setIsNewDonationModalOpen] = useState<boolean>(false);
   const [isFieldSurveyModalOpen, setIsFieldSurveyModalOpen] = useState<boolean>(false);
@@ -379,6 +500,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     donationNote?: string;
   } | null>(null);
 
+  useEffect(() => {
+    if (prevAuthRoleRef.current !== authRole) {
+      prevAuthRoleRef.current = authRole;
+      setCurrentUserRole(authRole);
+      const nextProfile = ROLE_PROFILES[authRole];
+      setActiveSection(nextProfile?.defaultTab || 'dashboard');
+      setSelectedCaseId(null);
+      setEditingCase(null);
+      setIsNewDonationModalOpen(false);
+    }
+  }, [authRole]);
+
   // Offline Sync States
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncSuccessMessage, setSyncSuccessMessage] = useState<string | null>(null);
@@ -388,54 +521,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsFieldSurveyModalOpen(true);
   };
 
-  // Consistent initial state between SSR and Client
-  const [cases, setCases] = useState<BeneficiaryCase[]>(INITIAL_CASES);
-  const [donations, setDonations] = useState<Donation[]>(INITIAL_DONATIONS);
-  const [visits, setVisits] = useState<FieldVisit[]>(INITIAL_VISITS);
-  const [researchReports, setResearchReports] = useState<CaseResearchReport[]>(INITIAL_RESEARCH_REPORTS);
+  // Consistent initial state between SSR and Client (normalized with canonical researcherId)
+  const initialNormalizedCases = useMemo(() => INITIAL_CASES.map(normalizeCaseResearcher), []);
+  const initialFinancialSeed = useMemo(
+    () => buildUnifiedSeedFinancials(initialNormalizedCases, DEFAULT_SCORING_CONFIG),
+    [initialNormalizedCases]
+  );
+
+  const [cases, setCases] = useState<BeneficiaryCase[]>(() => initialNormalizedCases);
+  const [donations, setDonations] = useState<Donation[]>(() => initialFinancialSeed.seededDonations);
+  const [visits, setVisits] = useState<FieldVisit[]>(() =>
+    INITIAL_VISITS.map(normalizeVisitResearcher)
+  );
+  const [researchReports, setResearchReports] = useState<CaseResearchReport[]>(() =>
+    INITIAL_RESEARCH_REPORTS.map(normalizeReportResearcher)
+  );
   const [scoringConfig, setScoringConfig] = useState<ScoringRulesConfig>(DEFAULT_SCORING_CONFIG);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
   const [shariaCategories, setShariaCategories] = useState<ShariaDonationCategory[]>(DEFAULT_SHARIA_CATEGORIES);
   const [chronicDiseases, setChronicDiseases] = useState<ChronicDiseaseConfig[]>(DEFAULT_CHRONIC_DISEASES);
-  const [fastTrackOrders, setFastTrackOrders] = useState<FastTrackDisbursementOrder[]>(INITIAL_FAST_TRACK_ORDERS);
+  const [fastTrackOrders, setFastTrackOrders] = useState<FastTrackDisbursementOrder[]>([]);
+  const [deliveredCustodyIds, setDeliveredCustodyIds] = useState<string[]>([]);
   const [caseNotes, setCaseNotes] = useState<CaseNote[]>(INITIAL_CASE_NOTES);
   const [researchers, setResearchers] = useState<string[]>(DEFAULT_RESEARCHERS);
-  const [allocations, setAllocations] = useState<Record<string, MonthlyAllocation>>(() => {
-    const octProposal = generateMonthlyAllocationProposal({
-      period: '2026-10',
-      periodLabel: 'أكتوبر 2026',
-      batchTitle: 'كفالات أكتوبر 2026',
-      cycleType: 'regular',
-      periodDate: '2026-10-15',
-      executionDate: '2026-10-15',
-      coverageMonths: 1,
-      cases: INITIAL_CASES,
-      donations: INITIAL_DONATIONS,
-      config: DEFAULT_SCORING_CONFIG,
-    });
-    octProposal.sessionMinutesNumber = 'محضر رقم 10/2026-إد';
-    octProposal.sessionMinutesDate = '2026-10-14';
-
-    const novProposal = generateMonthlyAllocationProposal({
-      period: '2026-11',
-      periodLabel: 'نوفمبر 2026',
-      batchTitle: 'كفالات نوفمبر 2026',
-      cycleType: 'regular',
-      periodDate: '2026-11-15',
-      executionDate: '2026-11-15',
-      coverageMonths: 1,
-      cases: INITIAL_CASES,
-      donations: INITIAL_DONATIONS,
-      config: DEFAULT_SCORING_CONFIG,
-    });
-    novProposal.sessionMinutesNumber = 'محضر رقم 11/2026-إد';
-    novProposal.sessionMinutesDate = '2026-11-14';
-
-    return {
-      '2026-10': octProposal,
-      '2026-11': novProposal,
-    };
-  });
+  const [allocations, setAllocations] = useState<Record<string, MonthlyAllocation>>(
+    () => initialFinancialSeed.seededAllocations
+  );
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
 
   // Restore persisted state after initial client mount to prevent SSR hydration mismatch
@@ -450,19 +561,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (savedCases) {
         const parsedCases = JSON.parse(savedCases);
         if (Array.isArray(parsedCases)) {
-          hydratedCases = parsedCases.map((c: BeneficiaryCase) =>
-            !c.lastVisitDate || c.status === 'pending_field_research'
-              ? { ...c, isVisitOverdue: false }
-              : c
-          );
+          const initialCaseById = new Map(INITIAL_CASES.map((ic) => [ic.id, ic]));
+          hydratedCases = parsedCases.map((c: BeneficiaryCase) => {
+            const seedCase = initialCaseById.get(c.id);
+            const withPayoutDefaults =
+              c.payoutMethod === undefined && seedCase?.payoutMethod !== undefined
+                ? {
+                    ...c,
+                    payoutMethod: seedCase.payoutMethod,
+                    walletNumber: c.walletNumber ?? seedCase.walletNumber,
+                  }
+                : c;
+            return normalizeCaseResearcher(
+              !withPayoutDefaults.lastVisitDate ||
+                withPayoutDefaults.status === 'pending_field_research'
+                ? { ...withPayoutDefaults, isVisitOverdue: false }
+                : withPayoutDefaults
+            );
+          });
           setCases(hydratedCases);
         }
       }
 
       const savedDonations = localStorage.getItem(STORAGE_KEYS.DONATIONS);
       if (savedDonations) {
-        hydratedDonations = JSON.parse(savedDonations);
-        setDonations(hydratedDonations);
+        const parsedDonations = JSON.parse(savedDonations);
+        if (Array.isArray(parsedDonations)) {
+          // في الإصدار الأول (Phase 1): توحيد جميع التبرعات داخل الخزينة الموحدة
+          hydratedDonations = parsedDonations.map((d: Donation) => ({
+            ...d,
+            restrictionType: 'unrestricted',
+          }));
+          setDonations(hydratedDonations);
+        }
       }
 
       const savedCategories = localStorage.getItem(STORAGE_KEYS.SHARIA_CATEGORIES);
@@ -487,7 +618,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       const savedVisits = localStorage.getItem(STORAGE_KEYS.VISITS);
-      if (savedVisits) setVisits(JSON.parse(savedVisits));
+      if (savedVisits) {
+        const parsedVisits = JSON.parse(savedVisits);
+        if (Array.isArray(parsedVisits)) {
+          setVisits(parsedVisits.map(normalizeVisitResearcher));
+        }
+      }
 
       const savedScoring = localStorage.getItem(STORAGE_KEYS.SCORING);
       if (savedScoring) {
@@ -519,21 +655,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const savedAllocations = localStorage.getItem(STORAGE_KEYS.ALLOCATIONS);
       if (savedAllocations) {
         try {
-          const parsed = JSON.parse(savedAllocations);
+          const parsed = JSON.parse(savedAllocations) as Record<string, MonthlyAllocation>;
+          const receivedTotalHydrated = hydratedDonations
+            .filter((d) => d.status === 'received')
+            .reduce((sum, d) => sum + d.amount, 0);
+          const approvedDisbursedHydrated = Object.values(parsed)
+            .filter((a) => a.status === 'approved' || a.status === 'closed')
+            .reduce((sum, a) => sum + (a.summary?.totalAllocated ?? 0), 0);
+          const unifiedLiveRemaining = Math.max(0, receivedTotalHydrated - approvedDisbursedHydrated);
+
           const sanitized: Record<string, MonthlyAllocation> = {};
-          for (const [k, v] of Object.entries(parsed as Record<string, MonthlyAllocation>)) {
-            // Ensure draft allocations strictly route 100% through unrestricted_pool
+          for (const [k, v] of Object.entries(parsed)) {
             const sanitizedItems = (v.items || []).map((item) => {
               if (v.status === 'draft') {
                 return {
                   ...item,
                   fundSource: 'unrestricted_pool' as const,
-                  fundSourceName: item.fundSourceName?.includes('موقوفة') ? item.fundSourceName : 'الصندوق العام (غير مقيد)',
+                  fundSourceName: item.fundSourceName?.includes('موقوفة')
+                    ? item.fundSourceName
+                    : 'الخزينة الموحدة',
                 };
               }
               return item;
             });
-            const budgetVal = v.totalBudget === 188000 ? 113000 : v.totalBudget;
+            // إزالة سقف 113,000 القديم تلقائياً لصالح صافي الخزينة الموحدة في المسودات الدورية
+            const isRegularDraft = v.status === 'draft' && (v.cycleType || 'regular') === 'regular';
+            const budgetVal =
+              isRegularDraft && (v.totalBudget === 113000 || v.totalBudget === 188000)
+                ? unifiedLiveRemaining
+                : v.totalBudget;
             const inferredDate =
               v.periodDate ||
               v.executionDate ||
@@ -552,7 +702,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               summary: calculateAllocationSummary(sanitizedItems, budgetVal),
             };
 
-            // Auto-heal open draft cycles so previously approved eligible cases appear immediately
             sanitized[k] =
               normalizedAlloc.status === 'draft' &&
               doesDraftAllocationNeedSync(normalizedAlloc, hydratedCases, hydratedScoring)
@@ -569,7 +718,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           console.warn('Failed to parse saved allocations:', err);
         }
       } else if (savedCases) {
-        // If cases were persisted without allocations, sync initial open drafts against hydrated cases
         setAllocations((prev) => {
           const updated: Record<string, MonthlyAllocation> = {};
           for (const [k, alloc] of Object.entries(prev)) {
@@ -588,22 +736,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      const savedFastTrack = localStorage.getItem(STORAGE_KEYS.FAST_TRACK_ORDERS);
-      if (savedFastTrack) {
-        try {
-          const parsed = JSON.parse(savedFastTrack);
-          if (Array.isArray(parsed)) {
-            const hasCase05Order = parsed.some((o: FastTrackDisbursementOrder) => o.caseId === 'case-05');
-            if (!hasCase05Order) {
-              const defaultCase05Order = INITIAL_FAST_TRACK_ORDERS.find((o) => o.caseId === 'case-05');
-              if (defaultCase05Order) parsed.push(defaultCase05Order);
-            }
-            setFastTrackOrders(parsed);
-          }
-        } catch (err) {
-          console.warn('Failed to parse fast-track orders:', err);
-        }
-      }
+      // الإصدار الأول (Phase 1): إلغاء وتصفير أي أذونات صرف فوري موروثة من التخزين المحلي القديم
+      setFastTrackOrders([]);
 
       const savedNotes = localStorage.getItem(STORAGE_KEYS.CASE_NOTES);
       if (savedNotes) {
@@ -626,6 +760,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         } catch (err) {
           console.warn('Failed to parse researchers:', err);
+        }
+      }
+
+      const savedDeliveredCustody = localStorage.getItem(STORAGE_KEYS.DELIVERED_CUSTODY);
+      if (savedDeliveredCustody) {
+        try {
+          const parsed = JSON.parse(savedDeliveredCustody);
+          if (Array.isArray(parsed)) {
+            setDeliveredCustodyIds(parsed.filter((id): id is string => typeof id === 'string'));
+          }
+        } catch (err) {
+          console.warn('Failed to parse delivered custody IDs:', err);
         }
       }
     } catch (e) {
@@ -735,44 +881,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [researchers, isHydrated]);
 
+  useEffect(() => {
+    if (!isHydrated) return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.DELIVERED_CUSTODY, JSON.stringify(deliveredCustodyIds));
+    } catch (e) {
+      console.warn('Failed to save delivered custody IDs to localStorage:', e);
+    }
+  }, [deliveredCustodyIds, isHydrated]);
+
   const resetToSeedData = () => {
-    setCases(INITIAL_CASES);
-    setDonations(INITIAL_DONATIONS);
-    setVisits(INITIAL_VISITS);
-    setResearchReports(INITIAL_RESEARCH_REPORTS);
+    const seededCases = INITIAL_CASES.map(normalizeCaseResearcher);
+    const { seededDonations, seededAllocations } = buildUnifiedSeedFinancials(
+      seededCases,
+      DEFAULT_SCORING_CONFIG
+    );
+
+    setCases(seededCases);
+    setDonations(seededDonations);
+    setVisits(INITIAL_VISITS.map(normalizeVisitResearcher));
+    setResearchReports(INITIAL_RESEARCH_REPORTS.map(normalizeReportResearcher));
     setScoringConfig(DEFAULT_SCORING_CONFIG);
     setAuditLogs(INITIAL_AUDIT_LOGS);
     setShariaCategories(DEFAULT_SHARIA_CATEGORIES);
     setChronicDiseases(DEFAULT_CHRONIC_DISEASES);
-    setFastTrackOrders(INITIAL_FAST_TRACK_ORDERS);
+    setFastTrackOrders([]);
+    setDeliveredCustodyIds([]);
     setCaseNotes(INITIAL_CASE_NOTES);
     setResearchers(DEFAULT_RESEARCHERS);
+    setSelectedCaseId(null);
+    setEditingCase(null);
+    setAllocations(seededAllocations);
+    setCurrentPeriod('2026-11');
 
-    const octProposal = generateMonthlyAllocationProposal({
-      period: '2026-10',
-      periodLabel: 'أكتوبر 2026',
-      batchTitle: 'كفالات أكتوبر 2026',
-      executionDate: '2026-10-15',
-      coverageMonths: 1,
-      cases: INITIAL_CASES,
-      donations: INITIAL_DONATIONS,
-      config: DEFAULT_SCORING_CONFIG,
-    });
-    const novProposal = generateMonthlyAllocationProposal({
-      period: '2026-11',
-      periodLabel: 'نوفمبر 2026',
-      batchTitle: 'كفالات نوفمبر 2026',
-      executionDate: '2026-11-15',
-      coverageMonths: 1,
-      cases: INITIAL_CASES,
-      donations: INITIAL_DONATIONS,
-      config: DEFAULT_SCORING_CONFIG,
-    });
-    setAllocations({
-      '2026-10': octProposal,
-      '2026-11': novProposal,
-    });
-
+    // نحافظ على مفتاح الدور النشط (ehsan_auth_demo_role_v1) سليماً دون كسر جلسة الدور الحالي
     if (typeof window !== 'undefined') {
       localStorage.removeItem(STORAGE_KEYS.CASES);
       localStorage.removeItem(STORAGE_KEYS.DONATIONS);
@@ -785,6 +927,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem(STORAGE_KEYS.FAST_TRACK_ORDERS);
       localStorage.removeItem(STORAGE_KEYS.CASE_NOTES);
       localStorage.removeItem(STORAGE_KEYS.RESEARCHERS);
+      localStorage.removeItem(STORAGE_KEYS.DELIVERED_CUSTODY);
+    }
+
+    // ضمان بقاء التبويب النشط ضمن صلاحيات الدور الحالي بعد الاستعادة
+    const activeProfile = ROLE_PROFILES[currentUserRole];
+    if (activeProfile && !activeProfile.allowedTabs.includes(activeSection)) {
+      setActiveSection(activeProfile.defaultTab);
     }
   };
 
@@ -853,9 +1002,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const primary = (caseData.primaryName || caseData.fullName || '').trim();
     const secondary = caseData.secondaryName?.trim() || undefined;
+    const assignedResearcherName =
+      caseData.assignedResearcher?.trim() ||
+      (authUser.role === 'researcher' ? authUser.name : '');
+    const resolvedResearcherId = resolveResearcherId(
+      assignedResearcherName,
+      caseData.researcherId ||
+        (authUser.role === 'researcher' ? authUser.researcherId : undefined)
+    );
     const nextNumber = cases.length + 101;
     const newCase: BeneficiaryCase = {
       ...caseData,
+      assignedResearcher: assignedResearcherName || caseData.assignedResearcher,
+      researcherId: resolvedResearcherId,
       primaryName: primary,
       secondaryName: secondary,
       fullName: primary,
@@ -1117,106 +1276,68 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (foundCat) shariaName = foundCat.name;
     }
 
-    const isRestrictedCase =
-      donationData.restrictionType === 'restricted_case' && !!donationData.designatedCaseId;
     const isReceived = donationData.status === 'received';
     const newDonationId = `don-${Date.now()}`;
 
+    // الإصدار الأول (Phase 1): كل التبرعات تدخل الخزينة الموحدة بالكامل دون فصل مقيد أو توليد أذونات صرف فوري
     const newDonation: Donation = {
       ...donationData,
+      restrictionType: 'unrestricted',
+      designatedCaseId: undefined,
+      designatedCaseName: undefined,
+      designatedPurpose: undefined,
       shariaCategoryName: shariaName,
       id: newDonationId,
       donorReference: `DON-${nextIndex.toString().padStart(2, '0')}`,
-      allocatedAmount: isRestrictedCase && isReceived ? donationData.amount : 0,
-      remainingAmount: isRestrictedCase && isReceived ? 0 : donationData.amount,
+      allocatedAmount: 0,
+      remainingAmount: donationData.amount,
     };
     setDonations((prev) => [newDonation, ...prev]);
 
-    // إذا كان التبرع مقيداً لحالة محددة ومستلماً، يتم فوراً إصدار إذن صرف فوري معلق مخصص للحالة
-    if (isRestrictedCase && isReceived && donationData.designatedCaseId) {
-      const targetCase = cases.find((c) => c.id === donationData.designatedCaseId);
-      if (targetCase) {
-        const nextVoucherNum = fastTrackOrders.length + 1;
-        const voucherCode = `FTD-2026-${String(nextVoucherNum).padStart(3, '0')}`;
-        const todayStr = donationData.receivedDate || new Date().toISOString().split('T')[0];
-
-        // احتساب مهلة أسبوع للتسليم
-        const dueObj = new Date(todayStr);
-        dueObj.setDate(dueObj.getDate() + 7);
-        const dueDeadlineStr = dueObj.toISOString().split('T')[0];
-
-        const catObj = shariaCategories.find((c) => c.id === donationData.shariaCategoryId);
-
-        const autoOrder: FastTrackDisbursementOrder = {
-          id: `fto-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          voucherCode,
-          caseId: targetCase.id,
-          caseCode: targetCase.code,
-          caseName: targetCase.primaryName || targetCase.fullName,
-          beneficiaryPrimaryName: targetCase.primaryName || targetCase.fullName,
-          beneficiarySecondaryName: targetCase.secondaryName,
-          beneficiaryNationalId: targetCase.nationalId,
-          beneficiaryPhone: targetCase.phone,
-          beneficiaryAddress: `${targetCase.governorate} - ${targetCase.district} - ${targetCase.address}`,
-          shariaCategoryId: donationData.shariaCategoryId || 'sharia-03',
-          shariaCategoryName: shariaName || 'تبرع مقيد لحالة خاصة',
-          shariaCategoryColor: catObj?.color || 'teal',
-          amount: donationData.amount,
-          assignedResearcher: targetCase.assignedResearcher || 'أ. وائل فتحي',
-          issuedDate: todayStr,
-          dueDeadlineDate: dueDeadlineStr,
-          status: 'pending_delivery',
-          purposeNote:
-            donationData.notes ||
-            `تبرع مقيد بالاسم للحالة (${targetCase.code}) من المتبرع (${donationData.donorName}) بموجب إيصال دفتري ${donationData.manualReceiptNo || 'ورقي'}`,
-          issuedBy: 'النظام الآلي (بموجب تبرع مقيد بالاسم)',
-          manualReceiptNo: donationData.manualReceiptNo,
-          donationId: newDonationId,
-          isRestrictedCaseOrder: true,
-          donorName: donationData.donorName,
-        };
-
-        setFastTrackOrders((prev) => [autoOrder, ...prev]);
-
-        // توثيق القيد في السجل المالي للحالة
-        const receiptRef = donationData.manualReceiptNo ? ` (سند قبض: ${donationData.manualReceiptNo})` : '';
-        const timelineEntry = `[${todayStr}] تم تخصيص تبرع مقيد بالاسم بمبلغ ${donationData.amount.toLocaleString('ar-EG')} ج.م من المتبرع (${donationData.donorName})${receiptRef} وإصدار إذن صرف فوري برقم (${voucherCode}) قيد التسليم بواسطة الباحث (${autoOrder.assignedResearcher})`;
-
-        setCases((prevCases) =>
-          prevCases.map((c) => {
-            if (c.id === targetCase.id) {
-              return {
-                ...c,
-                historicalAssistanceTotal: (c.historicalAssistanceTotal ?? 0) + donationData.amount,
-                notes: c.notes ? `${timelineEntry}\n${c.notes}` : timelineEntry,
-              };
-            }
-            return c;
-          })
-        );
-
-        addAuditLog(
-          'توليد إذن صرف مقيد تلقائياً',
-          `تم إنشاء إذن صرف فوري (${voucherCode}) بمبلغ ${donationData.amount.toLocaleString('ar-EG')} ج.م للحالة (${targetCase.fullName}) تنفيذاً لقيد المتبرع (${donationData.donorName}) بموجب إيصال دفتري (${donationData.manualReceiptNo || '-'})`
-        );
-      }
+    // عند استلام تبرع فعلي جديد، يرتفع الرصيد المتاح للصرف تلقائياً في الدورات الدورية المفتوحة (draft)
+    if (isReceived && donationData.amount > 0) {
+      setAllocations((prevAlloc) => {
+        const nextMap: Record<string, MonthlyAllocation> = {};
+        let changed = false;
+        for (const [key, alloc] of Object.entries(prevAlloc)) {
+          if (alloc.status === 'draft' && (alloc.cycleType || 'regular') === 'regular') {
+            const nextBudget = alloc.totalBudget + donationData.amount;
+            nextMap[key] = {
+              ...alloc,
+              totalBudget: nextBudget,
+              unrestrictedBudget: nextBudget,
+              restrictedBudget: 0,
+              summary: calculateAllocationSummary(alloc.items, nextBudget),
+            };
+            changed = true;
+          } else {
+            nextMap[key] = alloc;
+          }
+        }
+        return changed ? nextMap : prevAlloc;
+      });
     }
 
     const manualReceiptSuffix = newDonation.manualReceiptNo
       ? ` [سند ورقي: ${newDonation.manualReceiptNo}]`
       : '';
-    const caseSuffix = newDonation.designatedCaseName
-      ? ` مخصص للحالة (${newDonation.designatedCaseName})`
-      : '';
     addAuditLog(
       'تسجيل تبرع جديد',
-      `تسجيل تبرع بقيمة ${newDonation.amount.toLocaleString('ar-EG')} ج.م من ${newDonation.donorName} (${newDonation.restrictionType})${caseSuffix}${manualReceiptSuffix}`
+      `تسجيل تبرع بقيمة ${newDonation.amount.toLocaleString('ar-EG')} ج.م من ${newDonation.donorName} (${
+        isReceived ? 'مستلم بالخزينة الموحدة' : 'تعهد قيد التحصيل'
+      })${manualReceiptSuffix}`
     );
   };
 
   const addVisit = (visitData: Omit<FieldVisit, 'id'>) => {
+    const resolvedResearcherId = resolveResearcherId(
+      visitData.researcherName,
+      visitData.researcherId ||
+        (authUser.role === 'researcher' ? authUser.researcherId : undefined)
+    );
     const newVisit: FieldVisit = {
       ...visitData,
+      researcherId: resolvedResearcherId,
       id: `visit-${Date.now()}`,
     };
     setVisits((prev) => [newVisit, ...prev]);
@@ -1239,10 +1360,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const reassignResearcher = (caseId: string, newResearcher: string, reason?: string) => {
+    const nextResearcherId = resolveResearcherId(newResearcher);
     setCases((prev) =>
       prev.map((c) => {
         if (c.id === caseId) {
-          return { ...c, assignedResearcher: newResearcher };
+          return {
+            ...c,
+            assignedResearcher: newResearcher,
+            researcherId: nextResearcherId,
+          };
         }
         return c;
       })
@@ -1710,60 +1836,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // 2. خصم هذه المبالغ رسمياً من الأرصدة المتاحة في الخزينة وتحديث سجلات التبرعات
+    // 2. خصم إجمالي الدورة المعتمدة بالتتابع من الخزينة الموحدة (كافة التبرعات المستلمة)
+    const receivedDonationsSum = donations
+      .filter((d) => d.status === 'received')
+      .reduce((s, d) => s + d.amount, 0);
+    const alreadyApprovedTotal = Object.entries(allocations)
+      .filter(([k, a]) => k !== period && (a.status === 'approved' || a.status === 'closed'))
+      .reduce((s, [, a]) => s + (a.summary?.totalAllocated ?? 0), 0);
+    const liveRemainingTreasury = Math.max(0, receivedDonationsSum - alreadyApprovedTotal - totalDeducted);
+
     let updatedDonationsList: Donation[] = [];
     setDonations((prevDonations) => {
-      let remainingUnrestrictedToDeduct = approvedUnrestricted;
+      let remainingToDeduct = totalDeducted;
       const updated = prevDonations.map((d) => ({ ...d }));
 
-      // أ) خصم التبرعات المقيدة بالاسم للحالات المحددة
-      for (const item of nonExcludedItems) {
-        if (item.approvedAmount <= 0) continue;
-
-        if (item.fundSource === 'restricted_case') {
-          const targetDon = updated.find(
-            (d) =>
-              d.restrictionType === 'restricted_case' &&
-              d.designatedCaseId === item.caseId &&
-              (d.remainingAmount ?? d.amount) > 0
-          );
-          if (targetDon) {
-            const currentRem = targetDon.remainingAmount ?? targetDon.amount;
-            const deduct = Math.min(item.approvedAmount, currentRem);
-            targetDon.allocatedAmount = (targetDon.allocatedAmount || 0) + deduct;
-            targetDon.remainingAmount = Math.max(0, currentRem - deduct);
-          }
-        } else if (item.fundSource === 'restricted_purpose') {
-          let needToDeduct = item.approvedAmount;
-          for (const targetDon of updated) {
-            if (needToDeduct <= 0) break;
-            if (
-              targetDon.restrictionType === 'restricted_purpose' &&
-              (targetDon.remainingAmount ?? targetDon.amount) > 0
-            ) {
-              const currentRem = targetDon.remainingAmount ?? targetDon.amount;
-              const deduct = Math.min(needToDeduct, currentRem);
-              targetDon.allocatedAmount = (targetDon.allocatedAmount || 0) + deduct;
-              targetDon.remainingAmount = Math.max(0, currentRem - deduct);
-              needToDeduct -= deduct;
-            }
-          }
-        }
-      }
-
-      // ب) خصم المبالغ المعتمدة من الصندوق العام غير المقيد
       for (const targetDon of updated) {
-        if (remainingUnrestrictedToDeduct <= 0) break;
+        if (remainingToDeduct <= 0) break;
         if (
           targetDon.status === 'received' &&
-          targetDon.restrictionType === 'unrestricted' &&
           (targetDon.remainingAmount ?? targetDon.amount) > 0
         ) {
           const currentRem = targetDon.remainingAmount ?? targetDon.amount;
-          const deduct = Math.min(remainingUnrestrictedToDeduct, currentRem);
+          const deduct = Math.min(remainingToDeduct, currentRem);
           targetDon.allocatedAmount = (targetDon.allocatedAmount || 0) + deduct;
           targetDon.remainingAmount = Math.max(0, currentRem - deduct);
-          remainingUnrestrictedToDeduct -= deduct;
+          remainingToDeduct -= deduct;
         }
       }
 
@@ -1771,7 +1868,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return updated;
     });
 
-    // 3. ترحيل الفائض المتبقي من الدورة المعتمدة وتحديث كائن allocations للدورة الحالية واللاحقة (للدورية فقط)
+    // 3. ترحيل الفائض الفعلي المتبقي بالخزينة الموحدة وتحديث الدورات المفتوحة
     setAllocations((prevAllocations) => {
       const currentAlloc = prevAllocations[period] || current;
 
@@ -1781,10 +1878,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         approvedDate: new Date().toISOString().replace('T', ' ').substring(0, 16),
         approvedBy,
         treasuryDeduction: {
-          approvedUnrestricted,
-          approvedRestricted,
+          approvedUnrestricted: totalDeducted,
+          approvedRestricted: 0,
           totalDeducted,
-          carriedOverSurplus,
+          carriedOverSurplus: liveRemainingTreasury,
           nextPeriod: nextPeriodKey || undefined,
           nextPeriodLabel,
         },
@@ -1795,12 +1892,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         [period]: approvedAllocation,
       };
 
+      // مزامنة أي مسودات دورية أخرى مفتوحة لتعكس الرصيد المتبقي الحقيقي بالخزينة الموحدة
+      for (const [k, alloc] of Object.entries(updatedMap)) {
+        if (k !== period && alloc.status === 'draft' && (alloc.cycleType || 'regular') === 'regular') {
+          updatedMap[k] = {
+            ...alloc,
+            totalBudget: liveRemainingTreasury,
+            unrestrictedBudget: liveRemainingTreasury,
+            restrictedBudget: 0,
+            summary: calculateAllocationSummary(alloc.items, liveRemainingTreasury),
+          };
+        }
+      }
+
       if (!isExceptionalCycle && nextPeriodKey) {
         const carryOverInfo = {
           previousPeriod: period,
           previousPeriodLabel:
             currentAlloc.batchTitle || currentAlloc.periodLabel || formatPeriodLabel(period),
-          carriedOverAmount: carriedOverSurplus,
+          carriedOverAmount: liveRemainingTreasury,
         };
 
         if (shouldCreateNextMonthDraft) {
@@ -1814,7 +1924,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             executionDate: `${nextPeriodKey}-15`,
             cases,
             donations: updatedDonationsList.length > 0 ? updatedDonationsList : donations,
-            customTotalBudget: carriedOverSurplus,
+            customTotalBudget: liveRemainingTreasury,
             config: scoringConfig,
             carriedOverFromPreviousPeriod: carryOverInfo,
           });
@@ -1824,6 +1934,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           updatedMap[nextPeriodKey] = reconcileDraftAllocationWithCases(
             {
               ...existingNext,
+              totalBudget: liveRemainingTreasury,
+              unrestrictedBudget: liveRemainingTreasury,
+              restrictedBudget: 0,
               carriedOverFromPreviousPeriod: carryOverInfo,
             },
             cases,
@@ -1853,7 +1966,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const item = nonExcludedItems.find((i) => i.caseId === c.id);
         if (item && item.approvedAmount > 0) {
           const adjNote = item.isManuallyAdjusted && item.adjustmentReason ? ` [ملاحظة تعديل: ${item.adjustmentReason}]` : '';
-          const timelineEntry = `[${execDate}] تم اعتماد وصرف دورة: ${batchTitle}${covText} بمبلغ ${item.approvedAmount.toLocaleString('ar-EG')} ج.م (${item.fundSourceName})${adjNote}`;
+          const timelineEntry = `[${execDate}] تم اعتماد وصرف دورة: ${batchTitle}${covText} بمبلغ ${item.approvedAmount.toLocaleString('ar-EG')} ج.م (الخزينة الموحدة)${adjNote}`;
           const updatedNotes = c.notes ? `${timelineEntry}\n${c.notes}` : timelineEntry;
           return {
             ...c,
@@ -1867,12 +1980,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // 5. توثيق حركة الاعتماد والخصم في سجل الرقابة والتدقيق
     const surplusAuditNote = isExceptionalCycle
-      ? `وبقي فائض ${carriedOverSurplus.toLocaleString('ar-EG')} ج.م ضمن رصيد الصندوق العام`
-      : `وتم ترحيل فائض ${carriedOverSurplus.toLocaleString('ar-EG')} ج.م لدورة ${nextPeriodLabel || 'الشهر التالي'}`;
+      ? `وبقي رصيد ${liveRemainingTreasury.toLocaleString('ar-EG')} ج.م في الخزينة الموحدة`
+      : `وتم ترحيل الرصيد المتبقي (${liveRemainingTreasury.toLocaleString('ar-EG')} ج.م) لدورة ${nextPeriodLabel || 'الشهر التالي'}`;
 
     addAuditLog(
       'اعتماد ميزانية دورة الصرف',
-      `تم الاعتماد النهائي لدورة "${batchTitle}" [تاريخ الصرف المقرر: ${execDate}${covText}] بمبلغ إجمالي ${totalDeducted.toLocaleString('ar-EG')} ج.م (صندوق عام: ${approvedUnrestricted.toLocaleString('ar-EG')} ج.م، مقيد: ${approvedRestricted.toLocaleString('ar-EG')} ج.م) بواسطة ${approvedBy}، ${surplusAuditNote}`
+      `تم الاعتماد النهائي لدورة "${batchTitle}" [تاريخ الصرف المقرر: ${execDate}${covText}] بمبلغ إجمالي ${totalDeducted.toLocaleString('ar-EG')} ج.م من الخزينة الموحدة بواسطة ${approvedBy}، ${surplusAuditNote}`
     );
   };
 
@@ -1882,51 +1995,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const nonExcludedItems = current.items.filter((item) => !item.isExcluded);
 
-    // 1. إعادة المبالغ المخصومة إلى الخزينة وسجلات التبرعات (Reverse treasury deduction)
-    if (current.treasuryDeduction) {
-      const { approvedUnrestricted } = current.treasuryDeduction;
-
+    // 1. إعادة المبالغ المخصومة إلى الخزينة الموحدة وسجلات التبرعات
+    const restoredAmount = current.treasuryDeduction?.totalDeducted ?? current.summary?.totalAllocated ?? 0;
+    if (restoredAmount > 0) {
       setDonations((prevDonations) => {
-        let remainingUnrestrictedToRestore = approvedUnrestricted;
+        let remainingToRestore = restoredAmount;
         const updated = prevDonations.map((d) => ({ ...d }));
 
-        // أ) إعادة التبرعات المقيدة بالاسم للحالات المحددة
-        for (const item of nonExcludedItems) {
-          if (item.approvedAmount <= 0) continue;
-
-          if (item.fundSource === 'restricted_case') {
-            const targetDon = updated.find(
-              (d) =>
-                d.restrictionType === 'restricted_case' &&
-                d.designatedCaseId === item.caseId
-            );
-            if (targetDon) {
-              const restore = Math.min(item.approvedAmount, targetDon.allocatedAmount || 0);
-              targetDon.allocatedAmount = Math.max(0, (targetDon.allocatedAmount || 0) - restore);
-              targetDon.remainingAmount = (targetDon.remainingAmount ?? 0) + restore;
-            }
-          } else if (item.fundSource === 'restricted_purpose') {
-            let needToRestore = item.approvedAmount;
-            for (const targetDon of updated) {
-              if (needToRestore <= 0) break;
-              if (targetDon.restrictionType === 'restricted_purpose' && (targetDon.allocatedAmount || 0) > 0) {
-                const restore = Math.min(needToRestore, targetDon.allocatedAmount || 0);
-                targetDon.allocatedAmount = Math.max(0, (targetDon.allocatedAmount || 0) - restore);
-                targetDon.remainingAmount = (targetDon.remainingAmount ?? 0) + restore;
-                needToRestore -= restore;
-              }
-            }
-          }
-        }
-
-        // ب) إعادة المبالغ للصندوق العام غير المقيد
         for (const targetDon of updated) {
-          if (remainingUnrestrictedToRestore <= 0) break;
-          if (targetDon.status === 'received' && targetDon.restrictionType === 'unrestricted' && (targetDon.allocatedAmount || 0) > 0) {
-            const restore = Math.min(remainingUnrestrictedToRestore, targetDon.allocatedAmount || 0);
+          if (remainingToRestore <= 0) break;
+          if (targetDon.status === 'received' && (targetDon.allocatedAmount || 0) > 0) {
+            const restore = Math.min(remainingToRestore, targetDon.allocatedAmount || 0);
             targetDon.allocatedAmount = Math.max(0, (targetDon.allocatedAmount || 0) - restore);
             targetDon.remainingAmount = (targetDon.remainingAmount ?? 0) + restore;
-            remainingUnrestrictedToRestore -= restore;
+            remainingToRestore -= restore;
           }
         }
 
@@ -1948,14 +2030,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       );
     }
 
-    // 3. تحويل حالة الدورة إلى مسودة draft مع توثيق بيانات الفتح الاستثنائي
+    // 3. تحويل حالة الدورة إلى مسودة draft ومزامنة الرصيد المتاح مع المسودات الدورية
     const unlockTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const receivedDonationsSum = donations
+      .filter((d) => d.status === 'received')
+      .reduce((s, d) => s + d.amount, 0);
+    const remainingApprovedSum = Object.entries(allocations)
+      .filter(([k, a]) => k !== period && (a.status === 'approved' || a.status === 'closed'))
+      .reduce((s, [, a]) => s + (a.summary?.totalAllocated ?? 0), 0);
+    const restoredLiveTreasury = Math.max(0, receivedDonationsSum - remainingApprovedSum);
+
     setAllocations((prevAllocations) => {
       const currentAlloc = prevAllocations[period] || current;
+      const nextMap: Record<string, MonthlyAllocation> = {};
+      for (const [k, alloc] of Object.entries(prevAllocations)) {
+        if (k === period) continue;
+        if (alloc.status === 'draft' && (alloc.cycleType || 'regular') === 'regular') {
+          nextMap[k] = {
+            ...alloc,
+            totalBudget: restoredLiveTreasury,
+            unrestrictedBudget: restoredLiveTreasury,
+            restrictedBudget: 0,
+            summary: calculateAllocationSummary(alloc.items, restoredLiveTreasury),
+          };
+        } else {
+          nextMap[k] = alloc;
+        }
+      }
       return {
-        ...prevAllocations,
+        ...nextMap,
         [period]: {
           ...currentAlloc,
+          totalBudget:
+            (currentAlloc.cycleType || 'regular') === 'regular'
+              ? restoredLiveTreasury
+              : currentAlloc.totalBudget,
+          unrestrictedBudget:
+            (currentAlloc.cycleType || 'regular') === 'regular'
+              ? restoredLiveTreasury
+              : currentAlloc.unrestrictedBudget,
+          restrictedBudget: 0,
+          summary: calculateAllocationSummary(
+            currentAlloc.items,
+            (currentAlloc.cycleType || 'regular') === 'regular'
+              ? restoredLiveTreasury
+              : currentAlloc.totalBudget
+          ),
           status: 'draft',
           isExceptionallyUnlocked: true,
           unlockedDate: unlockTimestamp,
@@ -2096,6 +2216,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       shariaCategoryColor: category?.color || 'teal',
       amount: data.amount,
       assignedResearcher: data.assignedResearcher,
+      researcherId: resolveResearcherId(data.assignedResearcher, targetCase.researcherId),
       issuedDate: new Date().toISOString().split('T')[0],
       dueDeadlineDate: data.dueDeadlineDate,
       status: 'pending_delivery',
@@ -2292,9 +2413,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const newNote: CaseNote = {
         id: `note-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         caseId: noteData.caseId,
-        authorName: noteData.authorName || profile?.name || 'مستخدم النظام',
-        authorRole: noteData.authorRole || profile?.title || profile?.badgeLabel || 'عضو الفريق',
+        authorName: noteData.authorName || authUser.name || profile?.name || 'مستخدم النظام',
+        authorRole: noteData.authorRole || authUser.title || profile?.title || profile?.badgeLabel || 'عضو الفريق',
         authorId: currentUserRole,
+        authorUserId: authUser.id,
         isPrivate: noteData.isPrivate,
         content: noteData.content.trim(),
         createdAt: dateFormatted,
@@ -2311,7 +2433,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       return newNote;
     },
-    [currentUserRole, addAuditLog]
+    [currentUserRole, authUser.id, authUser.name, authUser.title, addAuditLog]
   );
 
   const deleteCaseNote = useCallback((noteId: string) => {
@@ -2427,6 +2549,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       let resolvedCaseCode = existingTargetCase?.code || 'EHS-NEW';
 
+      const surveyAnswersSnapshot: CaseSurveyAnswers = {
+        schemaVersion: 1,
+        submittedAt: report.updatedAt || new Date().toISOString(),
+        visitDate: visitDateValue,
+        caseName: report.caseName?.trim() || undefined,
+        visitorName: researcherLabel,
+        contactPhone: report.contactPhone?.trim() || undefined,
+        secondaryPhone: report.secondaryPhone?.trim() || undefined,
+        address: report.address?.trim() || undefined,
+        referralSource: report.referralSource?.trim() || undefined,
+        priorityLevel: report.priorityLevel,
+        housingStatus: String(report.housingStatus || '').trim() || undefined,
+        housingFacilities: report.housingFacilities,
+        caseSummary: cleanCaseSummary || undefined,
+        landmarkAddress: report.landmarkAddress?.trim() || undefined,
+        basicIncomeSources: report.basicIncomeSources?.trim() || undefined,
+        basicIncomeAmount: Number(report.basicIncomeAmount) || 0,
+        additionalIncomeSources: report.additionalIncomeSources?.trim() || undefined,
+        additionalIncomeAmount: Number(report.additionalIncomeAmount) || 0,
+        familyAssets: report.familyAssets?.trim() || undefined,
+        monthlyBasicExpenses: Number(report.monthlyBasicExpenses) || 0,
+        monthlyDebtsInstallments: Number(report.monthlyDebtsInstallments) || 0,
+        debtsAndObligations: report.debtsAndObligations?.trim() || undefined,
+        netFinancialGap: Number(report.netFinancialGap) || 0,
+        financialGapDocumentation: report.financialGapDocumentation?.trim() || undefined,
+        medicalConditionDescription: report.medicalConditionDescription?.trim() || undefined,
+        chronicVerification: report.chronicVerification?.trim() || undefined,
+        stateHealthInsuranceDetails: report.stateHealthInsuranceDetails?.trim() || undefined,
+        monthlyMedicalCosts: Number(report.monthlyMedicalCosts) || 0,
+        recommendedAssistanceType: report.recommendedAssistanceType?.trim() || undefined,
+        recommendedMonthlyAmount:
+          typeof report.recommendedMonthlyAmount === 'number'
+            ? report.recommendedMonthlyAmount
+            : undefined,
+        additionalNotesAndRemarks: cleanRecommendation || undefined,
+        finalConfirmationChecked: true,
+      };
+
       if (targetCaseId) {
         setCases((prev) =>
           prev.map((c) => {
@@ -2466,6 +2626,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 adminRevisionNote: undefined,
                 housingFacilities: report.housingFacilities || c.housingFacilities,
                 assignedResearcher: researcherLabel || c.assignedResearcher,
+                researcherId:
+                  resolveResearcherId(
+                    researcherLabel || c.assignedResearcher,
+                    c.researcherId ||
+                      (authUser.role === 'researcher' ? authUser.researcherId : undefined)
+                  ),
                 status: 'pending_review' as CaseStatus,
                 priority: report.priorityLevel || c.priority,
                 lastAssessmentDate: visitDateValue,
@@ -2514,6 +2680,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   incompleteDocuments: isIncompleteCoreDocs,
                 },
                 notes: c.notes ? `${auditStepLog}\n\n${c.notes}`.trim() : auditStepLog,
+                surveyAnswers: surveyAnswersSnapshot,
               };
             }
             return c;
@@ -2547,6 +2714,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           researcherJustification: cleanRecommendation || undefined,
           housingFacilities: report.housingFacilities,
           assignedResearcher: researcherLabel,
+          researcherId: resolveResearcherId(
+            researcherLabel,
+            authUser.role === 'researcher' ? authUser.researcherId : undefined
+          ),
           registrationDate: now,
           status: 'pending_review' as CaseStatus,
           priority: report.priorityLevel || 'high',
@@ -2600,6 +2771,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             exceptionApproved: false,
           },
           notes: auditStepLog,
+          surveyAnswers: surveyAnswersSnapshot,
         };
 
         setCases((prev) => [newCase, ...prev]);
@@ -2611,12 +2783,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ? report.executiveSummary.justificationText
         : combinedRecommendation || 'يوصى بمراجعة الملف واعتماد الاستحقاق المناسب.';
 
+      const resolvedReportResearcherId = resolveResearcherId(
+        researcherLabel,
+        existingTargetCase?.researcherId ||
+          (authUser.role === 'researcher' ? authUser.researcherId : undefined)
+      );
+
       const newReport: CaseResearchReport = {
         id: `rep-${Date.now()}`,
         caseId: targetCaseId,
         caseCode: resolvedCaseCode,
         caseName: report.caseName,
         researcherName: researcherLabel,
+        researcherId: resolvedReportResearcherId,
         reportDate: visitDateValue,
         visitType: 'initial_field',
         housingNotes: `${report.housingStatus}: ${cleanObservations}`,
@@ -2638,6 +2817,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         caseCode: resolvedCaseCode,
         caseName: report.caseName,
         researcherName: researcherLabel,
+        researcherId: resolvedReportResearcherId,
         visitDate: visitDateValue,
         scheduledNextDate: nextDueDateStr,
         status: 'completed',
@@ -2685,7 +2865,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         `تم إرسال استمارة بحث حالة (${report.caseName}) بالحالة: pending_review (بانتظار المراجعة والاعتماد)`
       );
     },
-    [cases, addAuditLog]
+    [cases, addAuditLog, authUser.role, authUser.researcherId]
   );
 
   // مرجع الدورة المستقلة للرئيسية وبوابة المتبرعين (معزول تماماً عن اختيار شاشة توزيع الميزانية أو التقارير):
@@ -2742,41 +2922,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const receivedDonations = donations.filter((d) => d.status === 'received');
     const receivedDonationsTotal = receivedDonations.reduce((s, d) => s + d.amount, 0);
 
-    const unrestrictedDonationsBalance = receivedDonations
-      .filter((d) => d.restrictionType === 'unrestricted')
-      .reduce((s, d) => s + (d.remainingAmount ?? d.amount), 0);
-
-    // Purpose-restricted inbound & remaining balance
-    const restrictedPurposeDonations = receivedDonations.filter((d) => d.restrictionType === 'restricted_purpose');
-    const restrictedPurposeInbound = restrictedPurposeDonations.reduce((s, d) => s + d.amount, 0);
-    const restrictedPurposeBalance = restrictedPurposeDonations.reduce((s, d) => s + (d.remainingAmount ?? d.amount), 0);
-
-    // Case-restricted inbound & remaining balance
-    const restrictedCaseDonations = receivedDonations.filter((d) => d.restrictionType === 'restricted_case');
-    const restrictedCaseInbound = restrictedCaseDonations.reduce((s, d) => s + d.amount, 0);
-    const restrictedCaseBalance = restrictedCaseDonations.reduce((s, d) => s + (d.remainingAmount ?? d.amount), 0);
-
-    // Total restricted balance (sum of purpose + case)
-    const restrictedDonationsBalance = restrictedPurposeBalance + restrictedCaseBalance;
-
-    // الصرف الفوري: فصل المُسلّم فعلياً عن العهدة قيد التسليم مع خصم الاثنين (غير الملغاة) من الخزينة
-    const activeRestrictedOrders = fastTrackOrders.filter((o) => o.status !== 'cancelled');
-    const fastTrackDeliveredTotal = activeRestrictedOrders
-      .filter((o) => o.status === 'delivered')
-      .reduce((s, o) => s + o.amount, 0);
-    const fastTrackPendingTotal = activeRestrictedOrders
-      .filter((o) => o.status === 'pending_delivery')
-      .reduce((s, o) => s + o.amount, 0);
-    const activeFastTrackTotal = fastTrackDeliveredTotal + fastTrackPendingTotal;
-    const restrictedDisbursedTotal = activeFastTrackTotal;
-
-    const totalAvailableLiquidity = unrestrictedDonationsBalance + restrictedDonationsBalance;
-
     const pledgedDonationsTotal = donations
       .filter((d) => d.status === 'pledged')
       .reduce((s, d) => s + d.amount, 0);
 
-    // إجمالي كافة الدورات المعتمدة والمغلقة فعلياً (دون أي تأثر بالمسودات تحت الإعداد)
+    // الإصدار الأول (Phase 1): إجمالي كافة الدورات الشهرية المعتمدة والمغلقة فعلياً فقط (صفر تأثير للصرف الفوري أو المقيد)
     const approvedCyclesList = Object.values(allocations).filter(
       (a) => a.status === 'approved' || a.status === 'closed'
     );
@@ -2786,21 +2936,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       0
     );
 
+    // الصرف الفوري والمقيد مؤجّل لما بعد الإصدار الأول بدون أي أثر مالي
+    const fastTrackDeliveredTotal = 0;
+    const fastTrackPendingTotal = 0;
+    const activeFastTrackTotal = 0;
+    const restrictedDisbursedTotal = 0;
+    const restrictedPurposeInbound = 0;
+    const restrictedPurposeBalance = 0;
+    const restrictedCaseInbound = 0;
+    const restrictedCaseBalance = 0;
+    const restrictedDonationsBalance = 0;
+
     // بطاقة الدورة الرئيسية (أحدث دورة معتمدة أو أول دورة جاهزة للاعتماد)
     const approvedAssistanceTotal = dashboardCycle?.summary.totalAllocated ?? 0;
     const isAllocationApproved =
       dashboardCycle?.status === 'approved' || dashboardCycle?.status === 'closed';
 
-    // تم صرفه فعلياً = مجموع جميع الدورات المعتمدة/المغلقة + إجمالي أوامر الصرف الفوري الفعالة (مُسلّم + بعهدة الباحث)
-    const disbursedAssistanceTotal = approvedCyclesDisbursedTotal + activeFastTrackTotal;
+    // المعادلة الموحدة (Phase 1):
+    // تم صرفه فعلياً = إجمالي الدورات الشهرية المعتمدة فقط
+    const disbursedAssistanceTotal = approvedCyclesDisbursedTotal;
     const totalDisbursedOrAllocated = disbursedAssistanceTotal;
 
-    // الرصيد غير المقيد المتاح حالياً (تم خصم الدورات المعتمدة منه مسبقاً في remainingAmount)
-    const unrestrictedAvailableBalance = Math.max(0, unrestrictedDonationsBalance);
-
-    // المتبقي في الخزنة = إجمالي التبرعات المتاحة - إجمالي كافة المصروفات المعتمدة والمنفذة فعلياً
-    const netTreasuryBalance = receivedDonationsTotal - disbursedAssistanceTotal;
+    // المتبقي في الخزينة === الرصيد المتاح للصرف في الميزانية === إجمالي التبرعات المستلمة - إجمالي الدورات المعتمدة فقط
+    const netTreasuryBalance = receivedDonationsTotal - approvedCyclesDisbursedTotal;
     const treasuryStatus: 'surplus' | 'deficit' = netTreasuryBalance >= 0 ? 'surplus' : 'deficit';
+    const unrestrictedDonationsBalance = Math.max(0, netTreasuryBalance);
+    const unrestrictedAvailableBalance = Math.max(0, netTreasuryBalance);
+    const totalAvailableLiquidity = Math.max(0, netTreasuryBalance);
 
     const totalFamiliesNeedGap = cases
       .filter((c) => c.status === 'active_eligible' || (c.status === 'pending_exception' && c.vulnerability?.exceptionApproved))
@@ -2843,7 +3005,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       totalFamiliesNeedGap,
       isAllocationApproved,
     };
-  }, [cases, donations, allocations, dashboardCycle, fastTrackOrders]);
+  }, [cases, donations, allocations, dashboardCycle]);
 
   // Role permissions
   const permissions = useMemo(() => {
@@ -2862,11 +3024,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [currentUserRole]);
 
   const handleSetCurrentUserRole = (role: AppUserRole) => {
+    if (role === 'admin' || role === 'researcher') {
+      switchDemoUser(role);
+    }
     setCurrentUserRole(role);
     const profile = ROLE_PROFILES[role];
     if (profile && !profile.allowedTabs.includes(activeSection)) {
       setActiveSection(profile.defaultTab);
     }
+  };
+
+  const confirmCustodyItemDelivered = (item: CustodyDeliveryItem) => {
+    if (item.sourceType === 'fast_track' && item.fastTrackOrderId) {
+      markFastTrackOrderDelivered(item.fastTrackOrderId, {
+        deliveryMethod: 'cash_signed',
+        deliveryNotes: `تم تأكيد التسليم الميداني بواسطة ${authUser.name} من كشف العهدة`,
+      });
+      return;
+    }
+
+    setDeliveredCustodyIds((prev) =>
+      prev.includes(item.id) ? prev : [...prev, item.id]
+    );
+    addAuditLog(
+      'تأكيد تسليم عهدة ميدانية',
+      `أكد الباحث (${authUser.name}) تسليم مبلغ ${item.amount.toLocaleString('ar-EG')} ج.م للمستحق ${item.caseName} (${item.caseCode}) ضمن ${item.sourceLabel}`
+    );
   };
 
   return (
@@ -2913,6 +3096,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         shariaCategories,
         chronicDiseases,
         fastTrackOrders,
+        deliveredCustodyIds,
         caseNotes,
         researchers,
         addCaseNote,
@@ -2947,6 +3131,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         unlockAllocation,
         issueFastTrackDisbursement,
         markFastTrackOrderDelivered,
+        confirmCustodyItemDelivered,
         cancelFastTrackOrder,
         fastTrackTriggerData,
         setFastTrackTriggerData,
