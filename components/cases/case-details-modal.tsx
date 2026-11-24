@@ -44,13 +44,18 @@ import {
   Smartphone,
   Copy,
   Check,
+  FileCheck2,
 } from 'lucide-react';
 import { calculateCaseAssessment, getPriorityLabel, getStatusLabel } from '@/services/scoring-engine';
-import { CaseStatus } from '@/types';
+import { CaseStatus, DeliveryProof } from '@/types';
 import { BeneficiaryNotes } from '@/components/beneficiaries/beneficiary-notes';
 import { ResearcherSelect } from './researcher-select';
 import { ResearcherVoicePlayer } from '@/components/common/researcher-voice-player';
 import { CustomSelect } from '@/components/ui/custom-select';
+import {
+  DeliveryProofPreviewModal,
+  DeliveryProofPreviewTarget,
+} from '@/components/custody/delivery-proof-modal';
 
 export function CaseDetailsModal() {
   const { user } = useAuth();
@@ -74,6 +79,7 @@ export function CaseDetailsModal() {
     addCaseAttachment,
     openFieldSurvey,
     caseNotes,
+    getDeliveryProof,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'financials' | 'visits' | 'documents' | 'notes'>(
@@ -100,6 +106,7 @@ export function CaseDetailsModal() {
   const [copiedWallet, setCopiedWallet] = useState(false);
   const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
   const [ledgerFilter, setLedgerFilter] = useState<'all' | 'periodic' | 'fast_track'>('all');
+  const [previewProofTarget, setPreviewProofTarget] = useState<DeliveryProofPreviewTarget | null>(null);
 
   // Mobile Bottom Sheet interactive drag & snap state
   const [isMobileViewport, setIsMobileViewport] = useState(() =>
@@ -261,6 +268,8 @@ export function CaseDetailsModal() {
     statusLabel: string;
     voucherNo: string;
     isFastTrack: boolean;
+    deliveryProof?: DeliveryProof;
+    period?: string;
   };
 
   const beneficiaryLedger = useMemo(() => {
@@ -296,6 +305,10 @@ export function CaseDetailsModal() {
             ? `[تعديل المبلغ]: ${item.adjustmentReason}`
             : item.reasoning;
 
+          const custodyItemId = `cycle-${alloc.id}-${item.id}`;
+          const resolvedProof =
+            getDeliveryProof(caseId, alloc.period, custodyItemId) || item.deliveryProof;
+
           entries.push({
             id: `alloc-${alloc.id}-${item.id}`,
             batchTitle: title,
@@ -309,6 +322,8 @@ export function CaseDetailsModal() {
             statusLabel,
             voucherNo: isApproved ? `إيصال صرف #${alloc.period.replace('-', '')}-${caseCode.replace('CASE-', '')}` : `مسودة #${alloc.period}`,
             isFastTrack: false,
+            deliveryProof: resolvedProof,
+            period: alloc.period,
           });
         }
       });
@@ -316,6 +331,10 @@ export function CaseDetailsModal() {
 
     // 2. استخراج المساعدات الفورية والتبرعات الخاصة بالحالة
     caseFastTrackOrders.forEach((order) => {
+      const ftCustodyId = `ft-${order.id}`;
+      const resolvedProof =
+        getDeliveryProof(caseId, undefined, ftCustodyId) || order.deliveryProof;
+
       entries.push({
         id: `ft-${order.id}`,
         batchTitle: `مساعدة فورية (${order.shariaCategoryName})`,
@@ -329,12 +348,17 @@ export function CaseDetailsModal() {
         statusLabel: order.status === 'delivered' ? 'تم التسليم' : order.status === 'cancelled' ? 'ملغي' : 'جاري التسليم',
         voucherNo: order.deliveryReceiptNo ? `${order.voucherCode} (إيصال: ${order.deliveryReceiptNo})` : order.voucherCode,
         isFastTrack: true,
+        deliveryProof: resolvedProof,
       });
     });
 
     entries.sort((a, b) => b.date.localeCompare(a.date));
     return entries;
-  }, [allocations, currentCase, caseFastTrackOrders]);
+  }, [allocations, currentCase, caseFastTrackOrders, getDeliveryProof]);
+
+  const latestDeliveryProofEntry = useMemo(() => {
+    return beneficiaryLedger.find((e) => Boolean(e.deliveryProof));
+  }, [beneficiaryLedger]);
 
   const filteredLedger = useMemo(() => {
     if (ledgerFilter === 'periodic') return beneficiaryLedger.filter((e) => !e.isFastTrack);
@@ -601,6 +625,28 @@ export function CaseDetailsModal() {
                 <span className="text-[11px] px-2.5 py-0.5 rounded-md font-semibold border bg-slate-100 text-slate-700 border-slate-200">
                   {getStatusLabel(currentCase.status)}
                 </span>
+                {latestDeliveryProofEntry?.deliveryProof && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPreviewProofTarget({
+                        caseName: currentCase.primaryName || currentCase.fullName,
+                        caseCode: currentCase.code,
+                        amount: latestDeliveryProofEntry.approvedAmount,
+                        batchTitle: latestDeliveryProofEntry.batchTitle,
+                        researcherName: currentCase.assignedResearcher,
+                        payoutMethod: getEffectivePayoutMethod(currentCase.payoutMethod),
+                        walletNumber: currentCase.walletNumber,
+                        proof: latestDeliveryProofEntry.deliveryProof!,
+                      })
+                    }
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-white hover:bg-slate-100 text-[#005756] border border-slate-200/90 text-[11px] font-bold transition-colors cursor-pointer"
+                    title="معاينة إثبات التسليم المرفق"
+                  >
+                    <FileCheck2 size={12} className="shrink-0" />
+                    <span>موثّق بإثبات</span>
+                  </button>
+                )}
               </div>
 
               <button
@@ -1402,18 +1448,42 @@ export function CaseDetailsModal() {
                               {/* 6. Status & Voucher No. */}
                               <td className="py-2.5 px-3 whitespace-nowrap">
                                 <div className="space-y-1">
-                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
-                                    row.status === 'delivered'
-                                      ? 'bg-emerald-100 text-emerald-800'
-                                      : row.status === 'approved'
-                                      ? 'bg-teal-100 text-teal-800'
-                                      : row.status === 'cancelled' || row.status === 'excluded'
-                                      ? 'bg-rose-100 text-rose-800'
-                                      : 'bg-amber-100 text-amber-800'
-                                  }`}>
-                                    {row.status === 'delivered' && <CheckCircle size={10} />}
-                                    <span>{row.statusLabel}</span>
-                                  </span>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                                      row.status === 'delivered'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : row.status === 'approved'
+                                        ? 'bg-teal-100 text-teal-800'
+                                        : row.status === 'cancelled' || row.status === 'excluded'
+                                        ? 'bg-rose-100 text-rose-800'
+                                        : 'bg-amber-100 text-amber-800'
+                                    }`}>
+                                      {row.status === 'delivered' && <CheckCircle size={10} />}
+                                      <span>{row.statusLabel}</span>
+                                    </span>
+                                    {row.deliveryProof && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setPreviewProofTarget({
+                                            caseName: currentCase.primaryName || currentCase.fullName,
+                                            caseCode: currentCase.code,
+                                            amount: row.approvedAmount,
+                                            batchTitle: row.batchTitle,
+                                            researcherName: currentCase.assignedResearcher,
+                                            payoutMethod: getEffectivePayoutMethod(currentCase.payoutMethod),
+                                            walletNumber: currentCase.walletNumber,
+                                            proof: row.deliveryProof!,
+                                          })
+                                        }
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-50 hover:bg-slate-100 text-[#005756] border border-slate-200/90 text-[10px] font-bold transition-colors cursor-pointer"
+                                        title="معاينة صورة وتفاصيل إثبات التسليم"
+                                      >
+                                        <FileCheck2 size={10} className="shrink-0" />
+                                        <span>موثّق بإثبات</span>
+                                      </button>
+                                    )}
+                                  </div>
                                   <div className="font-mono text-[10px] text-slate-500 font-semibold">
                                     {row.voucherNo}
                                   </div>
@@ -1779,6 +1849,12 @@ export function CaseDetailsModal() {
           </div>
         </div>
       )}
+
+      {/* Delivery Proof Preview Modal */}
+      <DeliveryProofPreviewModal
+        target={previewProofTarget}
+        onClose={() => setPreviewProofTarget(null)}
+      />
       </div>
     </MotionConfig>
   );

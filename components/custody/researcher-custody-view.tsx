@@ -1,29 +1,32 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import { useAuth } from '@/context/auth-context';
 import { useApp } from '@/context/app-context';
 import { useScopedData } from '@/hooks/use-scoped-data';
 import { useToast } from '@/context/toast-context';
-import { CustodyDeliveryItem } from '@/types';
+import { CustodyDeliveryItem, DeliveryProof } from '@/types';
 import {
   copyTextToClipboard,
   getEffectivePayoutMethod,
   getPayoutMethodLabel,
 } from '@/lib/payout-helpers';
 import {
+  DeliveryProofCaptureModal,
+  DeliveryProofPreviewModal,
+  DeliveryProofPreviewTarget,
+} from '@/components/custody/delivery-proof-modal';
+import {
   Banknote,
   Check,
   CheckCircle2,
   Copy,
+  FileCheck2,
   MapPin,
   Phone,
-  Printer,
   Smartphone,
   Wallet,
-  X,
 } from 'lucide-react';
 
 type CustodyFilterTab = 'all' | 'pending' | 'delivered';
@@ -42,8 +45,11 @@ export function ResearcherCustodyView() {
   const prefersReducedMotion = useReducedMotion();
 
   const [filterTab, setFilterTab] = useState<CustodyFilterTab>('all');
-  const [isPrintSheetOpen, setIsPrintSheetOpen] = useState(false);
   const [copiedItemId, setCopiedItemId] = useState<string | null>(null);
+  const [activeCaptureItem, setActiveCaptureItem] =
+    useState<CustodyDeliveryItem | null>(null);
+  const [previewProofTarget, setPreviewProofTarget] =
+    useState<DeliveryProofPreviewTarget | null>(null);
 
   const handleCopyWallet = async (itemId: string, walletNumber: string) => {
     const ok = await copyTextToClipboard(walletNumber);
@@ -79,19 +85,18 @@ export function ResearcherCustodyView() {
 
   const handleConfirmDelivery = (item: CustodyDeliveryItem) => {
     if (item.status === 'delivered') return;
-    confirmCustodyItemDelivered(item);
+    setActiveCaptureItem(item);
+  };
+
+  const handleSaveDeliveryConfirmation = (
+    item: CustodyDeliveryItem,
+    proof?: DeliveryProof
+  ) => {
+    confirmCustodyItemDelivered(item, proof);
     toast.success(
       `تم تأكيد تسليم ${item.amount.toLocaleString('ar-EG')} ج.م لـ ${item.caseName} بنجاح`
     );
   };
-
-  const todayFormatted = useMemo(() => {
-    return new Intl.DateTimeFormat('ar-EG', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    }).format(new Date());
-  }, []);
 
   const totalCount = scopedCustodyItems.length;
   const deliveredCount = researcherMetrics.deliveredCustodyCount;
@@ -111,28 +116,16 @@ export function ResearcherCustodyView() {
       >
         {/* 1. بطاقة ملخص العهدة الميدانية الهادئة */}
         <section className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-                كشف عهدتي للتسليم الميداني
-              </h1>
-              <p className="text-xs text-slate-500 mt-1">
-                المستحقات المعتمدة المسندة باسمك فقط ({user.name})
-                {latestApprovedCycle
-                  ? ` • ${latestApprovedCycle.batchTitle || latestApprovedCycle.periodLabel}`
-                  : ''}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsPrintSheetOpen(true)}
-              disabled={scopedCustodyItems.length === 0}
-              className="inline-flex items-center justify-center gap-2 h-10 px-4 text-xs sm:text-sm font-semibold text-white bg-[#005756] hover:bg-[#004241] disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors cursor-pointer whitespace-nowrap shrink-0"
-            >
-              <Printer size={16} className="shrink-0" aria-hidden="true" />
-              <span>طباعة كشف العهدة (A4 RTL)</span>
-            </button>
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+              كشف عهدتي للتسليم الميداني
+            </h1>
+            <p className="text-xs text-slate-500 mt-1">
+              المستحقات المعتمدة المسندة باسمك فقط ({user.name})
+              {latestApprovedCycle
+                ? ` • ${latestApprovedCycle.batchTitle || latestApprovedCycle.periodLabel}`
+                : ''}
+            </p>
           </div>
 
           {/* شريط أرقام الملخص المسطح بفاصل حدود دقيقة (بدون بطاقات متداخلة) */}
@@ -393,14 +386,39 @@ export function ResearcherCustodyView() {
                         </div>
 
                         {isDelivered ? (
-                          <span className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold whitespace-nowrap">
-                            <CheckCircle2
-                              size={15}
-                              className="text-[#005756] shrink-0"
-                              aria-hidden="true"
-                            />
-                            <span>تم التسليم</span>
-                          </span>
+                          <div className="inline-flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold whitespace-nowrap">
+                              <CheckCircle2
+                                size={15}
+                                className="text-[#005756] shrink-0"
+                                aria-hidden="true"
+                              />
+                              <span>تم التسليم</span>
+                            </span>
+
+                            {item.deliveryProof && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPreviewProofTarget({
+                                    caseName: item.caseName,
+                                    caseCode: item.caseCode,
+                                    amount: item.amount,
+                                    batchTitle: item.sourceLabel,
+                                    researcherName: item.assignedResearcher,
+                                    payoutMethod: item.payoutMethod,
+                                    walletNumber: item.walletNumber,
+                                    proof: item.deliveryProof!,
+                                  })
+                                }
+                                title="معاينة إثبات التسليم"
+                                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-white border border-slate-200 hover:border-[#005756]/40 hover:bg-slate-50 text-[#005756] text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                              >
+                                <FileCheck2 size={14} className="shrink-0" aria-hidden="true" />
+                                <span>موثّق بإثبات</span>
+                              </button>
+                            )}
+                          </div>
                         ) : (
                           <button
                             type="button"
@@ -425,235 +443,22 @@ export function ResearcherCustodyView() {
         </section>
       </motion.div>
 
-      {/* نافذة معاينة وطباعة كشف العهدة الرسمي (A4 RTL) معزولة بالكامل عبر #custody-modal-root */}
-      {isPrintSheetOpen &&
-        typeof document !== 'undefined' &&
-        createPortal(
-          <div
-            id="custody-modal-root"
-            dir="rtl"
-            className="fixed inset-0 z-70 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:bg-white print:p-0 print:block"
-          >
-            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden print:border-0 print:rounded-none print:max-h-none print:max-w-none print:block">
-              {/* شريط التحكم العلوي (يختفي تلقائياً عند الطباعة) */}
-              <div className="no-print px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3 shrink-0">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    معاينة كشف العهدة الميدانية للطباعة (A4 RTL)
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    كشف رسمي موجه للباحث ({user.name}) ومجهز بخانات توقيع الاستلام والاعتماد
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => window.print()}
-                    className="inline-flex items-center gap-1.5 h-9 px-4 bg-[#005756] hover:bg-[#004241] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer"
-                  >
-                    <Printer size={15} aria-hidden="true" />
-                    <span>طباعة الآن</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsPrintSheetOpen(false)}
-                    className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 transition-colors cursor-pointer"
-                    aria-label="إغلاق المعاينة"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-              </div>
+      {/* نافذة توثيق التسليم الميداني للباحث */}
+      {activeCaptureItem && (
+        <DeliveryProofCaptureModal
+          item={activeCaptureItem}
+          onClose={() => setActiveCaptureItem(null)}
+          onConfirm={handleSaveDeliveryConfirmation}
+        />
+      )}
 
-              {/* المستند الرسمي القابل للطباعة (A4 RTL) */}
-              <div
-                id="printable-area"
-                className="flex-1 overflow-y-auto p-6 sm:p-8 bg-white text-slate-900 space-y-6 print:p-4 print:overflow-visible"
-              >
-                {/* ترويسة المستند الرسمية */}
-                <div className="border-b-2 border-[#005756] pb-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                  <div>
-                    <h1 className="text-lg font-bold text-[#005756]">
-                      منظومة إحسان — كشف تسليم عهدة الباحث الميداني
-                    </h1>
-                    <p className="text-xs text-slate-600 mt-1">
-                      بيان رسمي بالمستحقات النقدية المعتمدة للتسليم للأسر المستحقة
-                    </p>
-                  </div>
-                  <div className="text-xs text-slate-600 space-y-1 sm:text-left">
-                    <div>
-                      <span className="font-semibold text-slate-800">
-                        تاريخ الاستخراج:{' '}
-                      </span>
-                      <span>{todayFormatted}</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-slate-800">
-                        الباحث المسؤول:{' '}
-                      </span>
-                      <span>{user.name}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ملخص مالي مختصر */}
-                <div className="grid grid-cols-3 gap-3 border border-slate-200 rounded-xl p-3.5 text-xs">
-                  <div>
-                    <span className="text-slate-500 block">عدد المستحقين</span>
-                    <strong className="text-sm text-slate-900 tabular-nums mt-0.5 block">
-                      {totalCount} أسرة
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block">
-                      إجمالي قيمة الكشف
-                    </span>
-                    <strong className="text-sm text-[#005756] tabular-nums mt-0.5 block">
-                      {researcherMetrics.totalCustodyAmount.toLocaleString(
-                        'ar-EG'
-                      )}{' '}
-                      ج.م
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block">الموقف الحالي</span>
-                    <strong className="text-sm text-slate-900 tabular-nums mt-0.5 block">
-                      {deliveredCount} مُسلّم · {remainingCount} متبقي
-                    </strong>
-                  </div>
-                </div>
-
-                {/* جدول المستحقين بخانة توقيع وبصمة المستلم */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs border-collapse border border-slate-300">
-                    <thead>
-                      <tr className="bg-slate-100 text-slate-800">
-                        <th className="border border-slate-300 px-2.5 py-2 text-center w-9">
-                          م
-                        </th>
-                        <th className="border border-slate-300 px-3 py-2 text-right">
-                          اسم المستحق والكود
-                        </th>
-                        <th className="border border-slate-300 px-3 py-2 text-right">
-                          المنطقة والهاتف
-                        </th>
-                        <th className="border border-slate-300 px-3 py-2 text-right">
-                          المصدر / الدفعة
-                        </th>
-                        <th className="border border-slate-300 px-3 py-2 text-center">
-                          المبلغ (ج.م)
-                        </th>
-                        <th className="border border-slate-300 px-3 py-2 text-center w-24">
-                          الحالة
-                        </th>
-                        <th className="border border-slate-300 px-3 py-2 text-center w-32">
-                          توقيع المستحق
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedItems.map((item, idx) => (
-                        <tr key={item.id}>
-                          <td className="border border-slate-300 px-2.5 py-2.5 text-center tabular-nums">
-                            {idx + 1}
-                          </td>
-                          <td className="border border-slate-300 px-3 py-2.5">
-                            <div className="font-semibold text-slate-900">
-                              {item.caseName}
-                            </div>
-                            <div className="text-[11px] text-slate-500 tabular-nums">
-                              {item.caseCode}
-                            </div>
-                          </td>
-                          <td className="border border-slate-300 px-3 py-2.5">
-                            <div>{item.district || '—'}</div>
-                            <div className="text-[11px] text-slate-500 tabular-nums">
-                              {item.beneficiaryPhone}
-                            </div>
-                          </td>
-                          <td className="border border-slate-300 px-3 py-2.5">
-                            <div>{item.sourceLabel}</div>
-                            <div className="text-[11px] text-slate-600 mt-0.5">
-                              {getEffectivePayoutMethod(item.payoutMethod) === 'e_wallet' &&
-                              item.walletNumber ? (
-                                <span>
-                                  محفظة:{' '}
-                                  <span dir="ltr" className="font-mono tabular-nums font-semibold">
-                                    {item.walletNumber}
-                                  </span>
-                                </span>
-                              ) : (
-                                <span>نقدي عبر الباحث</span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="border border-slate-300 px-3 py-2.5 text-center font-bold tabular-nums">
-                            {item.amount.toLocaleString('ar-EG')}
-                          </td>
-                          <td className="border border-slate-300 px-3 py-2.5 text-center">
-                            {item.status === 'delivered'
-                              ? 'تم التسليم'
-                              : 'قيد التسليم'}
-                          </td>
-                          <td className="border border-slate-300 px-3 py-2.5" />
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-slate-50 font-bold">
-                        <td
-                          colSpan={4}
-                          className="border border-slate-300 px-3 py-2.5 text-right"
-                        >
-                          الإجمالي العام للعهدة
-                        </td>
-                        <td className="border border-slate-300 px-3 py-2.5 text-center text-[#005756] tabular-nums">
-                          {researcherMetrics.totalCustodyAmount.toLocaleString(
-                            'ar-EG'
-                          )}{' '}
-                          ج.م
-                        </td>
-                        <td
-                          colSpan={2}
-                          className="border border-slate-300 px-3 py-2.5"
-                        />
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-
-                {/* خانات التوقيعات الرسمية */}
-                <div className="grid grid-cols-3 gap-6 pt-8 text-xs text-center">
-                  <div className="space-y-8">
-                    <p className="font-semibold text-slate-800">
-                      توقيع الباحث الميداني المستلم للعهدة
-                    </p>
-                    <div className="border-t border-slate-400 pt-1.5 text-slate-600">
-                      {user.name}
-                    </div>
-                  </div>
-                  <div className="space-y-8">
-                    <p className="font-semibold text-slate-800">
-                      مراجعة المسؤول المالي / أمين الصندوق
-                    </p>
-                    <div className="border-t border-slate-400 pt-1.5 text-slate-500">
-                      الاسم والتوقيع
-                    </div>
-                  </div>
-                  <div className="space-y-8">
-                    <p className="font-semibold text-slate-800">
-                      اعتماد مدير المنظومة
-                    </p>
-                    <div className="border-t border-slate-400 pt-1.5 text-slate-500">
-                      أحمد الجزار
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
+      {/* نافذة معاينة إثبات التسليم */}
+      {previewProofTarget && (
+        <DeliveryProofPreviewModal
+          target={previewProofTarget}
+          onClose={() => setPreviewProofTarget(null)}
+        />
+      )}
     </>
   );
 }

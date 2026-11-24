@@ -26,7 +26,13 @@ import {
   HousingCondition,
   CustodyDeliveryItem,
   CaseSurveyAnswers,
+  DeliveryProof,
 } from '@/types';
+import {
+  INITIAL_SEED_DELIVERED_CUSTODY_IDS,
+  INITIAL_SEED_DELIVERY_PROOFS,
+  SEED_CASE_05_DELIVERY_PROOF,
+} from '@/lib/delivery-proof-helpers';
 import {
   INITIAL_CASES,
   INITIAL_DONATIONS,
@@ -129,6 +135,7 @@ const STORAGE_KEYS = {
   CASE_NOTES: 'ehsan_case_notes_v1',
   RESEARCHERS: 'ehsan_researchers_v1',
   DELIVERED_CUSTODY: 'ehsan_delivered_custody_v1',
+  DELIVERY_PROOFS: 'ehsan_delivery_proofs_v1',
 };
 
 export const DEFAULT_RESEARCHERS: string[] = Array.from(
@@ -191,6 +198,8 @@ interface AppContextType {
   chronicDiseases: ChronicDiseaseConfig[];
   fastTrackOrders: FastTrackDisbursementOrder[];
   deliveredCustodyIds: string[];
+  deliveryProofs: Record<string, DeliveryProof>;
+  getDeliveryProof: (caseId: string, period?: string, custodyItemId?: string) => DeliveryProof | undefined;
   caseNotes: CaseNote[];
   researchers: string[];
 
@@ -327,7 +336,7 @@ interface AppContextType {
       deliveryNotes?: string;
     }
   ) => void;
-  confirmCustodyItemDelivered: (item: CustodyDeliveryItem) => void;
+  confirmCustodyItemDelivered: (item: CustodyDeliveryItem, proof?: DeliveryProof) => void;
   fastTrackTriggerData: {
     caseId: string;
     suggestedAmount?: number;
@@ -425,6 +434,11 @@ function buildUnifiedSeedFinancials(
 
   const octApproved: MonthlyAllocation = {
     ...octDraft,
+    items: octDraft.items.map((item) =>
+      item.caseId === 'case-05'
+        ? { ...item, deliveryProof: SEED_CASE_05_DELIVERY_PROOF }
+        : item
+    ),
     status: 'approved',
     generatedDate: '2026-10-14T10:00:00.000Z',
     approvedDate: '2026-10-15 11:00',
@@ -541,7 +555,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [shariaCategories, setShariaCategories] = useState<ShariaDonationCategory[]>(DEFAULT_SHARIA_CATEGORIES);
   const [chronicDiseases, setChronicDiseases] = useState<ChronicDiseaseConfig[]>(DEFAULT_CHRONIC_DISEASES);
   const [fastTrackOrders, setFastTrackOrders] = useState<FastTrackDisbursementOrder[]>([]);
-  const [deliveredCustodyIds, setDeliveredCustodyIds] = useState<string[]>([]);
+  const [deliveredCustodyIds, setDeliveredCustodyIds] = useState<string[]>(
+    () => INITIAL_SEED_DELIVERED_CUSTODY_IDS
+  );
+  const [deliveryProofs, setDeliveryProofs] = useState<Record<string, DeliveryProof>>(
+    () => INITIAL_SEED_DELIVERY_PROOFS
+  );
   const [caseNotes, setCaseNotes] = useState<CaseNote[]>(INITIAL_CASE_NOTES);
   const [researchers, setResearchers] = useState<string[]>(DEFAULT_RESEARCHERS);
   const [allocations, setAllocations] = useState<Record<string, MonthlyAllocation>>(
@@ -768,10 +787,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         try {
           const parsed = JSON.parse(savedDeliveredCustody);
           if (Array.isArray(parsed)) {
-            setDeliveredCustodyIds(parsed.filter((id): id is string => typeof id === 'string'));
+            const validIds = parsed.filter((id): id is string => typeof id === 'string');
+            setDeliveredCustodyIds(
+              Array.from(new Set([...INITIAL_SEED_DELIVERED_CUSTODY_IDS, ...validIds]))
+            );
           }
         } catch (err) {
           console.warn('Failed to parse delivered custody IDs:', err);
+        }
+      }
+
+      const savedDeliveryProofs = localStorage.getItem(STORAGE_KEYS.DELIVERY_PROOFS);
+      if (savedDeliveryProofs) {
+        try {
+          const parsed = JSON.parse(savedDeliveryProofs);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            setDeliveryProofs({
+              ...INITIAL_SEED_DELIVERY_PROOFS,
+              ...(parsed as Record<string, DeliveryProof>),
+            });
+          }
+        } catch (err) {
+          console.warn('Failed to parse delivery proofs:', err);
         }
       }
     } catch (e) {
@@ -890,6 +927,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [deliveredCustodyIds, isHydrated]);
 
+  useEffect(() => {
+    if (!isHydrated) return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.DELIVERY_PROOFS, JSON.stringify(deliveryProofs));
+    } catch (e) {
+      console.warn('Failed to save delivery proofs to localStorage:', e);
+    }
+  }, [deliveryProofs, isHydrated]);
+
   const resetToSeedData = () => {
     const seededCases = INITIAL_CASES.map(normalizeCaseResearcher);
     const { seededDonations, seededAllocations } = buildUnifiedSeedFinancials(
@@ -906,7 +952,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setShariaCategories(DEFAULT_SHARIA_CATEGORIES);
     setChronicDiseases(DEFAULT_CHRONIC_DISEASES);
     setFastTrackOrders([]);
-    setDeliveredCustodyIds([]);
+    setDeliveredCustodyIds(INITIAL_SEED_DELIVERED_CUSTODY_IDS);
+    setDeliveryProofs(INITIAL_SEED_DELIVERY_PROOFS);
     setCaseNotes(INITIAL_CASE_NOTES);
     setResearchers(DEFAULT_RESEARCHERS);
     setSelectedCaseId(null);
@@ -928,6 +975,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem(STORAGE_KEYS.CASE_NOTES);
       localStorage.removeItem(STORAGE_KEYS.RESEARCHERS);
       localStorage.removeItem(STORAGE_KEYS.DELIVERED_CUSTODY);
+      localStorage.removeItem(STORAGE_KEYS.DELIVERY_PROOFS);
     }
 
     // ضمان بقاء التبويب النشط ضمن صلاحيات الدور الحالي بعد الاستعادة
@@ -3034,21 +3082,95 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const confirmCustodyItemDelivered = (item: CustodyDeliveryItem) => {
+  const getDeliveryProof = useCallback(
+    (caseId: string, period?: string, custodyItemId?: string): DeliveryProof | undefined => {
+      if (custodyItemId && deliveryProofs[custodyItemId]) {
+        return deliveryProofs[custodyItemId];
+      }
+      if (period) {
+        const periodKey = `${period}::${caseId}`;
+        if (deliveryProofs[periodKey]) {
+          return deliveryProofs[periodKey];
+        }
+        const alloc = allocations[period];
+        const constructedId = alloc
+          ? `cycle-${alloc.id}-alloc-item-${caseId}-${period}`
+          : `cycle-alloc-${period}-alloc-item-${caseId}-${period}`;
+        if (deliveryProofs[constructedId]) {
+          return deliveryProofs[constructedId];
+        }
+        const matchedItem = alloc?.items?.find((i) => i.caseId === caseId);
+        if (matchedItem?.deliveryProof) {
+          return matchedItem.deliveryProof;
+        }
+      }
+      return undefined;
+    },
+    [deliveryProofs, allocations]
+  );
+
+  const confirmCustodyItemDelivered = (item: CustodyDeliveryItem, proof?: DeliveryProof) => {
     if (item.sourceType === 'fast_track' && item.fastTrackOrderId) {
       markFastTrackOrderDelivered(item.fastTrackOrderId, {
         deliveryMethod: 'cash_signed',
-        deliveryNotes: `تم تأكيد التسليم الميداني بواسطة ${authUser.name} من كشف العهدة`,
+        deliveryNotes:
+          proof?.deliveryNote ||
+          `تم تأكيد التسليم الميداني بواسطة ${authUser.name} من كشف العهدة`,
       });
+      if (proof) {
+        setDeliveryProofs((prev) => ({
+          ...prev,
+          [item.id]: proof,
+        }));
+      }
       return;
     }
 
     setDeliveredCustodyIds((prev) =>
       prev.includes(item.id) ? prev : [...prev, item.id]
     );
+
+    if (proof) {
+      setDeliveryProofs((prev) => {
+        const next: Record<string, DeliveryProof> = {
+          ...prev,
+          [item.id]: proof,
+        };
+        if (item.cyclePeriod) {
+          next[`${item.cyclePeriod}::${item.caseId}`] = proof;
+        }
+        return next;
+      });
+
+      if (item.cyclePeriod) {
+        const targetPeriod = item.cyclePeriod;
+        setAllocations((prev) => {
+          const cycle = prev[targetPeriod];
+          if (!cycle) return prev;
+          return {
+            ...prev,
+            [targetPeriod]: {
+              ...cycle,
+              items: cycle.items.map((allocItem) =>
+                allocItem.caseId === item.caseId
+                  ? { ...allocItem, deliveryProof: proof }
+                  : allocItem
+              ),
+            },
+          };
+        });
+      }
+    }
+
+    const proofAuditSuffix = proof
+      ? ` (موثّق بصورة إثبات تسليم${proof.location ? ' + إحداثيات GPS' : ''}${
+          proof.deliveryNote ? ` — ملاحظة: ${proof.deliveryNote}` : ''
+        })`
+      : '';
+
     addAuditLog(
       'تأكيد تسليم عهدة ميدانية',
-      `أكد الباحث (${authUser.name}) تسليم مبلغ ${item.amount.toLocaleString('ar-EG')} ج.م للمستحق ${item.caseName} (${item.caseCode}) ضمن ${item.sourceLabel}`
+      `أكد الباحث (${authUser.name}) تسليم مبلغ ${item.amount.toLocaleString('ar-EG')} ج.م للمستحق ${item.caseName} (${item.caseCode}) ضمن ${item.sourceLabel}${proofAuditSuffix}`
     );
   };
 
@@ -3097,6 +3219,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         chronicDiseases,
         fastTrackOrders,
         deliveredCustodyIds,
+        deliveryProofs,
+        getDeliveryProof,
         caseNotes,
         researchers,
         addCaseNote,

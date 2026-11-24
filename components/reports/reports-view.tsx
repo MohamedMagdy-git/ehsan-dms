@@ -15,6 +15,7 @@ import {
   Users,
   CheckCircle2,
   ChevronUp,
+  FileCheck2,
 } from 'lucide-react';
 import {
   exportMonthlyAllocationToExcel,
@@ -31,9 +32,13 @@ import { CustodyPrintModal } from '@/components/reports/custody-print-modal';
 import { QuickFieldDeliveryModal } from '@/components/reports/quick-field-delivery-modal';
 import { UrgentVoucherPrintModal } from '@/components/reports/urgent-voucher-print-modal';
 import { tafqeetNumberToArabicWords } from '@/lib/tafqeet';
-import { getDefaultDeliveryNote } from '@/lib/payout-helpers';
+import { getDefaultDeliveryNote, getEffectivePayoutMethod } from '@/lib/payout-helpers';
 import { formatAllocationCycleDropdownLabel } from '@/services/allocation-engine';
 import { CustomSelect } from '@/components/ui/custom-select';
+import {
+  DeliveryProofPreviewModal,
+  DeliveryProofPreviewTarget,
+} from '@/components/custody/delivery-proof-modal';
 
 function formatBeneficiaryDisplayName(caseObj?: BeneficiaryCase, fallbackName?: string): string {
   if (!caseObj) return fallbackName || 'غير محدد';
@@ -52,6 +57,8 @@ export function ReportsView() {
     cases,
     donations,
     fastTrackOrders,
+    getDeliveryProof,
+    deliveredCustodyIds,
   } = useApp();
 
   // عزل اختيار الدورة محلياً داخل شاشة التقارير (Local State) دون التأثير على الصفحة الرئيسية
@@ -79,6 +86,7 @@ export function ReportsView() {
   const [isQuickPrintModalOpen, setIsQuickPrintModalOpen] = useState(false);
   const [isSolidarityModalOpen, setIsSolidarityModalOpen] = useState(false);
   const [selectedVoucherOrder, setSelectedVoucherOrder] = useState<FastTrackDisbursementOrder | null>(null);
+  const [previewProofTarget, setPreviewProofTarget] = useState<DeliveryProofPreviewTarget | null>(null);
 
   // حالة لتخزين ملاحظات الإدارة والتسليم الميداني القابلة للتعديل الحي
   const [fieldNotes, setFieldNotes] = useState<Record<string, string>>({});
@@ -312,6 +320,15 @@ export function ReportsView() {
                       fieldNotes[item.id] !== undefined
                         ? fieldNotes[item.id]
                         : getDefaultDeliveryNote(caseObj);
+                    const custodyItemId = currentAllocation
+                      ? `cycle-${currentAllocation.id}-${item.id}`
+                      : undefined;
+                    const proof =
+                      getDeliveryProof(item.caseId, currentAllocation?.period, custodyItemId) ||
+                      item.deliveryProof;
+                    const isDelivered =
+                      (custodyItemId && deliveredCustodyIds.includes(custodyItemId)) ||
+                      Boolean(proof);
 
                     return (
                       <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
@@ -323,7 +340,7 @@ export function ReportsView() {
                         {/* 2. اسم الحالة وشهرتها */}
                         <td className="py-3 px-4 whitespace-nowrap">
                           <div className="font-bold text-slate-900">{displayName}</div>
-                          <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5">
+                          <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
                             <span className="font-mono font-semibold text-slate-700">{item.caseCode}</span>
                             <span>·</span>
                             <span>الباحث: {caseObj?.assignedResearcher || 'غير محدد'}</span>
@@ -332,8 +349,47 @@ export function ReportsView() {
 
                         {/* 3. المبلغ المقرر صرفه */}
                         <td className="py-3 px-4 whitespace-nowrap">
-                          <div className="font-mono font-bold text-sm text-[#005756]">
-                            {item.approvedAmount.toLocaleString('ar-EG')} ج.م
+                          <div className="flex flex-col items-start gap-1.5">
+                            <div className="font-mono font-bold text-sm text-[#005756]">
+                              {item.approvedAmount.toLocaleString('ar-EG')} ج.م
+                            </div>
+                            {proof ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPreviewProofTarget({
+                                    caseName: displayName,
+                                    caseCode: item.caseCode,
+                                    amount: item.approvedAmount,
+                                    batchTitle:
+                                      currentAllocation?.batchTitle ||
+                                      currentAllocation?.periodLabel ||
+                                      currentPeriod,
+                                    researcherName: caseObj?.assignedResearcher,
+                                    payoutMethod: caseObj
+                                      ? getEffectivePayoutMethod(caseObj.payoutMethod)
+                                      : undefined,
+                                    walletNumber: caseObj?.walletNumber,
+                                    proof,
+                                  })
+                                }
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#005756]/8 hover:bg-[#005756]/15 text-[#005756] border border-[#005756]/25 text-[10px] font-bold transition-colors cursor-pointer"
+                                title="اضغط لمعاينة صورة وتفاصيل إثبات التسليم"
+                              >
+                                <FileCheck2 size={11} className="shrink-0" />
+                                <span>موثّق بإثبات</span>
+                              </button>
+                            ) : isDelivered ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/70 text-slate-700 border border-slate-300/80 text-[10px] font-semibold">
+                                <CheckCircle2 size={10} className="text-slate-700 shrink-0" />
+                                <span>تم التسليم</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200/80 text-[10px] font-medium">
+                                <Clock size={10} className="text-slate-400 shrink-0" />
+                                <span>بانتظار التسليم</span>
+                              </span>
+                            )}
                           </div>
                         </td>
 
@@ -375,13 +431,22 @@ export function ReportsView() {
                   fieldNotes[item.id] !== undefined
                     ? fieldNotes[item.id]
                     : getDefaultDeliveryNote(caseObj);
+                const custodyItemId = currentAllocation
+                  ? `cycle-${currentAllocation.id}-${item.id}`
+                  : undefined;
+                const proof =
+                  getDeliveryProof(item.caseId, currentAllocation?.period, custodyItemId) ||
+                  item.deliveryProof;
+                const isDelivered =
+                  (custodyItemId && deliveredCustodyIds.includes(custodyItemId)) ||
+                  Boolean(proof);
 
                 return (
                   <div key={item.id} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs space-y-3">
                     <div className="flex items-start justify-between gap-2">
-                      <div>
+                      <div className="min-w-0">
                         <div className="font-bold text-sm text-slate-900">{displayName}</div>
-                        <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                        <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
                           <span className="font-mono text-slate-400 font-semibold">#{idx + 1}</span>
                           <span>·</span>
                           <span className="font-mono font-semibold text-teal-800">{item.caseCode}</span>
@@ -389,9 +454,48 @@ export function ReportsView() {
                           <span>الباحث: {caseObj?.assignedResearcher || 'غير محدد'}</span>
                         </div>
                       </div>
-                      <div className="font-bold text-sm text-[#005756] shrink-0">
-                        <span className="font-mono tabular-nums font-black">{item.approvedAmount.toLocaleString('ar-EG')}</span>
-                        <span className="text-xs mr-0.5"> ج.م</span>
+                      <div className="flex flex-col items-end gap-1.5 shrink-0">
+                        <div className="font-bold text-sm text-[#005756]">
+                          <span className="font-mono tabular-nums font-black">{item.approvedAmount.toLocaleString('ar-EG')}</span>
+                          <span className="text-xs mr-0.5"> ج.م</span>
+                        </div>
+                        {proof ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPreviewProofTarget({
+                                caseName: displayName,
+                                caseCode: item.caseCode,
+                                amount: item.approvedAmount,
+                                batchTitle:
+                                  currentAllocation?.batchTitle ||
+                                  currentAllocation?.periodLabel ||
+                                  currentPeriod,
+                                researcherName: caseObj?.assignedResearcher,
+                                payoutMethod: caseObj
+                                  ? getEffectivePayoutMethod(caseObj.payoutMethod)
+                                  : undefined,
+                                walletNumber: caseObj?.walletNumber,
+                                proof,
+                              })
+                            }
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#005756]/8 hover:bg-[#005756]/15 text-[#005756] border border-[#005756]/25 text-[10px] font-bold transition-colors cursor-pointer"
+                            title="اضغط لمعاينة صورة وتفاصيل إثبات التسليم"
+                          >
+                            <FileCheck2 size={11} className="shrink-0" />
+                            <span>موثّق بإثبات</span>
+                          </button>
+                        ) : isDelivered ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/70 text-slate-700 border border-slate-300/80 text-[10px] font-semibold">
+                            <CheckCircle2 size={10} className="text-slate-700 shrink-0" />
+                            <span>تم التسليم</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200/80 text-[10px] font-medium">
+                            <Clock size={10} className="text-slate-400 shrink-0" />
+                            <span>بانتظار التسليم</span>
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -593,6 +697,12 @@ export function ReportsView() {
           onSelectOrder={setSelectedVoucherOrder}
         />
       )}
+
+      {/* 4. Delivery Proof Preview Modal */}
+      <DeliveryProofPreviewModal
+        target={previewProofTarget}
+        onClose={() => setPreviewProofTarget(null)}
+      />
     </div>
   );
 }

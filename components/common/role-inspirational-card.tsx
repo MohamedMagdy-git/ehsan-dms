@@ -50,8 +50,8 @@ export const ROLE_CARD_CONFIGS: Record<AppUserRole, RoleCardConfig> = {
     roleBadge: 'تذكرة الإدارة والقيادة',
     artCaption: 'العدل والإحسان المؤسسي',
     accentColor: '#005756',
-    badgeStyle: 'bg-emerald-50 text-emerald-800 border-emerald-200/80',
-    borderColor: 'border-emerald-900/10 hover:border-emerald-900/25',
+    badgeStyle: 'bg-slate-100 text-slate-600 border-slate-200/80',
+    borderColor: 'border-slate-200/80',
     imageSrc: 'https://res.cloudinary.com/dlakn3n2r/image/upload/v1791915895/Gemini_Generated_Image_wj70ilwj70ilwj7067.webp',
     Icon: Scale,
     quotes: [
@@ -93,8 +93,8 @@ export const ROLE_CARD_CONFIGS: Record<AppUserRole, RoleCardConfig> = {
     roleBadge: 'تذكرة الأمانة المالية',
     artCaption: 'صيانة الأمانة والشفافية',
     accentColor: '#004e7c',
-    badgeStyle: 'bg-cyan-50 text-cyan-900 border-cyan-200/80',
-    borderColor: 'border-cyan-900/10 hover:border-cyan-900/25',
+    badgeStyle: 'bg-slate-100 text-slate-600 border-slate-200/80',
+    borderColor: 'border-slate-200/80',
     imageSrc: 'https://res.cloudinary.com/dlakn3n2r/image/upload/t_for_you/v1791915149/Gemini_Generated_Image_u7pzswu7pzswu7pz.webp',
     Icon: ShieldCheck,
     quotes: [
@@ -136,8 +136,8 @@ export const ROLE_CARD_CONFIGS: Record<AppUserRole, RoleCardConfig> = {
     roleBadge: 'تذكرة الباحث الميداني',
     artCaption: 'حفظ الكرامة والزيارة الميدانية',
     accentColor: '#047857',
-    badgeStyle: 'bg-emerald-50 text-emerald-800 border-emerald-200/80',
-    borderColor: 'border-emerald-900/10 hover:border-emerald-900/25',
+    badgeStyle: 'bg-slate-100 text-slate-600 border-slate-200/80',
+    borderColor: 'border-slate-200/80',
     imageSrc: 'https://res.cloudinary.com/dlakn3n2r/image/upload/t_for_you/v1791915140/Gemini_Generated_Image_glickaglickaglic.webp',
     Icon: Heart,
     quotes: [
@@ -179,8 +179,8 @@ export const ROLE_CARD_CONFIGS: Record<AppUserRole, RoleCardConfig> = {
     roleBadge: 'تذكرة المتبرع والمساهم الكريم',
     artCaption: 'بذرة الخير ونماء الأثر',
     accentColor: '#b45309',
-    badgeStyle: 'bg-amber-50 text-amber-900 border-amber-200/80',
-    borderColor: 'border-amber-900/10 hover:border-amber-900/25',
+    badgeStyle: 'bg-slate-100 text-slate-600 border-slate-200/80',
+    borderColor: 'border-slate-200/80',
     imageSrc: 'https://res.cloudinary.com/dlakn3n2r/image/upload/t_for_you/v1791915137/Gemini_Generated_Image_xfg3txfg3txfg3tx.webp',
     Icon: Sparkles,
     quotes: [
@@ -654,7 +654,7 @@ export function RoleInspirationalCard({ role, className = '' }: RoleInspirationa
           <div className="flex flex-wrap items-center justify-between gap-2.5">
             <div className="flex items-center gap-2 text-xs text-slate-700">
               <span className="flex items-center gap-1.5 font-bold text-slate-900 tracking-tight">
-                <BookOpen size={14} className="text-[#005756] shrink-0" />
+                <BookOpen size={14} className="text-slate-400 shrink-0" />
                 <span>{cardData.roleBadge}</span>
               </span>
               <span className="text-slate-300 select-none">·</span>
@@ -662,9 +662,7 @@ export function RoleInspirationalCard({ role, className = '' }: RoleInspirationa
             </div>
 
             {/* Quranic Citation */}
-            <span
-              className={`text-xs font-semibold px-3 py-1 rounded-full border ${cardData.badgeStyle}`}
-            >
+            <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200/80 text-xs font-medium">
               {cardData.reference}
             </span>
           </div>
@@ -684,11 +682,11 @@ export function RoleInspirationalCard({ role, className = '' }: RoleInspirationa
 
           {/* Institutional Reflection Connecting Meaning to Ihsan Operations */}
           <div className="pt-3 border-t border-slate-100 flex items-start gap-2.5 text-xs sm:text-sm text-slate-600 leading-relaxed">
-            <div className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center bg-teal-50 text-[#005756] border border-teal-100 mt-0.5">
-              <IconComponent size={14} />
+            <div className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center bg-slate-50 text-slate-400 border border-slate-200/80 mt-0.5">
+              <IconComponent size={14} className="text-slate-400" />
             </div>
-            <p className="min-w-0">
-              <strong className="text-slate-900 font-bold ml-1">
+            <p className="min-w-0 text-slate-600">
+              <strong className="text-slate-800 font-semibold ml-1">
                 {cardData.reflectionTitle}:
               </strong>
               {cardData.reflectionText}

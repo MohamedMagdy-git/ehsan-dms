@@ -30,6 +30,7 @@ import {
   History,
   MessageSquareText,
   ArrowLeft,
+  FileCheck2,
 } from 'lucide-react';
 import { PriorityLevel, CaseNote } from '@/types';
 import { exportMonthlyAllocationToExcel } from '@/services/excel-export';
@@ -37,6 +38,11 @@ import { MoneyDisplay } from '@/components/common/money-display';
 import { AmountInput } from '@/components/common/amount-input';
 import { NewAllocationCycleModal } from '@/components/allocation/new-allocation-cycle-modal';
 import { CustomSelect } from '@/components/ui/custom-select';
+import { getEffectivePayoutMethod } from '@/lib/payout-helpers';
+import {
+  DeliveryProofPreviewModal,
+  DeliveryProofPreviewTarget,
+} from '@/components/custody/delivery-proof-modal';
 
 const getPriorityMeta = (priority: PriorityLevel): { label: string; className: string } => {
   switch (priority) {
@@ -70,6 +76,8 @@ export function AllocationView() {
     permissions,
     openCaseDetails,
     metrics,
+    getDeliveryProof,
+    deliveredCustodyIds,
   } = useApp();
 
   // عزل اختيار الدورة محلياً داخل شاشة توزيع الميزانية (Local State) لمنع تسريب الفلتر للصفحة الرئيسية
@@ -123,6 +131,7 @@ export function AllocationView() {
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPriorityFilter, setSelectedPriorityFilter] = useState<string>('all');
+  const [previewProofTarget, setPreviewProofTarget] = useState<DeliveryProofPreviewTarget | null>(null);
   const { toast } = useToast();
 
   // Sync budget input on period or budget change
@@ -304,6 +313,55 @@ export function AllocationView() {
   };
 
   const totalAllocated = currentAllocation?.summary?.totalAllocated || 0;
+
+  // ملخص متابعة التسليم الميداني للدفعة المعتمدة
+  const deliveryProgressSummary = useMemo(() => {
+    if (!currentAllocation) {
+      return {
+        totalEligibleCount: 0,
+        deliveredCount: 0,
+        documentedCount: 0,
+        deliveredAmount: 0,
+        percentage: 0,
+      };
+    }
+    const eligibleItems = currentAllocation.items.filter(
+      (i) => !i.isExcluded && i.approvedAmount > 0
+    );
+    let deliveredCount = 0;
+    let documentedCount = 0;
+    let deliveredAmount = 0;
+
+    eligibleItems.forEach((item) => {
+      const custodyItemId = `cycle-${currentAllocation.id}-${item.id}`;
+      const proof =
+        getDeliveryProof(item.caseId, currentAllocation.period, custodyItemId) ||
+        item.deliveryProof;
+      const isDelivered =
+        deliveredCustodyIds.includes(custodyItemId) || Boolean(proof);
+      if (isDelivered) {
+        deliveredCount += 1;
+        deliveredAmount += item.approvedAmount;
+      }
+      if (proof) {
+        documentedCount += 1;
+      }
+    });
+
+    const totalEligibleCount = eligibleItems.length;
+    const percentage =
+      totalEligibleCount > 0
+        ? Math.round((deliveredCount / totalEligibleCount) * 100)
+        : 0;
+
+    return {
+      totalEligibleCount,
+      deliveredCount,
+      documentedCount,
+      deliveredAmount,
+      percentage,
+    };
+  }, [currentAllocation, getDeliveryProof, deliveredCustodyIds]);
 
   // Filtered items
   const filteredItems = useMemo(() => {
@@ -779,6 +837,51 @@ export function AllocationView() {
           </div>
         </div>
 
+        {/* Field Delivery Progress Strip (Approved Cycles) */}
+        {isApproved && deliveryProgressSummary.totalEligibleCount > 0 && (
+          <div className="pt-3.5 border-t border-slate-100 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-slate-800">
+                  متابعة التسليم الميداني للدفعة:
+                </span>
+                <span className="font-semibold text-[#005756] tabular-nums">
+                  تم تسليم {deliveryProgressSummary.deliveredCount} من{' '}
+                  {deliveryProgressSummary.totalEligibleCount} حالة ({deliveryProgressSummary.percentage}%)
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-slate-500 tabular-nums flex-wrap">
+                <span>
+                  منصرف فعلياً:{' '}
+                  <strong className="font-mono font-semibold text-slate-800">
+                    {deliveryProgressSummary.deliveredAmount.toLocaleString('ar-EG')} ج.م
+                  </strong>
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>
+                  موثّق بإثبات:{' '}
+                  <strong className="font-mono font-semibold text-[#005756]">
+                    {deliveryProgressSummary.documentedCount} حالة
+                  </strong>
+                </span>
+              </div>
+            </div>
+            <div
+              className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden"
+              role="progressbar"
+              aria-valuenow={deliveryProgressSummary.percentage}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="نسبة إنجاز التسليم الميداني للدفعة"
+            >
+              <div
+                className="h-full bg-[#005756] rounded-full transition-all duration-300"
+                style={{ width: `${deliveryProgressSummary.percentage}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Budget Setting Controls (Draft Mode) */}
         {!isApproved && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
@@ -932,7 +1035,9 @@ export function AllocationView() {
                   <th className="py-3.5 px-3 whitespace-nowrap">العجز الشهري</th>
                   <th className="py-3.5 px-3 whitespace-nowrap">المبلغ المقرر</th>
                   <th className="py-3.5 px-4">سبب التخصيص</th>
-                  <th className="py-3.5 px-4 text-center whitespace-nowrap">إجراءات</th>
+                  <th className="py-3.5 px-4 text-center whitespace-nowrap">
+                    {isApproved ? 'حالة التسليم الميداني' : 'إجراءات'}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -954,6 +1059,12 @@ export function AllocationView() {
                       count: 0,
                       latestNote: undefined,
                     };
+                    const custodyItemId = `cycle-${currentAllocation.id}-${item.id}`;
+                    const proof =
+                      getDeliveryProof(item.caseId, currentAllocation.period, custodyItemId) ||
+                      item.deliveryProof;
+                    const isDelivered =
+                      deliveredCustodyIds.includes(custodyItemId) || Boolean(proof);
 
                     return (
                       <React.Fragment key={item.id}>
@@ -1119,7 +1230,7 @@ export function AllocationView() {
                             )}
                           </td>
 
-                          {/* Actions */}
+                          {/* Actions / Field Delivery Status */}
                           <td className="py-3.5 px-4 text-center whitespace-nowrap">
                             {!isApproved && permissions.canEditAllocation ? (
                               <div className="flex items-center justify-center gap-1.5">
@@ -1142,6 +1253,48 @@ export function AllocationView() {
                                   </button>
                                 )}
                               </div>
+                            ) : isExcluded || item.approvedAmount <= 0 ? (
+                              <span className="inline-flex items-center justify-center gap-1 text-[11px] text-slate-400 font-medium">
+                                <span>مستبعد من الصرف</span>
+                              </span>
+                            ) : isApproved ? (
+                              proof ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewProofTarget({
+                                      caseName: item.caseName,
+                                      caseCode: item.caseCode,
+                                      amount: item.approvedAmount,
+                                      batchTitle:
+                                        currentAllocation.batchTitle ||
+                                        currentAllocation.periodLabel ||
+                                        currentPeriod,
+                                      researcherName: c?.assignedResearcher,
+                                      payoutMethod: c
+                                        ? getEffectivePayoutMethod(c.payoutMethod)
+                                        : undefined,
+                                      walletNumber: c?.walletNumber,
+                                      proof,
+                                    })
+                                  }
+                                  className="inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-lg bg-[#005756]/8 hover:bg-[#005756]/15 text-[#005756] border border-[#005756]/25 text-[11px] font-bold transition-colors cursor-pointer"
+                                  title="اضغط لمعاينة صورة وتفاصيل إثبات التسليم"
+                                >
+                                  <FileCheck2 size={12} className="shrink-0" />
+                                  <span>موثّق بإثبات</span>
+                                </button>
+                              ) : isDelivered ? (
+                                <span className="inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-lg bg-slate-200/70 text-slate-700 border border-slate-300/80 text-[11px] font-semibold">
+                                  <CheckCircle2 size={12} className="text-slate-700 shrink-0" />
+                                  <span>تم التسليم</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 border border-slate-200/80 text-[11px] font-medium">
+                                  <Clock size={11} className="text-slate-400 shrink-0" />
+                                  <span>بانتظار التسليم</span>
+                                </span>
+                              )
                             ) : (
                               <span className="inline-flex items-center justify-center gap-1 text-[11px] text-slate-500 font-medium">
                                 <Lock size={12} className="text-slate-400" />
@@ -1340,6 +1493,12 @@ export function AllocationView() {
                 count: 0,
                 latestNote: undefined,
               };
+              const custodyItemId = `cycle-${currentAllocation.id}-${item.id}`;
+              const proof =
+                getDeliveryProof(item.caseId, currentAllocation.period, custodyItemId) ||
+                item.deliveryProof;
+              const isDelivered =
+                deliveredCustodyIds.includes(custodyItemId) || Boolean(proof);
 
               return (
                 <div
@@ -1357,6 +1516,45 @@ export function AllocationView() {
                         >
                           {item.caseName}
                         </span>
+                        {isApproved && !isExcluded && item.approvedAmount > 0 && (
+                          proof ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPreviewProofTarget({
+                                  caseName: item.caseName,
+                                  caseCode: item.caseCode,
+                                  amount: item.approvedAmount,
+                                  batchTitle:
+                                    currentAllocation.batchTitle ||
+                                    currentAllocation.periodLabel ||
+                                    currentPeriod,
+                                  researcherName: c?.assignedResearcher,
+                                  payoutMethod: c
+                                    ? getEffectivePayoutMethod(c.payoutMethod)
+                                    : undefined,
+                                  walletNumber: c?.walletNumber,
+                                  proof,
+                                })
+                              }
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#005756]/8 hover:bg-[#005756]/15 text-[#005756] border border-[#005756]/25 text-[10px] font-bold transition-colors cursor-pointer"
+                              title="اضغط لمعاينة صورة وتفاصيل إثبات التسليم"
+                            >
+                              <FileCheck2 size={11} className="shrink-0" />
+                              <span>موثّق بإثبات</span>
+                            </button>
+                          ) : isDelivered ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/70 text-slate-700 border border-slate-300/80 text-[10px] font-semibold">
+                              <CheckCircle2 size={10} className="text-slate-700 shrink-0" />
+                              <span>تم التسليم</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200/80 text-[10px] font-medium">
+                              <Clock size={10} className="text-slate-400 shrink-0" />
+                              <span>بانتظار التسليم</span>
+                            </span>
+                          )
+                        )}
                         {item.isVisitOverdue && (
                           <span className="text-rose-600 text-[11px] font-medium">
                             · زيارة متأخرة
@@ -1823,6 +2021,12 @@ export function AllocationView() {
           setBudgetInput(created.totalBudget);
           toast.success(`تم فتح دورة «${created.batchTitle}» وتجهيز كشف الصرف`);
         }}
+      />
+
+      {/* Delivery Proof Preview Modal */}
+      <DeliveryProofPreviewModal
+        target={previewProofTarget}
+        onClose={() => setPreviewProofTarget(null)}
       />
     </div>
   );

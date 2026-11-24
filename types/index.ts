@@ -245,6 +245,16 @@ export interface Donation {
   notes?: string;
 }
 
+export interface DeliveryProof {
+  imageDataUrl: string;           // صورة الإثبات بعد الضغط من جهة المتصفح
+  capturedAt: string;             // تاريخ ووقت التسليم تلقائياً
+  location?: {
+    lat: number;
+    lng: number;
+  };                              // إحداثيات GPS اختيارية
+  deliveryNote?: string;          // ملاحظة سريعة اختيارية عند التسليم
+}
+
 export interface AllocationItem {
   id: string;
   caseId: string;
@@ -264,6 +274,7 @@ export interface AllocationItem {
   adjustmentReason?: string;
   isVisitOverdue?: boolean;
   overdueMonthsElapsed?: number;
+  deliveryProof?: DeliveryProof;  // إثبات التسليم الميداني (إن وجد)
 }
 
 export type AllocationCycleType = 'regular' | 'exceptional';
@@ -394,6 +405,7 @@ export interface CustodyDeliveryItem {
   deliveredDate?: string;
   purposeNote?: string;
   fastTrackOrderId?: string;
+  deliveryProof?: DeliveryProof;
 }
 
 export interface UserSessionProfile {
@@ -452,6 +464,7 @@ export interface FastTrackDisbursementOrder {
   donationId?: string;            // معرف التبرع المقيد المرتبط
   isRestrictedCaseOrder?: boolean;// صادر تلقائياً بموجب تبرع مقيد لحالة بعينها
   donorName?: string;             // اسم المتبرع المخصص
+  deliveryProof?: DeliveryProof;  // إثبات التسليم الميداني
 }
 
 export interface CaseNote {

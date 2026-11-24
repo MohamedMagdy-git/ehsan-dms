@@ -41,6 +41,7 @@ export function useScopedData() {
     researchReports,
     fastTrackOrders,
     deliveredCustodyIds,
+    getDeliveryProof,
     caseNotes,
     dashboardCycle,
     allocations,
@@ -142,9 +143,16 @@ export function useScopedData() {
           continue;
         }
         const custodyItemId = `cycle-${latestApprovedCycle.id}-${allocItem.id}`;
+        const resolvedProof =
+          getDeliveryProof(
+            linkedCase.id,
+            latestApprovedCycle.period,
+            custodyItemId
+          ) || allocItem.deliveryProof;
         const isDelivered =
           latestApprovedCycle.status === 'closed' ||
-          deliveredSet.has(custodyItemId);
+          deliveredSet.has(custodyItemId) ||
+          Boolean(resolvedProof);
 
         items.push({
           id: custodyItemId,
@@ -172,7 +180,11 @@ export function useScopedData() {
             latestApprovedCycle.approvedDate?.split(' ')[0] ||
             latestApprovedCycle.executionDate ||
             latestApprovedCycle.generatedDate,
+          deliveredDate: resolvedProof?.capturedAt
+            ? resolvedProof.capturedAt.split('T')[0]
+            : undefined,
           purposeNote: allocItem.reasoning,
+          deliveryProof: resolvedProof,
         });
       }
     }
@@ -185,6 +197,7 @@ export function useScopedData() {
     isResearcherPOV,
     matchesActiveResearcher,
     deliveredCustodyIds,
+    getDeliveryProof,
   ]);
 
   const scopedCaseNotes = useMemo<CaseNote[]>(() => {
