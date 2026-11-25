@@ -639,7 +639,7 @@ export function RoleInspirationalCard({ role, className = '' }: RoleInspirationa
 
   return (
     <div
-      className={`bg-white rounded-2xl border border-slate-200/60 ring-1 ring-black/[0.03] shadow-sm shadow-slate-950/5 overflow-hidden transition-all duration-200 ${className}`}
+      className={`bg-white rounded-2xl border border-slate-200/80 shadow-none overflow-hidden transition-colors duration-200 ${className}`}
     >
       {/* 
         Layout: In RTL reading direction:
@@ -649,7 +649,7 @@ export function RoleInspirationalCard({ role, className = '' }: RoleInspirationa
       */}
       <div className="flex flex-col-reverse md:flex-row items-stretch">
         {/* 1. Content Panel (الجانب الأيمن للنصوص في RTL) */}
-        <div className="p-5 sm:p-6 lg:p-7 flex flex-col justify-between space-y-4 min-w-0 flex-1">
+        <div className="p-5 sm:p-6 flex flex-col justify-between space-y-4 min-w-0 flex-1">
           {/* Top Metadata Row */}
           <div className="flex flex-wrap items-center justify-between gap-2.5">
             <div className="flex items-center gap-2 text-xs text-slate-700">
