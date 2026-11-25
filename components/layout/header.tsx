@@ -3,7 +3,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '@/context/app-context';
 import { useAuth } from '@/context/auth-context';
-import { useToast } from '@/context/toast-context';
 import { Check, ChevronsUpDown, Menu, Plus } from 'lucide-react';
 import { AppUserRole, SystemAuthRole } from '@/types';
 import { NetworkStatusBadge } from '@/components/common/network-status-badge';
@@ -57,7 +56,6 @@ export function Header({
 }: HeaderProps) {
   const { activeSection, triggerSync, isSyncing } = useApp();
   const { user, demoUsers, switchDemoUser } = useAuth();
-  const { toast } = useToast();
   const { isOnline } = useOnlineStatus();
 
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
@@ -94,12 +92,6 @@ export function Header({
     if (nextRole === user.role) return;
 
     switchDemoUser(nextRole);
-    const nextUser = demoUsers[nextRole];
-    if (nextRole === 'researcher') {
-      toast.info(`أهلاً ${nextUser.name} — أنت الآن في منظور الباحث الميداني`);
-    } else {
-      toast.info(`تم العودة لمنظور المدير التنفيذي — ${nextUser.name}`);
-    }
   };
 
   const sectionMeta = getSectionMeta(activeSection, user.role);

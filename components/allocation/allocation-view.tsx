@@ -1920,47 +1920,58 @@ export function AllocationView() {
       {/* Official Approval Confirmation Modal */}
       {showApprovalDialog && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-lg w-full border border-slate-200 shadow-xl overflow-hidden">
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-lg text-slate-800">اعتماد الميزانية وقفل الدورة</h3>
-                <p className="text-xs text-slate-500 mt-1">مراجعة المبالغ وتأكيد الاعتماد النهائي</p>
+          <div className="bg-white rounded-2xl max-w-lg w-full border border-slate-200/80 shadow-xl overflow-hidden">
+            <div className="px-5 sm:px-6 py-4 bg-slate-50 border-b border-slate-200/80 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="font-bold text-base sm:text-lg text-slate-800 leading-snug">
+                  اعتماد الميزانية وقفل الدورة
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  مراجعة المبالغ وتأكيد الاعتماد النهائي
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowApprovalDialog(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer shrink-0"
                 aria-label="إغلاق"
               >
                 <X size={20} />
               </button>
             </div>
-            <div className="p-6 space-y-4">
+
+            <div className="p-5 sm:p-6 space-y-4">
               <p className="text-xs text-slate-600 leading-relaxed">
                 أنت على وشك اعتماد كشف الصرف لدورة{' '}
-                <strong>{currentAllocation.batchTitle || currentAllocation.periodLabel}</strong>{' '}
+                <strong className="text-slate-900">
+                  {currentAllocation.batchTitle || currentAllocation.periodLabel}
+                </strong>{' '}
                 بإجمالي{' '}
-                <strong className="tabular-nums font-mono">
+                <strong className="tabular-nums font-mono text-slate-900">
                   {currentAllocation.summary.totalAllocated.toLocaleString('ar-EG')} ج.م
                 </strong>{' '}
-                لـ <strong>{currentAllocation.summary.fundedCasesCount} أسرة</strong>.
+                لـ <strong className="text-slate-900">{currentAllocation.summary.fundedCasesCount} أسرة</strong>.
               </p>
+
+              {/* Card 1: Disbursement & Balance Summary Grid */}
               <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-200/80 text-xs space-y-3">
-                <span className="font-semibold text-slate-700 flex items-center gap-1.5 pb-1.5 border-b border-slate-200/80">
-                  <ShieldCheck size={15} className="text-slate-400" />
+                <span className="font-semibold text-slate-700 flex items-center gap-1.5 pb-2 border-b border-slate-200/80">
+                  <ShieldCheck size={15} className="text-slate-400 shrink-0" />
                   <span>ملخص الصرف والرصيد:</span>
                 </span>
-                <div className="grid grid-cols-2 gap-2 text-[11px]">
-                  <div className="p-2.5 bg-white rounded-lg border border-slate-200/80">
-                    <span className="text-slate-500 font-medium block mb-1">يُخصم من الخزينة الموحدة:</span>
+                <div className="grid grid-cols-2 gap-2.5 text-[11px]">
+                  <div className="p-3 bg-white rounded-xl border border-slate-200/80 min-w-0">
+                    <span className="text-slate-500 font-medium block mb-1.5 leading-snug">
+                      يُخصم من الخزينة الموحدة:
+                    </span>
                     <MoneyDisplay
                       amount={currentAllocation.summary.totalAllocated}
                       size="md"
                       variant="neutral"
                     />
                   </div>
-                  <div className="p-2.5 bg-white rounded-lg border border-slate-200/80">
-                    <span className="text-slate-500 font-medium block mb-1">
+                  <div className="p-3 bg-white rounded-xl border border-slate-200/80 min-w-0">
+                    <span className="text-slate-500 font-medium block mb-1.5 leading-snug">
                       {isExceptionalCycle ? 'المتبقي بالخزينة الموحدة:' : 'المتبقي للدورة الجاية:'}
                     </span>
                     <MoneyDisplay
@@ -1970,30 +1981,40 @@ export function AllocationView() {
                     />
                   </div>
                 </div>
-                <div className="flex justify-between items-center pt-1 gap-2">
-                  <span className="text-slate-700 font-semibold shrink-0">اسم المسؤول المعتمد:</span>
-                  <input
-                    type="text"
-                    value={approverName}
-                    onChange={(e) => setApproverName(e.target.value)}
-                    className="p-1.5 text-xs bg-white border border-slate-200 rounded-lg font-semibold text-slate-900 w-60 focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15"
-                  />
-                </div>
               </div>
-              <div className="flex justify-end gap-2 text-xs pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowApprovalDialog(false)}
-                  className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg font-semibold transition-colors cursor-pointer"
+
+              {/* Card 2: Dedicated Independent Approver Card */}
+              <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3 flex items-center justify-between gap-3 text-xs">
+                <label
+                  htmlFor="approver-name-input"
+                  className="text-slate-600 font-medium shrink-0"
                 >
-                  تراجع
-                </button>
+                  اسم المسؤول المعتمد:
+                </label>
+                <input
+                  id="approver-name-input"
+                  type="text"
+                  value={approverName}
+                  onChange={(e) => setApproverName(e.target.value)}
+                  className="min-w-0 flex-1 bg-transparent text-left font-semibold text-slate-900 focus:outline-hidden truncate"
+                />
+              </div>
+
+              {/* Full-Width Vertical Decision Action Stack */}
+              <div className="flex flex-col gap-2 text-xs pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={handleConfirmApproval}
-                  className="px-5 py-2 bg-[#005756] hover:bg-[#004241] text-white font-semibold rounded-lg transition-colors cursor-pointer"
+                  className="w-full h-11 bg-[#005756] hover:bg-[#004241] text-white font-medium rounded-xl transition-colors cursor-pointer flex items-center justify-center"
                 >
                   تأكيد الاعتماد وقفل الدورة
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowApprovalDialog(false)}
+                  className="w-full h-10 bg-transparent text-slate-600 hover:bg-slate-100 rounded-xl font-normal transition-colors cursor-pointer flex items-center justify-center"
+                >
+                  تراجع
                 </button>
               </div>
             </div>

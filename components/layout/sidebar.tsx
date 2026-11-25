@@ -5,7 +5,6 @@ import { motion, MotionConfig } from 'motion/react';
 import { useApp } from '@/context/app-context';
 import { useAuth } from '@/context/auth-context';
 import { useScopedData } from '@/hooks/use-scoped-data';
-import { useToast } from '@/context/toast-context';
 import {
   LayoutDashboard,
   Users,
@@ -48,9 +47,8 @@ export function Sidebar({
     cases,
   } = useApp();
 
-  const { user, demoUsers, switchDemoUser } = useAuth();
+  const { user, switchDemoUser } = useAuth();
   const { isResearcherPOV, researcherMetrics } = useScopedData();
-  const { toast } = useToast();
   const { isOnline } = useOnlineStatus();
 
   const pendingReviewCount =
@@ -231,14 +229,8 @@ export function Sidebar({
 
   const handleToggleMobileRole = () => {
     const nextRole = isResearcherPOV ? 'admin' : 'researcher';
-    const nextUser = demoUsers[nextRole];
     switchDemoUser(nextRole);
     onCloseMobile();
-    if (nextRole === 'researcher') {
-      toast.info(`أهلاً ${nextUser.name} — أنت الآن في منظور الباحث الميداني`);
-    } else {
-      toast.info(`تم العودة لمنظور المدير التنفيذي — ${nextUser.name}`);
-    }
   };
 
   return (
