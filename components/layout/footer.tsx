@@ -25,7 +25,7 @@ export function Footer() {
           {/* Right Side: Identity & Activity */}
           <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 text-slate-700 font-medium order-1 lg:order-1">
             <span className="w-2 h-2 rounded-full bg-[#005756] shrink-0" />
-            <span>منظومة إدارة المساعدات الإنسانية · كفالة ودعم الأسر المستحقة</span>
+            <span>منظومة إدارة المساعدات الإنسانية · إحسان</span>
             <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-slate-100 text-slate-500 border border-slate-200/80">
               v0.9.5-beta
             </span>

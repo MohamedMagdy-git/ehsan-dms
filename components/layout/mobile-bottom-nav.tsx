@@ -122,11 +122,11 @@ export function MobileBottomNav() {
   return (
     <nav
       aria-label="شريط التنقل السريع للهاتف"
-      className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/80 backdrop-blur-lg border-t border-slate-200/80 shadow-[0_-4px_16px_rgba(0,0,0,0.03)] pb-[max(0.45rem,env(safe-area-inset-bottom,0px))]"
+      className="md:hidden fixed bottom-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))] inset-x-4 max-w-md mx-auto z-40 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] p-1.5"
     >
       <LayoutGroup id={`mobile-bottom-nav-${user.role}`}>
         <div
-          className={`grid items-center gap-1 h-[60px] px-2 max-w-lg mx-auto ${
+          className={`grid items-center gap-1 ${
             isResearcherPOV ? 'grid-cols-4' : 'grid-cols-5'
           }`}
         >
@@ -146,9 +146,9 @@ export function MobileBottomNav() {
                     setActiveSection(item.id);
                   }
                 }}
-                whileTap={prefersReducedMotion ? undefined : { scale: 0.92 }}
+                whileTap={prefersReducedMotion ? undefined : { scale: 0.93 }}
                 transition={tapTransition}
-                className={`relative flex flex-col items-center justify-center h-[48px] min-h-[44px] py-1 px-1 rounded-xl cursor-pointer select-none transition-colors duration-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-[#005756]/30 ${
+                className={`relative flex flex-col items-center justify-center h-[52px] min-h-[44px] py-1 px-1 rounded-xl cursor-pointer select-none transition-colors duration-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-[#005756]/30 ${
                   isActive
                     ? 'text-[#005756]'
                     : 'text-slate-500 hover:bg-slate-100/80 hover:text-slate-800'
@@ -166,14 +166,14 @@ export function MobileBottomNav() {
                 <div className="relative z-10 flex flex-col items-center justify-center transition-all duration-200">
                   <div className="relative">
                     <Icon
-                      size={20}
+                      size={19}
                       className={`transition-colors duration-200 ${
                         isActive ? 'stroke-[2.25]' : 'stroke-[1.75]'
                       }`}
                     />
                     {item.badge !== null && (
                       <span
-                        className={`absolute -top-1.5 -left-2 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold tabular-nums flex items-center justify-center ${
+                        className={`absolute -top-1.5 -left-2.5 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold tabular-nums flex items-center justify-center ring-2 ring-white ${
                           item.isUrgentBadge
                             ? 'bg-rose-600 text-white'
                             : 'bg-[#005756] text-white'
@@ -184,8 +184,8 @@ export function MobileBottomNav() {
                     )}
                   </div>
                   <span
-                    className={`text-[11px] whitespace-nowrap mt-0.5 leading-tight transition-colors duration-200 ${
-                      isActive ? 'font-semibold' : 'font-medium'
+                    className={`text-[10.5px] whitespace-nowrap mt-1 leading-none transition-colors duration-200 ${
+                      isActive ? 'font-bold' : 'font-medium'
                     }`}
                   >
                     {item.label}
