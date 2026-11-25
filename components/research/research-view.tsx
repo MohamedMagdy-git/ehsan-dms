@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion, MotionConfig } from 'motion/react';
+import { motion, MotionConfig, useReducedMotion } from 'motion/react';
 import { useAuth } from '@/context/auth-context';
 import { useApp } from '@/context/app-context';
 import { useScopedData } from '@/hooks/use-scoped-data';
@@ -364,6 +364,10 @@ export function ResearchView() {
   } = useApp();
   const { scopedCases: cases, scopedVisits: visits } = useScopedData();
   const { toast } = useToast();
+  const prefersReducedMotion = useReducedMotion();
+  const sectionTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 0.22, ease: 'easeOut' as const };
 
   const getCaseNotesCount = (c: BeneficiaryCase): number => {
     const dedicatedCount = caseNotes.filter((n) => n.caseId === c.id).length;
@@ -451,8 +455,14 @@ export function ResearchView() {
   };
 
   return (
-    <div className="space-y-5 w-full min-w-0">
-      {/* Top Action & Summary Bar */}
+    <>
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={sectionTransition}
+        className="space-y-5 w-full min-w-0"
+      >
+        {/* Top Action & Summary Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="flex items-center flex-wrap gap-2 text-xs text-slate-500 tabular-nums">
           <span className="font-semibold text-slate-800">
@@ -568,7 +578,13 @@ export function ResearchView() {
 
       {/* First Visit Cases Tab (New Intake Requests Awaiting Initial Field Research) */}
       {activeTab === 'first_visit' && (
-        <div className="space-y-4">
+        <motion.div
+          key="first_visit"
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={sectionTransition}
+          className="space-y-4"
+        >
           <div className="bg-[#005756]/[0.03] border border-[#005756]/15 rounded-2xl p-4 shadow-none">
             <div className="flex items-center gap-2.5">
               <span className="w-7 h-7 rounded-lg bg-[#005756]/10 text-[#005756] flex items-center justify-center shrink-0">
@@ -605,12 +621,18 @@ export function ResearchView() {
               ))}
             </div>
           )}
-        </div>
+        </motion.div>
       )}
 
       {/* Returned Cases for Revision Tab */}
       {activeTab === 'revision' && (
-        <div className="space-y-4">
+        <motion.div
+          key="revision"
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={sectionTransition}
+          className="space-y-4"
+        >
           <div className="bg-amber-50/40 border border-amber-200/60 rounded-2xl p-4 shadow-none">
             <div className="flex items-center gap-2.5">
               <span className="w-7 h-7 rounded-lg bg-amber-100/80 text-amber-800 flex items-center justify-center shrink-0">
@@ -647,12 +669,18 @@ export function ResearchView() {
               ))}
             </div>
           )}
-        </div>
+        </motion.div>
       )}
 
       {/* Overdue Cases Alert List */}
       {activeTab === 'overdue' && (
-        <div className="space-y-4">
+        <motion.div
+          key="overdue"
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={sectionTransition}
+          className="space-y-4"
+        >
           <div className="bg-rose-50/40 border border-rose-200/60 rounded-2xl p-4 shadow-none">
             <div className="flex items-center gap-2.5">
               <span className="w-7 h-7 rounded-lg bg-rose-100/70 text-rose-700 flex items-center justify-center shrink-0">
@@ -689,12 +717,18 @@ export function ResearchView() {
               ))}
             </div>
           )}
-        </div>
+        </motion.div>
       )}
 
       {/* Completed Visits Archive */}
       {activeTab === 'all' && (
-        <div className="space-y-4">
+        <motion.div
+          key="all"
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={sectionTransition}
+          className="space-y-4"
+        >
           <div className="p-3 bg-white rounded-xl border border-slate-200/80 shadow-none flex items-center gap-2.5">
             <Search size={16} className="text-slate-400 shrink-0" />
             <input
@@ -812,8 +846,9 @@ export function ResearchView() {
               })}
             </div>
           )}
-        </div>
+        </motion.div>
       )}
+      </motion.div>
 
       {/* New Field Visit Modal */}
       {showNewVisitModal && (
@@ -935,6 +970,6 @@ export function ResearchView() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

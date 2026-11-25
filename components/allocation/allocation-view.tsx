@@ -228,6 +228,9 @@ export function AllocationView() {
   const collapseTransition = prefersReducedMotion
     ? { duration: 0 }
     : { duration: 0.18, ease: 'easeOut' as const };
+  const sectionTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 0.22, ease: 'easeOut' as const };
 
   const isApproved = currentAllocation?.status === 'approved';
   const isExceptionalCycle = currentAllocation?.cycleType === 'exceptional';
@@ -467,8 +470,14 @@ export function AllocationView() {
   }
 
   return (
-    <div className="space-y-5">
-      {/* 1. Page Header & Action Bar */}
+    <>
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={sectionTransition}
+        className="space-y-5"
+      >
+        {/* 1. Page Header & Action Bar */}
       <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3.5">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -1857,6 +1866,7 @@ export function AllocationView() {
           )}
         </div>
       </div>
+      </motion.div>
 
       {/* Modals */}
 
@@ -2093,6 +2103,6 @@ export function AllocationView() {
         target={previewProofTarget}
         onClose={() => setPreviewProofTarget(null)}
       />
-    </div>
+    </>
   );
 }

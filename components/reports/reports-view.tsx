@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useApp } from '@/context/app-context';
 import {
   FileSpreadsheet,
@@ -87,6 +88,10 @@ export function ReportsView() {
   const [isSolidarityModalOpen, setIsSolidarityModalOpen] = useState(false);
   const [selectedVoucherOrder, setSelectedVoucherOrder] = useState<FastTrackDisbursementOrder | null>(null);
   const [previewProofTarget, setPreviewProofTarget] = useState<DeliveryProofPreviewTarget | null>(null);
+  const prefersReducedMotion = useReducedMotion();
+  const sectionTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 0.22, ease: 'easeOut' as const };
 
   // حالة لتخزين ملاحظات الإدارة والتسليم الميداني القابلة للتعديل الحي
   const [fieldNotes, setFieldNotes] = useState<Record<string, string>>({});
@@ -158,8 +163,14 @@ export function ReportsView() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* 1. HERO BENTO CARD: كشوف الصرف الميداني السريعة للباحثين */}
+    <>
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={sectionTransition}
+        className="space-y-6"
+      >
+        {/* 1. HERO BENTO CARD: كشوف الصرف الميداني السريعة للباحثين */}
       <div className="bg-white rounded-xl border border-slate-200/70 shadow-none p-5 sm:p-6 space-y-5">
         {/* Header & Main Actions */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-5">
@@ -661,6 +672,7 @@ export function ReportsView() {
           </div>
         </div>
       </div>
+      </motion.div>
 
       {/* MODALS */}
 
@@ -703,6 +715,6 @@ export function ReportsView() {
         target={previewProofTarget}
         onClose={() => setPreviewProofTarget(null)}
       />
-    </div>
+    </>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useApp } from '@/context/app-context';
 import { useToast } from '@/context/toast-context';
 import {
@@ -80,6 +81,10 @@ function CircularProgressGauge({
 export function CaseReviewApprovalView() {
   const { cases, approveCaseReview, setActiveSection } = useApp();
   const { toast } = useToast();
+  const prefersReducedMotion = useReducedMotion();
+  const sectionTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 0.22, ease: 'easeOut' as const };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
@@ -204,8 +209,14 @@ export function CaseReviewApprovalView() {
   };
 
   return (
-    <div className="space-y-5">
-      {/* Top Summary & Return Action Bar */}
+    <>
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={sectionTransition}
+        className="space-y-5"
+      >
+        {/* Top Summary & Return Action Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="flex items-center flex-wrap gap-2 text-xs text-slate-500 tabular-nums">
           <span className="font-semibold text-slate-800">ملخص المراجعة</span>
@@ -822,6 +833,7 @@ export function CaseReviewApprovalView() {
           )}
         </>
       )}
+      </motion.div>
 
       {/* Case Audit Drawer Modal */}
       {auditCase && (
@@ -837,6 +849,6 @@ export function CaseReviewApprovalView() {
           }}
         />
       )}
-    </div>
+    </>
   );
 }

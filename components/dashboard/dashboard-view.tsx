@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useApp } from '@/context/app-context';
 import {
   Users,
@@ -69,6 +70,10 @@ export function DashboardView() {
   const [isApprovingCycle, setIsApprovingCycle] = useState(false);
   const [hoveredBarIndex, setHoveredBarIndex] = useState<number | null>(null);
   const [hoveredSliceIndex, setHoveredSliceIndex] = useState<number | null>(null);
+  const prefersReducedMotion = useReducedMotion();
+  const sectionTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 0.22, ease: 'easeOut' as const };
 
   // Priority distribution data for Donut chart (Teal + Slate, calm Rose strictly for critical)
   const priorityCounts = [
@@ -193,8 +198,14 @@ export function DashboardView() {
   const closedPercent = (metrics.closedCases / safeTotalCases) * 100;
 
   return (
-    <div className="space-y-6">
-      {/* Inspirational Quranic Guidance Card tailored to current role */}
+    <>
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={sectionTransition}
+        className="space-y-6"
+      >
+        {/* Inspirational Quranic Guidance Card tailored to current role */}
       <RoleInspirationalCard />
 
       {/* 2. Treasury KPIs Grid (4 Unified Calm Cards) */}
@@ -1227,6 +1238,7 @@ export function DashboardView() {
           </div>
         </div>
       </div>
+      </motion.div>
 
       {/* Modal 1: Unified Monthly Donations Summary Modal */}
       {showDonationBreakdownModal && (
@@ -1513,6 +1525,6 @@ export function DashboardView() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

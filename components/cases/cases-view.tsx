@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useApp } from '@/context/app-context';
 import {
   Search,
@@ -69,6 +70,10 @@ export function CasesView({ onOpenNewCase }: { onOpenNewCase: () => void }) {
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [researcherFilter, setResearcherFilter] = useState<string>('all');
   const [reviewApprovalModalCase, setReviewApprovalModalCase] = useState<BeneficiaryCase | null>(null);
+  const prefersReducedMotion = useReducedMotion();
+  const sectionTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 0.22, ease: 'easeOut' as const };
 
   const pendingReviewCount = useMemo(() => {
     return cases.filter((c) => c.status === 'pending_review' || c.status === 'needs_revision').length;
@@ -109,8 +114,14 @@ export function CasesView({ onOpenNewCase }: { onOpenNewCase: () => void }) {
     researcherFilter !== 'all';
 
   return (
-    <div className="space-y-5">
-      {/* Top Action Bar */}
+    <>
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={sectionTransition}
+        className="space-y-5"
+      >
+        {/* Top Action Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-slate-900 tracking-tight">سجل المستحقين والأسر</h2>
@@ -591,6 +602,7 @@ export function CasesView({ onOpenNewCase }: { onOpenNewCase: () => void }) {
           </table>
         </div>
       </div>
+      </motion.div>
 
       {/* Case Review and Approval Modal */}
       <CaseReviewApprovalModal
@@ -598,6 +610,6 @@ export function CasesView({ onOpenNewCase }: { onOpenNewCase: () => void }) {
         isOpen={reviewApprovalModalCase !== null}
         onClose={() => setReviewApprovalModalCase(null)}
       />
-    </div>
+    </>
   );
 }

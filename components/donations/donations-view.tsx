@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useApp } from '@/context/app-context';
 import {
   Plus,
@@ -23,6 +24,10 @@ export function DonationsView({ onOpenNewDonation }: DonationsViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [channelFilter, setChannelFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const prefersReducedMotion = useReducedMotion();
+  const sectionTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 0.22, ease: 'easeOut' as const };
 
   const receivedCount = donations.filter((d) => d.status === 'received').length;
   const pledgedCount = donations.filter((d) => d.status === 'pledged').length;
@@ -67,7 +72,12 @@ export function DonationsView({ onOpenNewDonation }: DonationsViewProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={sectionTransition}
+      className="space-y-6"
+    >
       {/* Top Summary Bar & Primary Action */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -424,6 +434,6 @@ export function DonationsView({ onOpenNewDonation }: DonationsViewProps) {
           </table>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

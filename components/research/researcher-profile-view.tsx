@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { motion, MotionConfig } from 'motion/react';
+import { motion, MotionConfig, useReducedMotion } from 'motion/react';
 import { useApp } from '@/context/app-context';
 import { useAuth } from '@/context/auth-context';
 import {
@@ -116,6 +116,10 @@ export function ResearcherProfileView() {
     toggleResearcherStatus,
   } = useApp();
   const { toast } = useToast();
+  const prefersReducedMotion = useReducedMotion();
+  const sectionTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 0.22, ease: 'easeOut' as const };
 
   const [adminSelectedResearcherId, setAdminSelectedResearcherId] = useState<string>(
     INITIAL_RESEARCHERS[0]?.id || 'res-01'
@@ -496,8 +500,14 @@ export function ResearcherProfileView() {
   const isCurrentInactive = currentResearcher.status === 'inactive';
 
   return (
-    <div className="flex flex-col gap-6 w-full min-w-0">
-      {/* Top Context Bar: Researcher Switcher & Archive Filter (Admin) or Personal Context (Researcher) + Primary CTAs */}
+    <>
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={sectionTransition}
+        className="flex flex-col gap-6 w-full min-w-0"
+      >
+        {/* Top Context Bar: Researcher Switcher & Archive Filter (Admin) or Personal Context (Researcher) + Primary CTAs */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         {!isResearcherRole ? (
           <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-wrap">
@@ -886,7 +896,12 @@ export function ResearcherProfileView() {
 
         {/* Tab 1: Assigned Cases */}
         {activeTab === 'cases' && (
-          <div>
+          <motion.div
+            key="cases"
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={sectionTransition}
+          >
             {/* Quick Segmented Filter Row */}
             {assignedCases.length > 0 && (
               <div className="px-4 sm:px-6 py-3 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
@@ -1149,12 +1164,17 @@ export function ResearcherProfileView() {
                 </div>
               </>
             )}
-          </div>
+          </motion.div>
         )}
 
         {/* Tab 2: Documented Field Visits & Researcher Recommendations */}
         {activeTab === 'reports' && (
-          <div>
+          <motion.div
+            key="reports"
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={sectionTransition}
+          >
             {filteredReports.length === 0 ? (
               <div className="py-12 px-6 text-center space-y-2.5">
                 <FileText size={24} className="mx-auto text-slate-300" />
@@ -1270,9 +1290,10 @@ export function ResearcherProfileView() {
                 ))}
               </div>
             )}
-          </div>
+          </motion.div>
         )}
       </section>
+      </motion.div>
 
       {/* Add / Edit Researcher Modal */}
       <ResearcherFormModal
@@ -1296,6 +1317,6 @@ export function ResearcherProfileView() {
         onClose={() => setIsDeactivateModalOpen(false)}
         onConfirm={handleConfirmDeactivate}
       />
-    </div>
+    </>
   );
 }

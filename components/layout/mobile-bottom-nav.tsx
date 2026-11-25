@@ -113,7 +113,7 @@ export function MobileBottomNav() {
 
   const indicatorTransition = prefersReducedMotion
     ? { duration: 0 }
-    : { type: 'spring' as const, stiffness: 380, damping: 32 };
+    : { type: 'spring' as const, stiffness: 420, damping: 36, mass: 0.7 };
 
   const tapTransition = prefersReducedMotion
     ? { duration: 0 }

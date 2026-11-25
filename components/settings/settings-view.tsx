@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useApp } from '@/context/app-context';
 import { useToast } from '@/context/toast-context';
 import {
@@ -60,6 +61,10 @@ export function SettingsView() {
     deleteChronicDisease,
   } = useApp();
   const { toast } = useToast();
+  const prefersReducedMotion = useReducedMotion();
+  const sectionTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 0.22, ease: 'easeOut' as const };
 
   const [activeTab, setActiveTab] = useState<'rules' | 'sharia' | 'chronic_diseases'>('rules');
 
@@ -262,8 +267,14 @@ export function SettingsView() {
   const pausedCategoriesCount = shariaCategories.length - activeCategoriesCount;
 
   return (
-    <div className="space-y-6">
-      {/* Calm Segmented Navigation Tabs */}
+    <>
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={sectionTransition}
+        className="space-y-6"
+      >
+        {/* Calm Segmented Navigation Tabs */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div
           className={`w-full grid ${
@@ -882,6 +893,7 @@ export function SettingsView() {
           </div>
         </div>
       )}
+      </motion.div>
 
       {/* Category Add/Edit Modal */}
       {isCategoryModalOpen && (
@@ -1080,6 +1092,6 @@ export function SettingsView() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

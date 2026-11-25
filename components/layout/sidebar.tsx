@@ -364,8 +364,9 @@ export function Sidebar({
                           aria-hidden="true"
                           transition={{
                             type: 'spring',
-                            stiffness: 350,
-                            damping: 30,
+                            stiffness: 420,
+                            damping: 36,
+                            mass: 0.7,
                           }}
                           className="absolute inset-0 bg-white/10 backdrop-blur-xs rounded-xl border border-white/5 pointer-events-none"
                         />
