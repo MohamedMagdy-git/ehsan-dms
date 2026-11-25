@@ -432,6 +432,7 @@ export interface ResearcherProfile {
   pendingVisitsCount: number;
   completionRate: number;       // نسبة إنجاز الزيارات %
   bio: string;
+  status?: 'active' | 'inactive';
 }
 
 export interface FastTrackDisbursementOrder {

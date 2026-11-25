@@ -1237,6 +1237,7 @@ export const INITIAL_RESEARCHERS: import('@/types').ResearcherProfile[] = [
     pendingVisitsCount: 1,
     completionRate: 94,
     bio: 'متطوعة متخصصة في بحوث الأرامل والأيتام ورصد الدخول غير المباشرة للأسر الأكثر احتياجاً.',
+    status: 'active',
   },
   {
     id: 'res-02',
@@ -1251,6 +1252,7 @@ export const INITIAL_RESEARCHERS: import('@/types').ResearcherProfile[] = [
     pendingVisitsCount: 1,
     completionRate: 92,
     bio: 'مسؤول المعاينات الميدانية للمنازل الآيلة للسقوط وتوثيق الحالات التي تعاني نقص المستندات الرسمية.',
+    status: 'active',
   },
   {
     id: 'res-03',
@@ -1265,6 +1267,7 @@ export const INITIAL_RESEARCHERS: import('@/types').ResearcherProfile[] = [
     pendingVisitsCount: 0,
     completionRate: 98,
     bio: 'طبيب متطوع مسؤول عن مراجعة التقارير الطبية وفواتير أدوية الفشل الكلوي والأورام وضمور العضلات.',
+    status: 'active',
   },
   {
     id: 'res-04',
@@ -1279,6 +1282,7 @@ export const INITIAL_RESEARCHERS: import('@/types').ResearcherProfile[] = [
     pendingVisitsCount: 0,
     completionRate: 96,
     bio: 'متطوعة متخصصة في حالات التربية الخاصة والدمج التعليمي وأسر رعاية الأيتام.',
+    status: 'active',
   },
   {
     id: 'res-05',
@@ -1293,6 +1297,7 @@ export const INITIAL_RESEARCHERS: import('@/types').ResearcherProfile[] = [
     pendingVisitsCount: 0,
     completionRate: 96,
     bio: 'باحث ميداني متطوع مسؤول عن المعاينات السريعة، متابعة ترميم الأسقف والمنازل قبل الشتاء، وتحديث ملفات الأسر.',
+    status: 'active',
   },
 ];
 

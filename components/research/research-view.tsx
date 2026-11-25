@@ -6,7 +6,7 @@ import { useAuth } from '@/context/auth-context';
 import { useApp } from '@/context/app-context';
 import { useScopedData } from '@/hooks/use-scoped-data';
 import { useToast } from '@/context/toast-context';
-import { FieldVisit } from '@/types';
+import { BeneficiaryCase, FieldVisit } from '@/types';
 import {
   Clock,
   Plus,
@@ -20,9 +20,264 @@ import {
   RotateCcw,
   UserPlus,
   X,
+  MessageSquare,
+  History,
+  Calendar,
+  Wallet,
+  Users,
+  DoorOpen,
+  AlertCircle,
 } from 'lucide-react';
 import { RoleInspirationalCard } from '@/components/common/role-inspirational-card';
 import { CustomSelect } from '@/components/ui/custom-select';
+
+function getResearcherInitial(name?: string): string {
+  if (!name) return 'ب';
+  const cleaned = name.replace(/^(أ\.|م\.|د\.)\s*/u, '').trim();
+  return cleaned.charAt(0) || name.charAt(0) || 'ب';
+}
+
+function parseRevisionItems(rawNote?: string): string[] {
+  if (!rawNote) return [];
+  const cleanedHeader = rawNote
+    .replace(/^\[إرجاع لاستكمال النواقص\]:?\s*/u, '')
+    .replace(/^ملاحظات الإدارة لاستكمال الملف:?\s*/u, '')
+    .trim();
+
+  const rawLines = cleanedHeader
+    .split(/\r?\n|(?=\s*•\s*)|(?=\s+-\s+)|(?=\s+س\d+\s*:)/u)
+    .map((line) => line.replace(/^[-•*]\s*/u, '').trim())
+    .filter(Boolean);
+
+  const filteredLines = rawLines.filter(
+    (line) =>
+      !/^يرجى استكمال وتعديل نواقص البحث الميداني التالية:?$/u.test(line) &&
+      !/^ملاحظات الإدارة لاستكمال الملف:?$/u.test(line)
+  );
+
+  return filteredLines.length > 0 ? filteredLines : rawLines;
+}
+
+interface FieldResearchTaskCardProps {
+  caseItem: BeneficiaryCase;
+  variant: 'first_visit' | 'revision' | 'overdue';
+  notesCount: number;
+  visitsCount: number;
+  onOpenDetails: (caseId: string) => void;
+  onOpenNotes: (caseId: string) => void;
+  onStartSurvey: (caseId: string) => void;
+}
+
+function FieldResearchTaskCard({
+  caseItem: c,
+  variant,
+  notesCount,
+  visitsCount,
+  onOpenDetails,
+  onOpenNotes,
+  onStartSurvey,
+}: FieldResearchTaskCardProps) {
+  const estimatedNeed =
+    c.financials?.estimatedAssistanceNeed ||
+    c.financials?.netFinancialGap ||
+    0;
+  const familyCount = c.householdMembers?.length || 1;
+  const researcherName = c.assignedResearcher || 'مش متحدد';
+
+  const badgeMeta =
+    variant === 'first_visit'
+      ? {
+          label: 'زيارة أولى',
+          pillClass: 'bg-emerald-50 text-emerald-700',
+          Icon: DoorOpen,
+        }
+      : variant === 'revision'
+      ? {
+          label: 'تحتاج استكمال',
+          pillClass: 'bg-amber-50 text-amber-800',
+          Icon: AlertCircle,
+        }
+      : {
+          label: 'متابعة دورية متأخرة',
+          pillClass: 'bg-rose-50 text-rose-700',
+          Icon: Clock,
+        };
+
+  const BadgeIcon = badgeMeta.Icon;
+
+  const primaryCtaLabel =
+    variant === 'revision'
+      ? 'استكمال البحث'
+      : variant === 'overdue'
+      ? 'تحديث الزيارة'
+      : 'ابدأ بحث حالة';
+
+  const revisionInstruction =
+    variant === 'revision'
+      ? c.adminRevisionNote || c.notes?.split('\n\n')[0]
+      : undefined;
+
+  const revisionItems = parseRevisionItems(revisionInstruction);
+
+  return (
+    <article className="p-5 bg-white rounded-2xl border border-slate-200/80 hover:border-slate-300/90 transition-colors shadow-none flex flex-col justify-between gap-4 h-full">
+      <div className="space-y-3.5">
+        {/* 1. Card Header: Name + Gray Code Chip + Location | Visit Type Capsule */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <div className="flex items-center flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => onOpenDetails(c.id)}
+                className="font-bold text-base text-slate-900 hover:text-[#005756] transition-colors text-right cursor-pointer leading-snug"
+              >
+                {c.fullName}
+              </button>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200/80 font-mono text-[11px] font-medium tabular-nums shrink-0">
+                {c.code}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-xs text-slate-500">
+              <MapPin size={13} className="text-slate-400 shrink-0" />
+              <span className="truncate">
+                {c.governorate} · {c.district}
+              </span>
+            </div>
+          </div>
+
+          <span
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 ${badgeMeta.pillClass}`}
+          >
+            <BadgeIcon size={12} className="shrink-0" aria-hidden="true" />
+            <span>{badgeMeta.label}</span>
+          </span>
+        </div>
+
+        {/* 2. Financial Need Summary Row (Clean Flat Bento Strip) */}
+        <div className="px-3.5 py-2.5 rounded-xl bg-slate-50/80 border border-slate-200/70 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 min-w-0">
+            <Wallet size={14} className="text-slate-400 shrink-0" />
+            <span className="text-slate-500">الاحتياج التقديري:</span>
+            <strong className="text-sm font-bold text-slate-900 font-mono tabular-nums">
+              {estimatedNeed.toLocaleString('ar-EG')} ج.م
+            </strong>
+          </div>
+
+          <span className="inline-flex items-center gap-1 text-slate-500 tabular-nums shrink-0">
+            <Users size={13} className="text-slate-400 shrink-0" />
+            <span>
+              {familyCount} {familyCount === 1 ? 'فرد' : 'أفراد'}
+            </span>
+          </span>
+        </div>
+
+        {/* Management Revision Note (Only in revision tab) */}
+        {revisionItems.length > 0 && (
+          <div className="bg-amber-50/60 border border-amber-200/60 rounded-xl p-3 text-xs space-y-2">
+            <strong className="block text-xs font-bold text-amber-900">
+              ملاحظات الإدارة لاستكمال الملف:
+            </strong>
+            <ul className="space-y-1.5 text-amber-900/90 leading-relaxed">
+              {revisionItems.map((item, idx) => (
+                <li key={idx} className="flex items-start gap-1.5">
+                  <span className="text-amber-700 font-bold select-none shrink-0">
+                    •
+                  </span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* 3. Micro-Metadata Bar (Icon + Quick Metrics Row) */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500 pt-0.5">
+          <button
+            type="button"
+            onClick={() => onOpenNotes(c.id)}
+            title="فتح ملاحظات الحالة"
+            className="inline-flex items-center gap-1.5 hover:text-[#005756] transition-colors cursor-pointer tabular-nums"
+          >
+            <MessageSquare size={13} className="text-slate-400 shrink-0" />
+            <span>
+              {notesCount}{' '}
+              {notesCount === 1
+                ? 'ملاحظة'
+                : notesCount === 2
+                ? 'ملاحظتان'
+                : 'ملاحظات'}
+            </span>
+          </button>
+
+          <span className="text-slate-300" aria-hidden="true">
+            ·
+          </span>
+
+          <span className="inline-flex items-center gap-1.5 tabular-nums">
+            <History size={13} className="text-slate-400 shrink-0" />
+            <span>
+              {visitsCount === 0
+                ? '0 زيارات سابقة'
+                : visitsCount === 1
+                ? 'زيارة سابقة واحدة'
+                : `${visitsCount} زيارات سابقة`}
+            </span>
+          </span>
+
+          <span className="text-slate-300" aria-hidden="true">
+            ·
+          </span>
+
+          <span className="inline-flex items-center gap-1.5 font-mono tabular-nums">
+            <Calendar size={13} className="text-slate-400 shrink-0" />
+            {variant === 'overdue' && c.lastVisitDate ? (
+              <span>آخر نزول: {c.lastVisitDate}</span>
+            ) : (
+              <span>تسجيل: {c.registrationDate}</span>
+            )}
+          </span>
+        </div>
+      </div>
+
+      {/* 4. Balanced Footer Bar: Assigned Researcher + Actions */}
+      <div className="pt-3.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200/80 text-slate-700 font-bold text-[11px] flex items-center justify-center shrink-0 select-none"
+            aria-hidden="true"
+          >
+            {getResearcherInitial(researcherName)}
+          </span>
+          <div className="min-w-0 text-xs">
+            <span className="text-slate-400 ml-1">الباحث:</span>
+            <strong className="text-slate-700 font-semibold truncate">
+              {researcherName}
+            </strong>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+          <button
+            type="button"
+            onClick={() => onOpenDetails(c.id)}
+            className="px-3.5 h-9 bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-semibold rounded-xl transition-colors text-xs whitespace-nowrap cursor-pointer"
+          >
+            عرض الملف
+          </button>
+          <button
+            type="button"
+            onClick={() => onStartSurvey(c.id)}
+            className="px-3.5 h-9 bg-[#005756] hover:bg-[#004241] text-white font-semibold rounded-xl transition-colors inline-flex items-center gap-1.5 text-xs whitespace-nowrap cursor-pointer"
+          >
+            <MapPin size={13} className="shrink-0" />
+            <span>{primaryCtaLabel}</span>
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
 
 function getVisitStatusLabel(status: FieldVisit['status']): string {
   switch (status) {
@@ -41,10 +296,22 @@ export function ResearchView() {
   const {
     addVisit,
     setSelectedCaseId,
+    openCaseDetails,
     openFieldSurvey,
+    caseNotes,
   } = useApp();
   const { scopedCases: cases, scopedVisits: visits } = useScopedData();
   const { toast } = useToast();
+
+  const getCaseNotesCount = (c: BeneficiaryCase): number => {
+    const dedicatedCount = caseNotes.filter((n) => n.caseId === c.id).length;
+    if (dedicatedCount > 0) return dedicatedCount;
+    return c.notes && c.notes.trim() ? 1 : 0;
+  };
+
+  const getCaseVisitsCount = (caseId: string): number => {
+    return visits.filter((v) => v.caseId === caseId).length;
+  };
 
   const [activeTab, setActiveTab] = useState<'first_visit' | 'overdue' | 'revision' | 'all'>('first_visit');
   const [searchQuery, setSearchQuery] = useState('');
@@ -259,67 +526,16 @@ export function ResearchView() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {firstVisitCases.map((c) => (
-                <div
+                <FieldResearchTaskCard
                   key={c.id}
-                  className="p-5 bg-white rounded-xl border border-slate-200/70 shadow-none space-y-3.5"
-                >
-                  <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center flex-wrap gap-1.5">
-                        <span className="font-bold text-sm text-slate-900">{c.fullName}</span>
-                        <span className="text-slate-300" aria-hidden="true">·</span>
-                        <span className="text-xs font-mono text-slate-500 tabular-nums">
-                          {c.code}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">{c.governorate} · {c.district}</p>
-                    </div>
-
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap shrink-0 bg-[#005756]/[0.07] text-[#005756] border border-[#005756]/15">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#005756] shrink-0" aria-hidden="true" />
-                      <span>زيارة أولى</span>
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50/80 p-3 rounded-lg border border-slate-200/70">
-                    <div>
-                      <span className="text-slate-500 block">تاريخ التسجيل:</span>
-                      <strong className="text-slate-800 font-mono tabular-nums mt-0.5 block">
-                        {c.registrationDate}
-                      </strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block">الاحتياج التقديري:</span>
-                      <strong className="text-slate-800 font-mono tabular-nums mt-0.5 block">
-                        {(c.financials?.estimatedAssistanceNeed || 0).toLocaleString('ar-EG')} ج.م
-                      </strong>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2 text-xs pt-1">
-                    <span className="text-slate-500">
-                      الباحث المسؤول: <strong className="text-slate-800 font-semibold">{c.assignedResearcher || 'مش متحدد'}</strong>
-                    </span>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedCaseId(c.id)}
-                        className="px-3 py-1.5 min-h-[36px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors text-xs whitespace-nowrap cursor-pointer"
-                      >
-                        عرض الملف
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openFieldSurvey(c.id)}
-                        className="px-3.5 py-1.5 min-h-[36px] bg-[#005756] hover:bg-[#004241] text-white font-semibold rounded-lg transition-colors flex items-center gap-1.5 text-xs whitespace-nowrap cursor-pointer"
-                      >
-                        <MapPin size={13} />
-                        <span>ابدأ بحث حالة</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                  caseItem={c}
+                  variant="first_visit"
+                  notesCount={getCaseNotesCount(c)}
+                  visitsCount={getCaseVisitsCount(c.id)}
+                  onOpenDetails={(id) => setSelectedCaseId(id)}
+                  onOpenNotes={(id) => openCaseDetails(id, 'notes')}
+                  onStartSurvey={(id) => openFieldSurvey(id)}
+                />
               ))}
             </div>
           )}
@@ -348,64 +564,16 @@ export function ResearchView() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {needsRevisionCases.map((c) => (
-                <div
+                <FieldResearchTaskCard
                   key={c.id}
-                  className="p-5 bg-white rounded-xl border border-slate-200/70 shadow-none space-y-3.5"
-                >
-                  <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center flex-wrap gap-1.5">
-                        <h4 className="font-bold text-slate-900 text-sm">{c.fullName}</h4>
-                        <span className="text-slate-300" aria-hidden="true">·</span>
-                        <span className="font-mono text-xs text-slate-500 tabular-nums">
-                          {c.code}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {c.governorate} · {c.district}
-                      </p>
-                    </div>
-
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap shrink-0 bg-amber-50 text-amber-800 border border-amber-200/70">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" aria-hidden="true" />
-                      <span>تحتاج تعديل</span>
-                    </span>
-                  </div>
-
-                  {/* Notes / Instructions from Management */}
-                  {(c.adminRevisionNote || c.notes) && (
-                    <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-lg text-xs space-y-1">
-                      <strong className="block text-xs font-semibold text-amber-950">ملاحظات الإدارة:</strong>
-                      <p className="text-amber-900/90 leading-relaxed whitespace-pre-line text-xs">
-                        {c.adminRevisionNote || c.notes?.split('\n\n')[0]}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between gap-2 text-xs pt-1">
-                    <span className="text-slate-500">
-                      الباحث المسؤول: <strong className="text-slate-800 font-semibold">{c.assignedResearcher || 'مش متحدد'}</strong>
-                    </span>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedCaseId(c.id)}
-                        className="px-3 py-1.5 min-h-[36px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors text-xs whitespace-nowrap cursor-pointer"
-                      >
-                        عرض الملف
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openFieldSurvey(c.id)}
-                        className="px-3.5 py-1.5 min-h-[36px] bg-[#005756] hover:bg-[#004241] text-white font-semibold rounded-lg transition-colors flex items-center gap-1.5 text-xs whitespace-nowrap cursor-pointer"
-                      >
-                        <MapPin size={13} />
-                        <span>استكمال البحث</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                  caseItem={c}
+                  variant="revision"
+                  notesCount={getCaseNotesCount(c)}
+                  visitsCount={getCaseVisitsCount(c.id)}
+                  onOpenDetails={(id) => setSelectedCaseId(id)}
+                  onOpenNotes={(id) => openCaseDetails(id, 'notes')}
+                  onStartSurvey={(id) => openFieldSurvey(id)}
+                />
               ))}
             </div>
           )}
@@ -434,67 +602,16 @@ export function ResearchView() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {overdueCases.map((c) => (
-                <div
+                <FieldResearchTaskCard
                   key={c.id}
-                  className="p-5 bg-white rounded-xl border border-slate-200/70 shadow-none space-y-3.5"
-                >
-                  <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center flex-wrap gap-1.5">
-                        <span className="font-bold text-sm text-slate-900">{c.fullName}</span>
-                        <span className="text-slate-300" aria-hidden="true">·</span>
-                        <span className="text-xs font-mono text-slate-500 tabular-nums">
-                          {c.code}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">{c.governorate} · {c.district}</p>
-                    </div>
-
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap shrink-0 bg-rose-50 text-rose-700 border border-rose-200/70">
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" aria-hidden="true" />
-                      <span>متأخرة عن موعدها</span>
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50/70 p-3 rounded-lg border border-slate-200/60">
-                    <div>
-                      <span className="text-slate-500 block">تاريخ آخر نزول:</span>
-                      <strong className="text-slate-800 font-mono tabular-nums mt-0.5 block">
-                        {c.lastVisitDate}
-                      </strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block">معاد التجديد الجاي:</span>
-                      <strong className="text-slate-800 font-mono tabular-nums mt-0.5 block">
-                        {c.nextVisitDueDate}
-                      </strong>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2 text-xs pt-1">
-                    <span className="text-slate-500">
-                      الباحث الحالي: <strong className="text-slate-800 font-semibold">{c.assignedResearcher || 'مش متحدد'}</strong>
-                    </span>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedCaseId(c.id)}
-                        className="px-3 py-1.5 min-h-[36px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors text-xs whitespace-nowrap cursor-pointer"
-                      >
-                        عرض الملف
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openFieldSurvey(c.id)}
-                        className="px-3.5 py-1.5 min-h-[36px] bg-[#005756] hover:bg-[#004241] text-white font-semibold rounded-lg transition-colors flex items-center gap-1.5 text-xs whitespace-nowrap cursor-pointer"
-                      >
-                        <MapPin size={13} />
-                        <span>ابدأ بحث حالة</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                  caseItem={c}
+                  variant="overdue"
+                  notesCount={getCaseNotesCount(c)}
+                  visitsCount={getCaseVisitsCount(c.id)}
+                  onOpenDetails={(id) => setSelectedCaseId(id)}
+                  onOpenNotes={(id) => openCaseDetails(id, 'notes')}
+                  onStartSurvey={(id) => openFieldSurvey(id)}
+                />
               ))}
             </div>
           )}

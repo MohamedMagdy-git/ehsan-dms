@@ -18,12 +18,17 @@ import {
   DeliveryProofPreviewTarget,
 } from '@/components/custody/delivery-proof-modal';
 import {
+  ResearcherFormModal,
+  ResearcherFormPayload,
+} from '@/components/research/researcher-form-modal';
+import {
   Banknote,
   Check,
   CheckCircle2,
   Copy,
   FileCheck2,
   MapPin,
+  Pencil,
   Phone,
   Smartphone,
   Wallet,
@@ -38,7 +43,12 @@ function getSanitizedTelHref(phone?: string): string | null {
 
 export function ResearcherCustodyView() {
   const { user } = useAuth();
-  const { confirmCustodyItemDelivered, openCaseDetails } = useApp();
+  const {
+    confirmCustodyItemDelivered,
+    openCaseDetails,
+    researcherProfiles,
+    updateResearcher,
+  } = useApp();
   const { scopedCustodyItems, researcherMetrics, latestApprovedCycle } =
     useScopedData();
   const { toast } = useToast();
@@ -50,6 +60,25 @@ export function ResearcherCustodyView() {
     useState<CustodyDeliveryItem | null>(null);
   const [previewProofTarget, setPreviewProofTarget] =
     useState<DeliveryProofPreviewTarget | null>(null);
+  const [isSelfProfileModalOpen, setIsSelfProfileModalOpen] =
+    useState<boolean>(false);
+
+  const ownResearcherProfile = useMemo(() => {
+    if (user.researcherId) {
+      const byId = researcherProfiles.find((r) => r.id === user.researcherId);
+      if (byId) return byId;
+    }
+    return researcherProfiles.find(
+      (r) => r.name.trim() === user.name.trim()
+    );
+  }, [researcherProfiles, user.researcherId, user.name]);
+
+  const handleSaveSelfProfile = (payload: ResearcherFormPayload) => {
+    if (!ownResearcherProfile) return;
+    updateResearcher(ownResearcherProfile.id, payload);
+    setIsSelfProfileModalOpen(false);
+    toast.success('تم تحديث بيانات ملفك الميداني بنجاح');
+  };
 
   const handleCopyWallet = async (itemId: string, walletNumber: string) => {
     const ok = await copyTextToClipboard(walletNumber);
@@ -116,16 +145,29 @@ export function ResearcherCustodyView() {
       >
         {/* 1. بطاقة ملخص العهدة الميدانية الهادئة */}
         <section className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 space-y-4">
-          <div className="min-w-0">
-            <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-              كشف عهدتي للتسليم الميداني
-            </h1>
-            <p className="text-xs text-slate-500 mt-1">
-              المستحقات المعتمدة المسندة باسمك فقط ({user.name})
-              {latestApprovedCycle
-                ? ` • ${latestApprovedCycle.batchTitle || latestApprovedCycle.periodLabel}`
-                : ''}
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                كشف عهدتي للتسليم الميداني
+              </h1>
+              <p className="text-xs text-slate-500 mt-1">
+                المستحقات المعتمدة المسندة باسمك فقط ({ownResearcherProfile?.name || user.name})
+                {latestApprovedCycle
+                  ? ` • ${latestApprovedCycle.batchTitle || latestApprovedCycle.periodLabel}`
+                  : ''}
+              </p>
+            </div>
+
+            {ownResearcherProfile && (
+              <button
+                type="button"
+                onClick={() => setIsSelfProfileModalOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-xl border border-slate-200/80 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors cursor-pointer whitespace-nowrap shrink-0 self-start sm:self-auto"
+              >
+                <Pencil size={13} className="text-slate-400 shrink-0" />
+                <span>تعديل ملفي الشخصي</span>
+              </button>
+            )}
           </div>
 
           {/* شريط أرقام الملخص المسطح بفاصل حدود دقيقة (بدون بطاقات متداخلة) */}
@@ -459,6 +501,16 @@ export function ResearcherCustodyView() {
           onClose={() => setPreviewProofTarget(null)}
         />
       )}
+
+      {/* نافذة تعديل الملف الشخصي للباحث الميداني */}
+      <ResearcherFormModal
+        isOpen={isSelfProfileModalOpen}
+        onClose={() => setIsSelfProfileModalOpen(false)}
+        editingResearcher={ownResearcherProfile || null}
+        existingNames={researcherProfiles.map((r) => r.name)}
+        onSubmit={handleSaveSelfProfile}
+        mode="self-profile"
+      />
     </>
   );
 }

@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion, MotionConfig } from 'motion/react';
 import { useApp } from '@/context/app-context';
+import { useAuth } from '@/context/auth-context';
 import {
   Phone,
   Mail,
@@ -15,14 +16,25 @@ import {
   FileText,
   AlertTriangle,
   RotateCcw,
+  UserPlus,
+  Pencil,
+  UserX,
+  UserCheck,
 } from 'lucide-react';
 import { INITIAL_RESEARCHERS, INITIAL_VISITS } from '@/data/initial-mock-data';
 import { checkVisitOverdueStatus } from '@/services/scoring-engine';
 import { BeneficiaryCase, CaseStatus, ResearcherProfile } from '@/types';
 import { CustomSelect } from '@/components/ui/custom-select';
+import { useToast } from '@/context/toast-context';
+import {
+  ResearcherFormModal,
+  ResearcherDeactivateModal,
+  ResearcherFormPayload,
+} from '@/components/research/researcher-form-modal';
 
 type ProfileTab = 'cases' | 'reports';
 type CaseQuickFilter = 'all' | 'overdue' | 'revision' | 'first_visit';
+type ResearcherStatusFilter = 'all' | 'active' | 'inactive';
 
 interface UnifiedFieldReportEntry {
   id: string;
@@ -87,6 +99,7 @@ function getAvatarInitial(name: string): string {
 }
 
 export function ResearcherProfileView() {
+  const { user: authUser } = useAuth();
   const {
     cases,
     visits,
@@ -97,20 +110,34 @@ export function ResearcherProfileView() {
     currentUserRole,
     currentSessionProfile,
     researchers,
+    researcherProfiles,
+    addResearcher,
+    updateResearcher,
+    toggleResearcherStatus,
   } = useApp();
+  const { toast } = useToast();
 
   const [adminSelectedResearcherId, setAdminSelectedResearcherId] = useState<string>(
     INITIAL_RESEARCHERS[0]?.id || 'res-01'
   );
+  const [statusFilter, setStatusFilter] = useState<ResearcherStatusFilter>('all');
   const [activeTab, setActiveTab] = useState<ProfileTab>('cases');
   const [searchQuery, setSearchQuery] = useState('');
   const [caseFilter, setCaseFilter] = useState<CaseQuickFilter>('all');
 
+  // Modals for Add / Edit / Deactivate Researcher
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [editingResearcher, setEditingResearcher] = useState<ResearcherProfile | null>(null);
+  const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
+
   const isResearcherRole = currentUserRole === 'researcher';
 
-  // Build unified researcher roster from base profiles + dynamic researchers + case assignees
+  // Build unified researcher roster from persisted researcherProfiles + any dynamic case assignees
   const allResearcherProfiles = useMemo<ResearcherProfile[]>(() => {
-    const list: ResearcherProfile[] = [...INITIAL_RESEARCHERS];
+    const list: ResearcherProfile[] = researcherProfiles.map((r) => ({
+      ...r,
+      status: r.status === 'inactive' ? 'inactive' : 'active',
+    }));
     const knownNames = new Set(list.map((r) => r.name.trim()));
 
     const extraNames = Array.from(
@@ -146,28 +173,58 @@ export function ResearcherProfileView() {
           pendingVisitsCount: 0,
           completionRate: 100,
           bio: 'باحث ميداني معتمد لمتابعة الأسر المستحقة وتوثيق الزيارات الدورية في منظومة إحسان.',
+          status: 'active',
         });
       }
     });
 
     return list;
-  }, [researchers, cases, isResearcherRole, currentSessionProfile.name]);
+  }, [researcherProfiles, researchers, cases, isResearcherRole, currentSessionProfile.name]);
+
+  const activeResearchersCount = useMemo(
+    () => allResearcherProfiles.filter((r) => r.status !== 'inactive').length,
+    [allResearcherProfiles]
+  );
+
+  const inactiveResearchersCount = useMemo(
+    () => allResearcherProfiles.filter((r) => r.status === 'inactive').length,
+    [allResearcherProfiles]
+  );
+
+  const filteredResearcherOptions = useMemo(() => {
+    if (statusFilter === 'active') {
+      return allResearcherProfiles.filter((r) => r.status !== 'inactive');
+    }
+    if (statusFilter === 'inactive') {
+      const inactiveList = allResearcherProfiles.filter((r) => r.status === 'inactive');
+      return inactiveList.length > 0 ? inactiveList : allResearcherProfiles;
+    }
+    return allResearcherProfiles;
+  }, [allResearcherProfiles, statusFilter]);
 
   // Role-aware active researcher resolution (no useEffect setState)
   const currentResearcher = useMemo(() => {
     if (isResearcherRole) {
+      if (authUser.researcherId) {
+        const byId = allResearcherProfiles.find((r) => r.id === authUser.researcherId);
+        if (byId) return byId;
+      }
       const ownProfile = allResearcherProfiles.find(
         (r) => r.name.trim() === currentSessionProfile.name.trim()
       );
       if (ownProfile) return ownProfile;
     }
     return (
+      filteredResearcherOptions.find((r) => r.id === adminSelectedResearcherId) ||
+      filteredResearcherOptions[0] ||
       allResearcherProfiles.find((r) => r.id === adminSelectedResearcherId) ||
       allResearcherProfiles[0]
     );
   }, [
     isResearcherRole,
+    authUser.researcherId,
     currentSessionProfile.name,
+    filteredResearcherOptions,
     allResearcherProfiles,
     adminSelectedResearcherId,
   ]);
@@ -390,16 +447,60 @@ export function ResearcherProfileView() {
     setCaseFilter('all');
   };
 
+  const handleOpenAddModal = () => {
+    setEditingResearcher(null);
+    setIsFormModalOpen(true);
+  };
+
+  const handleOpenEditModal = () => {
+    if (!currentResearcher) return;
+    setEditingResearcher(currentResearcher);
+    setIsFormModalOpen(true);
+  };
+
+  const handleFormSubmit = (payload: ResearcherFormPayload) => {
+    if (editingResearcher) {
+      updateResearcher(editingResearcher.id, payload);
+      toast.success(
+        isResearcherRole
+          ? 'تم تحديث بيانات ملفك الميداني بنجاح'
+          : 'تم تحديث بيانات الباحث بنجاح'
+      );
+    } else {
+      const created = addResearcher(payload);
+      setStatusFilter('all');
+      setAdminSelectedResearcherId(created.id);
+      toast.success(`تم إضافة (${created.name}) لفريق البحث الميداني`);
+    }
+    setIsFormModalOpen(false);
+    setEditingResearcher(null);
+  };
+
+  const handleConfirmDeactivate = () => {
+    if (!currentResearcher) return;
+    toggleResearcherStatus(currentResearcher.id);
+    setIsDeactivateModalOpen(false);
+    toast.info(`تم إيقاف حساب (${currentResearcher.name}) مؤقتاً مع حفظ كامل سجله التاريخي`);
+  };
+
+  const handleReactivate = () => {
+    if (!currentResearcher) return;
+    toggleResearcherStatus(currentResearcher.id);
+    toast.success(`تم إعادة تفعيل حساب (${currentResearcher.name}) لإسناد الحالات الجديدة`);
+  };
+
   if (!currentResearcher) {
     return null;
   }
 
+  const isCurrentInactive = currentResearcher.status === 'inactive';
+
   return (
-    <div className="flex flex-col gap-6 isolate w-full min-w-0">
-      {/* Top Context Bar: Researcher Switcher (Admin) or Personal Context (Researcher) + Single Primary CTA */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="flex flex-col gap-6 w-full min-w-0">
+      {/* Top Context Bar: Researcher Switcher & Archive Filter (Admin) or Personal Context (Researcher) + Primary CTAs */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         {!isResearcherRole ? (
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-wrap">
             <label
               htmlFor="researcher-profile-selector"
               className="text-xs font-semibold text-slate-600 whitespace-nowrap shrink-0"
@@ -410,20 +511,74 @@ export function ResearcherProfileView() {
               id="researcher-profile-selector"
               value={currentResearcher.id}
               onChange={handleSelectResearcher}
-              options={allResearcherProfiles.map((r) => {
+              options={filteredResearcherOptions.map((r) => {
                 const count = cases.filter(
                   (c) => c.assignedResearcher?.trim() === r.name.trim() && c.status !== 'closed'
                 ).length;
+                const inactiveSuffix = r.status === 'inactive' ? ' (موقوف مؤقتاً)' : '';
                 return {
                   value: r.id,
-                  label: `${r.name} — ${count} ${count === 1 ? 'حالة' : 'حالات'}`,
+                  label: `${r.name}${inactiveSuffix} — ${count} ${count === 1 ? 'حالة' : 'حالات'}`,
                 };
               })}
               ariaLabel="اختار الباحث"
-              className="w-full sm:w-auto min-w-[240px]"
+              className="w-full sm:w-auto min-w-[250px]"
               triggerClassName="h-10 border-slate-200/80 text-xs font-semibold"
-              menuMinWidth={240}
+              menuMinWidth={250}
             />
+
+            {/* Calm Segmented Status Filter (Active vs Archive of Inactive Researchers) */}
+            <div
+              className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/60 self-start sm:self-auto"
+              role="group"
+              aria-label="تصفية الباحثين حسب حالة الحساب"
+            >
+              <button
+                type="button"
+                onClick={() => setStatusFilter('all')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer tabular-nums ${
+                  statusFilter === 'all'
+                    ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                الكل ({allResearcherProfiles.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter('active');
+                  if (currentResearcher.status === 'inactive') {
+                    const firstActive = allResearcherProfiles.find((r) => r.status !== 'inactive');
+                    if (firstActive) setAdminSelectedResearcherId(firstActive.id);
+                  }
+                }}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer tabular-nums ${
+                  statusFilter === 'active'
+                    ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                النشطين ({activeResearchersCount})
+              </button>
+              {inactiveResearchersCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter('inactive');
+                    const firstInactive = allResearcherProfiles.find((r) => r.status === 'inactive');
+                    if (firstInactive) setAdminSelectedResearcherId(firstInactive.id);
+                  }}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer tabular-nums ${
+                    statusFilter === 'inactive'
+                      ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  أرشيف الموقوفين ({inactiveResearchersCount})
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="flex items-center gap-2 text-xs text-slate-500 min-w-0">
@@ -433,14 +588,27 @@ export function ResearcherProfileView() {
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={() => openFieldSurvey()}
-          className="inline-flex items-center justify-center gap-2 h-10 px-4 bg-[#005756] hover:bg-[#004746] text-white text-xs font-semibold rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#005756] focus-visible:ring-offset-2"
-        >
-          <MapPin size={15} className="shrink-0" />
-          <span>ابدأ بحث حالة</span>
-        </button>
+        <div className="flex items-center gap-2.5 shrink-0">
+          {!isResearcherRole && (
+            <button
+              type="button"
+              onClick={handleOpenAddModal}
+              className="inline-flex items-center justify-center gap-1.5 h-10 px-3.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/80 text-xs font-semibold rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#005756] focus-visible:ring-offset-2"
+            >
+              <UserPlus size={15} className="text-slate-500 shrink-0" />
+              <span>+ إضافة باحث</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => openFieldSurvey()}
+            className="inline-flex items-center justify-center gap-2 h-10 px-4 bg-[#005756] hover:bg-[#004746] text-white text-xs font-semibold rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#005756] focus-visible:ring-offset-2"
+          >
+            <MapPin size={15} className="shrink-0" />
+            <span>ابدأ بحث حالة</span>
+          </button>
+        </div>
       </div>
 
       {/* Unified Calm Researcher Profile Card + Integrated Flat KPI Strip (Zero Cards-Within-Cards) */}
@@ -449,20 +617,33 @@ export function ResearcherProfileView() {
         <div className="p-5 sm:p-6 flex flex-col lg:flex-row lg:items-start justify-between gap-5">
           <div className="flex items-start gap-4 min-w-0 flex-1">
             <div
-              className="w-14 h-14 rounded-xl bg-[#005756] text-white flex items-center justify-center font-bold text-xl shrink-0 select-none"
+              className={`w-14 h-14 rounded-xl flex items-center justify-center font-bold text-xl shrink-0 select-none ${
+                isCurrentInactive
+                  ? 'bg-slate-200 text-slate-600'
+                  : 'bg-[#005756] text-white'
+              }`}
               aria-hidden="true"
             >
               {getAvatarInitial(currentResearcher.name)}
             </div>
 
             <div className="min-w-0 flex-1 space-y-1.5">
-              <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                 <h2 className="text-lg font-bold text-slate-900 leading-tight">
                   {currentResearcher.name}
                 </h2>
                 <span className="text-slate-300 hidden sm:inline" aria-hidden="true">·</span>
                 <span className="text-xs font-medium text-slate-500">
                   {currentResearcher.roleTitle}
+                </span>
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium border ${
+                    isCurrentInactive
+                      ? 'bg-slate-100 text-slate-600 border-slate-200/80'
+                      : 'bg-slate-50 text-slate-600 border-slate-200/70'
+                  }`}
+                >
+                  {isCurrentInactive ? 'حساب موقوف مؤقتاً' : 'باحث نشط'}
                 </span>
               </div>
 
@@ -487,14 +668,60 @@ export function ResearcherProfileView() {
             </div>
           </div>
 
-          {/* Coverage Districts as Clean Unboxed Metadata */}
-          <div className="lg:max-w-xs lg:text-left pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100 shrink-0 space-y-1">
-            <span className="text-[11px] font-semibold text-slate-400 block">
-              مناطق التغطية الميدانية
-            </span>
-            <p className="text-xs font-medium text-slate-700 leading-relaxed">
-              {coverageDistricts.join(' · ')}
-            </p>
+          {/* Right Column: Coverage Districts & Researcher Account Management Actions */}
+          <div className="lg:max-w-xs lg:text-left pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100 shrink-0 flex flex-col lg:items-end justify-between gap-3">
+            <div className="space-y-1">
+              <span className="text-[11px] font-semibold text-slate-400 block">
+                مناطق التغطية الميدانية
+              </span>
+              <p className="text-xs font-medium text-slate-700 leading-relaxed">
+                {coverageDistricts.join(' · ')}
+              </p>
+            </div>
+
+            {!isResearcherRole ? (
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleOpenEditModal}
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200/80 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors cursor-pointer"
+                >
+                  <Pencil size={13} className="text-slate-400 shrink-0" />
+                  <span>تعديل البيانات</span>
+                </button>
+
+                {isCurrentInactive ? (
+                  <button
+                    type="button"
+                    onClick={handleReactivate}
+                    className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#005756] hover:bg-[#004746] text-white text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    <UserCheck size={13} className="shrink-0" />
+                    <span>إعادة التفعيل</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsDeactivateModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200/80 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-800 text-xs font-medium transition-colors cursor-pointer"
+                  >
+                    <UserX size={13} className="text-slate-400 shrink-0" />
+                    <span>إيقاف الحساب</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleOpenEditModal}
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200/80 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors cursor-pointer"
+                >
+                  <Pencil size={13} className="text-slate-400 shrink-0" />
+                  <span>تعديل ملفي الشخصي</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1046,6 +1273,29 @@ export function ResearcherProfileView() {
           </div>
         )}
       </section>
+
+      {/* Add / Edit Researcher Modal */}
+      <ResearcherFormModal
+        isOpen={isFormModalOpen}
+        onClose={() => {
+          setIsFormModalOpen(false);
+          setEditingResearcher(null);
+        }}
+        editingResearcher={editingResearcher}
+        existingNames={allResearcherProfiles.map((r) => r.name)}
+        onSubmit={handleFormSubmit}
+        mode={isResearcherRole ? 'self-profile' : 'admin'}
+      />
+
+      {/* Deactivate Confirmation Modal */}
+      <ResearcherDeactivateModal
+        isOpen={isDeactivateModalOpen}
+        researcher={currentResearcher}
+        assignedCasesCount={assignedCases.length}
+        visitsCount={totalVisitsCount}
+        onClose={() => setIsDeactivateModalOpen(false)}
+        onConfirm={handleConfirmDeactivate}
+      />
     </div>
   );
 }

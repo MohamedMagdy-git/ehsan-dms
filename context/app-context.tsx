@@ -27,6 +27,7 @@ import {
   CustodyDeliveryItem,
   CaseSurveyAnswers,
   DeliveryProof,
+  ResearcherProfile,
 } from '@/types';
 import {
   INITIAL_SEED_DELIVERED_CUSTODY_IDS,
@@ -134,6 +135,7 @@ const STORAGE_KEYS = {
   FAST_TRACK_ORDERS: 'ehsan_fast_track_orders_v1',
   CASE_NOTES: 'ehsan_case_notes_v1',
   RESEARCHERS: 'ehsan_researchers_v1',
+  RESEARCHER_PROFILES: 'ehsan_researcher_profiles_v1',
   DELIVERED_CUSTODY: 'ehsan_delivered_custody_v1',
   DELIVERY_PROOFS: 'ehsan_delivery_proofs_v1',
 };
@@ -150,6 +152,37 @@ export const DEFAULT_RESEARCHERS: string[] = Array.from(
     'أ. مريم القاضي',
   ].filter(Boolean))
 );
+
+function buildInitialResearcherProfiles(): ResearcherProfile[] {
+  const base: ResearcherProfile[] = INITIAL_RESEARCHERS.map((r) => ({
+    ...r,
+    status: r.status || 'active',
+  }));
+  const knownNames = new Set(base.map((r) => r.name.trim()));
+  let extraIdx = 1;
+  DEFAULT_RESEARCHERS.forEach((rawName) => {
+    const normalized = rawName.trim();
+    if (normalized && !knownNames.has(normalized)) {
+      knownNames.add(normalized);
+      base.push({
+        id: `res-extra-${extraIdx++}`,
+        name: normalized,
+        roleTitle: 'باحث ميداني معتمد',
+        phone: '01000000000',
+        email: 'researcher@ehsan-initiative.org',
+        assignedDistricts: ['القاهرة الكبرى'],
+        joinedDate: '2025-01-15',
+        totalVisitsConducted: 0,
+        activeAssignedCasesCount: 0,
+        pendingVisitsCount: 0,
+        completionRate: 100,
+        bio: 'باحث ميداني معتمد لمتابعة الأسر المستحقة وتوثيق الزيارات الدورية في منظومة إحسان.',
+        status: 'active',
+      });
+    }
+  });
+  return base;
+}
 
 export type CaseDetailsTab = 'profile' | 'financials' | 'visits' | 'documents' | 'notes';
 
@@ -202,6 +235,7 @@ interface AppContextType {
   getDeliveryProof: (caseId: string, period?: string, custodyItemId?: string) => DeliveryProof | undefined;
   caseNotes: CaseNote[];
   researchers: string[];
+  researcherProfiles: ResearcherProfile[];
 
   // New Modal triggers for universal access
   isNewCaseModalOpen: boolean;
@@ -366,6 +400,27 @@ interface AppContextType {
   }) => CaseNote;
   deleteCaseNote: (noteId: string) => void;
   addCustomResearcher: (name: string) => string;
+  addResearcher: (
+    data: {
+      name: string;
+      roleTitle: string;
+      phone: string;
+      email?: string;
+      assignedDistricts: string[];
+      bio?: string;
+      status?: 'active' | 'inactive';
+    }
+  ) => ResearcherProfile;
+  updateResearcher: (
+    id: string,
+    updates: Partial<
+      Pick<
+        ResearcherProfile,
+        'name' | 'roleTitle' | 'phone' | 'email' | 'assignedDistricts' | 'bio' | 'status'
+      >
+    >
+  ) => void;
+  toggleResearcherStatus: (id: string) => void;
   submitCaseStudyReport: (report: CaseStudyReport) => void;
 
   // PWA Offline Sync Engine
@@ -562,7 +617,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     () => INITIAL_SEED_DELIVERY_PROOFS
   );
   const [caseNotes, setCaseNotes] = useState<CaseNote[]>(INITIAL_CASE_NOTES);
-  const [researchers, setResearchers] = useState<string[]>(DEFAULT_RESEARCHERS);
+  const [researcherProfiles, setResearcherProfiles] = useState<ResearcherProfile[]>(() =>
+    buildInitialResearcherProfiles()
+  );
+  const researchers = useMemo<string[]>(
+    () =>
+      researcherProfiles
+        .filter((r) => r.status !== 'inactive')
+        .map((r) => r.name.trim())
+        .filter(Boolean),
+    [researcherProfiles]
+  );
   const [allocations, setAllocations] = useState<Record<string, MonthlyAllocation>>(
     () => initialFinancialSeed.seededAllocations
   );
@@ -770,12 +835,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      const savedProfiles = localStorage.getItem(STORAGE_KEYS.RESEARCHER_PROFILES);
       const savedResearchers = localStorage.getItem(STORAGE_KEYS.RESEARCHERS);
-      if (savedResearchers) {
+      if (savedProfiles) {
+        try {
+          const parsedProfiles = JSON.parse(savedProfiles);
+          if (Array.isArray(parsedProfiles) && parsedProfiles.length > 0) {
+            const normalizedProfiles: ResearcherProfile[] = parsedProfiles.map(
+              (p: ResearcherProfile) => ({
+                ...p,
+                status: p.status === 'inactive' ? 'inactive' : 'active',
+              })
+            );
+            const knownNames = new Set(normalizedProfiles.map((p) => p.name.trim()));
+            buildInitialResearcherProfiles().forEach((seedProfile) => {
+              if (!knownNames.has(seedProfile.name.trim())) {
+                knownNames.add(seedProfile.name.trim());
+                normalizedProfiles.push(seedProfile);
+              }
+            });
+            setResearcherProfiles(normalizedProfiles);
+          }
+        } catch (err) {
+          console.warn('Failed to parse researcher profiles:', err);
+        }
+      } else if (savedResearchers) {
         try {
           const parsed = JSON.parse(savedResearchers);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setResearchers(Array.from(new Set([...DEFAULT_RESEARCHERS, ...parsed].filter(Boolean))));
+            const baseProfiles = buildInitialResearcherProfiles();
+            const knownNames = new Set(baseProfiles.map((p) => p.name.trim()));
+            parsed.forEach((rawName: string, idx: number) => {
+              const trimmed = (rawName || '').trim();
+              if (trimmed && !knownNames.has(trimmed)) {
+                knownNames.add(trimmed);
+                baseProfiles.push({
+                  id: `res-migrated-${idx}`,
+                  name: trimmed,
+                  roleTitle: 'باحث ميداني معتمد',
+                  phone: 'غير مسجل',
+                  email: 'غير مسجل',
+                  assignedDistricts: ['نطاق عام'],
+                  joinedDate: new Date().toISOString().split('T')[0],
+                  totalVisitsConducted: 0,
+                  activeAssignedCasesCount: 0,
+                  pendingVisitsCount: 0,
+                  completionRate: 100,
+                  bio: 'باحث ميداني معتمد لمتابعة الأسر المستحقة وتوثيق الزيارات الدورية في منظومة إحسان.',
+                  status: 'active',
+                });
+              }
+            });
+            setResearcherProfiles(baseProfiles);
           }
         } catch (err) {
           console.warn('Failed to parse researchers:', err);
@@ -912,11 +1023,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isHydrated) return;
     try {
+      localStorage.setItem(STORAGE_KEYS.RESEARCHER_PROFILES, JSON.stringify(researcherProfiles));
       localStorage.setItem(STORAGE_KEYS.RESEARCHERS, JSON.stringify(researchers));
     } catch (e) {
-      console.warn('Failed to save researchers to localStorage:', e);
+      console.warn('Failed to save researcher profiles to localStorage:', e);
     }
-  }, [researchers, isHydrated]);
+  }, [researcherProfiles, researchers, isHydrated]);
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -955,7 +1067,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setDeliveredCustodyIds(INITIAL_SEED_DELIVERED_CUSTODY_IDS);
     setDeliveryProofs(INITIAL_SEED_DELIVERY_PROOFS);
     setCaseNotes(INITIAL_CASE_NOTES);
-    setResearchers(DEFAULT_RESEARCHERS);
+    setResearcherProfiles(buildInitialResearcherProfiles());
     setSelectedCaseId(null);
     setEditingCase(null);
     setAllocations(seededAllocations);
@@ -974,6 +1086,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem(STORAGE_KEYS.FAST_TRACK_ORDERS);
       localStorage.removeItem(STORAGE_KEYS.CASE_NOTES);
       localStorage.removeItem(STORAGE_KEYS.RESEARCHERS);
+      localStorage.removeItem(STORAGE_KEYS.RESEARCHER_PROFILES);
       localStorage.removeItem(STORAGE_KEYS.DELIVERED_CUSTODY);
       localStorage.removeItem(STORAGE_KEYS.DELIVERY_PROOFS);
     }
@@ -2489,18 +2602,193 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     addAuditLog('حذف ملاحظة حالة', `تم حذف الملاحظة رقم (${noteId})`);
   }, [addAuditLog]);
 
+  const addResearcher = useCallback(
+    (data: {
+      name: string;
+      roleTitle: string;
+      phone: string;
+      email?: string;
+      assignedDistricts: string[];
+      bio?: string;
+      status?: 'active' | 'inactive';
+    }): ResearcherProfile => {
+      const trimmedName = data.name.trim();
+      const existing = researcherProfiles.find(
+        (r) => r.name.trim() === trimmedName
+      );
+      if (existing) {
+        if (existing.status === 'inactive') {
+          setResearcherProfiles((prev) =>
+            prev.map((r) =>
+              r.id === existing.id ? { ...r, status: 'active' } : r
+            )
+          );
+          addAuditLog(
+            'إعادة تفعيل باحث ميداني',
+            `تم إعادة تفعيل حساب الباحث (${existing.name}) لإسناد الحالات الجديدة`
+          );
+        }
+        return { ...existing, status: 'active' };
+      }
+
+      const cleanedDistricts = data.assignedDistricts
+        .map((d) => d.trim())
+        .filter(Boolean);
+
+      const newProfile: ResearcherProfile = {
+        id: `res-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        name: trimmedName,
+        roleTitle: data.roleTitle.trim() || 'باحث ميداني معتمد',
+        phone: data.phone.trim() || 'غير مسجل',
+        email: data.email?.trim() || 'غير مسجل',
+        assignedDistricts:
+          cleanedDistricts.length > 0 ? cleanedDistricts : ['نطاق عام'],
+        joinedDate: new Date().toISOString().split('T')[0],
+        totalVisitsConducted: 0,
+        activeAssignedCasesCount: 0,
+        pendingVisitsCount: 0,
+        completionRate: 100,
+        bio:
+          data.bio?.trim() ||
+          'باحث ميداني معتمد لمتابعة الأسر المستحقة وتوثيق الزيارات الدورية في منظومة إحسان.',
+        status: data.status || 'active',
+      };
+
+      setResearcherProfiles((prev) => [...prev, newProfile]);
+      addAuditLog(
+        'إضافة باحث ميداني جديد',
+        `تم تسجيل الباحث (${newProfile.name} — ${newProfile.roleTitle}) في فريق البحث الميداني`
+      );
+      return newProfile;
+    },
+    [researcherProfiles, addAuditLog]
+  );
+
+  const updateResearcher = useCallback(
+    (
+      id: string,
+      updates: Partial<
+        Pick<
+          ResearcherProfile,
+          'name' | 'roleTitle' | 'phone' | 'email' | 'assignedDistricts' | 'bio' | 'status'
+        >
+      >
+    ) => {
+      const target = researcherProfiles.find((r) => r.id === id);
+      if (!target) return;
+
+      const oldName = target.name.trim();
+      const nextName = updates.name ? updates.name.trim() : oldName;
+
+      setResearcherProfiles((prev) =>
+        prev.map((r) => {
+          if (r.id !== id) return r;
+          const cleanedDistricts = updates.assignedDistricts
+            ? updates.assignedDistricts.map((d) => d.trim()).filter(Boolean)
+            : r.assignedDistricts;
+          return {
+            ...r,
+            name: nextName || r.name,
+            roleTitle:
+              updates.roleTitle !== undefined
+                ? updates.roleTitle.trim() || r.roleTitle
+                : r.roleTitle,
+            phone:
+              updates.phone !== undefined
+                ? updates.phone.trim() || 'غير مسجل'
+                : r.phone,
+            email:
+              updates.email !== undefined
+                ? updates.email.trim() || 'غير مسجل'
+                : r.email,
+            assignedDistricts:
+              cleanedDistricts.length > 0 ? cleanedDistricts : r.assignedDistricts,
+            bio:
+              updates.bio !== undefined
+                ? updates.bio.trim() || r.bio
+                : r.bio,
+            status: updates.status !== undefined ? updates.status : r.status,
+          };
+        })
+      );
+
+      // تحديث الاسم في الحالات والزيارات والتقارير المرتبطة للحفاظ على سلامة السجل التاريخي 100%
+      if (nextName && nextName !== oldName) {
+        setCases((prev) =>
+          prev.map((c) =>
+            c.assignedResearcher?.trim() === oldName || c.researcherId === id
+              ? { ...c, assignedResearcher: nextName, researcherId: id }
+              : c
+          )
+        );
+        setVisits((prev) =>
+          prev.map((v) =>
+            v.researcherName?.trim() === oldName || v.researcherId === id
+              ? { ...v, researcherName: nextName, researcherId: id }
+              : v
+          )
+        );
+        setResearchReports((prev) =>
+          prev.map((rep) =>
+            rep.researcherName?.trim() === oldName || rep.researcherId === id
+              ? { ...rep, researcherName: nextName, researcherId: id }
+              : rep
+          )
+        );
+        setCaseNotes((prev) =>
+          prev.map((note) =>
+            note.authorName?.trim() === oldName
+              ? { ...note, authorName: nextName }
+              : note
+          )
+        );
+      }
+
+      addAuditLog(
+        'تعديل بيانات باحث ميداني',
+        `تم تحديث بيانات الباحث (${nextName}) في سجل فريق البحث الميداني`
+      );
+    },
+    [researcherProfiles, addAuditLog]
+  );
+
+  const toggleResearcherStatus = useCallback(
+    (id: string) => {
+      const target = researcherProfiles.find((r) => r.id === id);
+      if (!target) return;
+      const nextStatus: 'active' | 'inactive' =
+        target.status === 'inactive' ? 'active' : 'inactive';
+
+      setResearcherProfiles((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status: nextStatus } : r))
+      );
+
+      addAuditLog(
+        nextStatus === 'inactive'
+          ? 'إيقاف حساب باحث ميداني'
+          : 'إعادة تفعيل حساب باحث ميداني',
+        nextStatus === 'inactive'
+          ? `تم إيقاف حساب الباحث (${target.name}) عن إسناد الحالات الجديدة مع الاحتفاظ بكامل السجل التاريخي للحالات والزيارات وإثباتات التسليم`
+          : `تم إعادة تفعيل حساب الباحث (${target.name}) وإتاحته في قوائم إسناد الحالات الجديدة`
+      );
+    },
+    [researcherProfiles, addAuditLog]
+  );
+
   const addCustomResearcher = useCallback(
     (name: string) => {
       const trimmed = name.trim();
       if (!trimmed) return '';
-      setResearchers((prev) => {
-        if (prev.includes(trimmed)) return prev;
-        return [...prev, trimmed];
+      addResearcher({
+        name: trimmed,
+        roleTitle: 'باحث ميداني معتمد',
+        phone: 'غير مسجل',
+        email: 'غير مسجل',
+        assignedDistricts: ['نطاق عام'],
       });
-      addAuditLog('إضافة باحث ميداني', `إدراج (${trimmed}) في قائمة الباحثين المعتمدين`);
       return trimmed;
     },
-    [addAuditLog]
+    [addResearcher]
   );
 
   const submitCaseStudyReport = useCallback(
@@ -3223,9 +3511,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         getDeliveryProof,
         caseNotes,
         researchers,
+        researcherProfiles,
         addCaseNote,
         deleteCaseNote,
         addCustomResearcher,
+        addResearcher,
+        updateResearcher,
+        toggleResearcherStatus,
         submitCaseStudyReport,
         addCase,
         updateCase,
