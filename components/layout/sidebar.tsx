@@ -264,8 +264,12 @@ export function Sidebar({
           {!collapsed ? (
             <>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-400/20 flex items-center justify-center text-teal-300 shadow-xs backdrop-blur-xs shrink-0">
-                  <HandHeart size={22} className="text-teal-300" />
+                <div className="w-10 h-10 rounded-[14px] bg-white/[0.08] backdrop-blur-md border border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_8px_16px_-4px_rgba(0,0,0,0.3)] flex items-center justify-center relative overflow-hidden shrink-0">
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-0 m-auto w-5 h-5 rounded-full bg-emerald-400/25 blur-sm pointer-events-none"
+                  />
+                  <HandHeart size={20} className="relative z-10 text-white" />
                 </div>
                 <div>
                   <h1 className="font-bold text-base leading-tight tracking-tight text-white">
