@@ -212,6 +212,7 @@ export function NewCaseModal({ isOpen, onClose }: NewCaseModalProps) {
         exceptionApproved: false,
       },
       notes: `[طلب جديد - الاحتياج: ${initialNeedLabel}]\n${intakeNotes.trim()}`,
+      recommendedAssistanceType: initialNeedLabel,
       attachments: [],
     });
 

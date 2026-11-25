@@ -37,6 +37,59 @@ function getResearcherInitial(name?: string): string {
   return cleaned.charAt(0) || name.charAt(0) || 'ب';
 }
 
+function getCasePrimaryCategoryTag(c: BeneficiaryCase): string {
+  const intakeMatch = c.notes?.match(/\[طلب جديد - الاحتياج:\s*([^\]]+)\]/u);
+  const rawType = [
+    c.recommendedAssistanceType,
+    c.surveyAnswers?.recommendedAssistanceType,
+    intakeMatch?.[1],
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  if (c.vulnerability?.isOrphanHousehold || (c.vulnerability?.orphanCount ?? 0) > 0 || /أيتام|يتيم/u.test(rawType)) {
+    return 'أيتام ومعيلات';
+  }
+  if (/ديون|غارم/u.test(rawType)) {
+    return 'سداد ديون';
+  }
+  if (
+    c.vulnerability?.housingCondition === 'dilapidated_urgent' ||
+    /سكن|ترميم|تسقيف/u.test(rawType)
+  ) {
+    return 'ترميم سكن';
+  }
+  if (c.vulnerability?.workCapacity === 'none' || /عجز كلي/u.test(rawType)) {
+    return 'عجز كلي';
+  }
+  if (
+    c.vulnerability?.hasChronicIllness ||
+    /علاج|مرض|أدوية|طبي|صحي/u.test(rawType)
+  ) {
+    return 'أمراض مزمنة';
+  }
+  if (
+    /غذائية|إطعام|غذاء/u.test(rawType) ||
+    c.vulnerability?.foodInsecurityLevel === 'severe'
+  ) {
+    return 'مساعدات غذائية';
+  }
+  if (/كفالة|مالية|معيشة|نقدية/u.test(rawType)) {
+    return 'كفالة شهرية';
+  }
+  if (rawType.trim()) {
+    const words = rawType
+      .replace(/[()[\]+·/-]/gu, ' ')
+      .trim()
+      .split(/\s+/u)
+      .filter(Boolean);
+    if (words.length > 0) {
+      return words.slice(0, 2).join(' ');
+    }
+  }
+  return 'كفالة شهرية';
+}
+
 function parseRevisionItems(rawNote?: string): string[] {
   if (!rawNote) return [];
   const cleanedHeader = rawNote
@@ -118,40 +171,49 @@ function FieldResearchTaskCard({
       : undefined;
 
   const revisionItems = parseRevisionItems(revisionInstruction);
+  const primaryCategoryTag = getCasePrimaryCategoryTag(c);
 
   return (
     <article className="p-5 bg-white rounded-2xl border border-slate-200/80 hover:border-slate-300/90 transition-colors shadow-none flex flex-col justify-between gap-4 h-full">
       <div className="space-y-3.5">
-        {/* 1. Card Header: Name + Gray Code Chip + Location | Visit Type Capsule */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <div className="flex items-center flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => onOpenDetails(c.id)}
-                className="font-bold text-base text-slate-900 hover:text-[#005756] transition-colors text-right cursor-pointer leading-snug"
-              >
-                {c.fullName}
-              </button>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200/80 font-mono text-[11px] font-medium tabular-nums shrink-0">
-                {c.code}
-              </span>
-            </div>
+        {/* 1. Card Header: Row 1 (Name | Visit Badge) + Row 2 (Location | Case Code & Primary Category Tag) */}
+        <div className="space-y-1.5">
+          <div className="flex items-start justify-between gap-2.5">
+            <button
+              type="button"
+              onClick={() => onOpenDetails(c.id)}
+              className="font-bold text-base text-slate-900 hover:text-[#005756] transition-colors text-right cursor-pointer leading-snug min-w-0 truncate"
+            >
+              {c.fullName}
+            </button>
 
-            <div className="flex items-center gap-1.5 text-xs text-slate-500">
+            <span
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 ${badgeMeta.pillClass}`}
+            >
+              <BadgeIcon size={12} className="shrink-0" aria-hidden="true" />
+              <span>{badgeMeta.label}</span>
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+            <div className="flex items-center gap-1.5 min-w-0">
               <MapPin size={13} className="text-slate-400 shrink-0" />
               <span className="truncate">
                 {c.governorate} · {c.district}
               </span>
             </div>
-          </div>
 
-          <span
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 ${badgeMeta.pillClass}`}
-          >
-            <BadgeIcon size={12} className="shrink-0" aria-hidden="true" />
-            <span>{badgeMeta.label}</span>
-          </span>
+            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+              {primaryCategoryTag && (
+                <span className="inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100/90 text-slate-700 border border-slate-200/70 whitespace-nowrap">
+                  {primaryCategoryTag}
+                </span>
+              )}
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200/80 font-mono text-[11px] font-medium tabular-nums shrink-0">
+                {c.code}
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* 2. Financial Need Summary Row (Clean Flat Bento Strip) */}
@@ -507,12 +569,16 @@ export function ResearchView() {
       {/* First Visit Cases Tab (New Intake Requests Awaiting Initial Field Research) */}
       {activeTab === 'first_visit' && (
         <div className="space-y-4">
-          <div className="p-4 bg-slate-50/80 border border-slate-200/80 rounded-xl text-xs space-y-1">
-            <div className="flex items-center gap-2 font-semibold text-sm text-slate-800">
-              <UserPlus size={16} className="text-[#005756] shrink-0" />
-              <span>حالات جديدة بانتظار الزيارة الميدانية الأولى</span>
+          <div className="bg-[#005756]/[0.03] border border-[#005756]/15 rounded-2xl p-4 shadow-none">
+            <div className="flex items-center gap-2.5">
+              <span className="w-7 h-7 rounded-lg bg-[#005756]/10 text-[#005756] flex items-center justify-center shrink-0">
+                <UserPlus size={15} className="shrink-0" />
+              </span>
+              <h3 className="text-sm font-bold text-slate-800">
+                حالات جديدة بانتظار الزيارة الميدانية الأولى
+              </h3>
             </div>
-            <p className="text-slate-500 leading-relaxed">
+            <p className="text-xs text-slate-600 leading-relaxed mt-1.5">
               الحالات المسجلة حديثاً في الاستقبال ومطلوب النزول لها لأول مرة لعمل البحث الميداني وتقييم الوضع قبل إرسالها للمراجعة والاعتماد.
             </p>
           </div>
@@ -545,12 +611,16 @@ export function ResearchView() {
       {/* Returned Cases for Revision Tab */}
       {activeTab === 'revision' && (
         <div className="space-y-4">
-          <div className="p-4 bg-slate-50/80 border border-slate-200/80 rounded-xl text-xs space-y-1">
-            <div className="flex items-center gap-2 font-semibold text-sm text-slate-800">
-              <RotateCcw size={16} className="text-slate-400 shrink-0" />
-              <span>حالات راجعة من الإدارة لتكملة بياناتها</span>
+          <div className="bg-amber-50/40 border border-amber-200/60 rounded-2xl p-4 shadow-none">
+            <div className="flex items-center gap-2.5">
+              <span className="w-7 h-7 rounded-lg bg-amber-100/80 text-amber-800 flex items-center justify-center shrink-0">
+                <AlertCircle size={15} className="shrink-0" />
+              </span>
+              <h3 className="text-sm font-bold text-slate-800">
+                حالات راجعة من الإدارة لتكملة بياناتها
+              </h3>
             </div>
-            <p className="text-slate-500 leading-relaxed">
+            <p className="text-xs text-slate-600 leading-relaxed mt-1.5">
               راجع ملاحظات المدير على كل حالة وعدّل البيانات المطلوبة عشان تتبعت تاني للاعتماد.
             </p>
           </div>
@@ -583,12 +653,16 @@ export function ResearchView() {
       {/* Overdue Cases Alert List */}
       {activeTab === 'overdue' && (
         <div className="space-y-4">
-          <div className="p-4 bg-slate-50/80 border border-slate-200/80 rounded-xl text-xs space-y-1">
-            <div className="flex items-center gap-2 font-semibold text-sm text-slate-800">
-              <Clock size={16} className="text-slate-400 shrink-0" />
-              <span>متابعة دورية كل 6 شهور</span>
+          <div className="bg-rose-50/40 border border-rose-200/60 rounded-2xl p-4 shadow-none">
+            <div className="flex items-center gap-2.5">
+              <span className="w-7 h-7 rounded-lg bg-rose-100/70 text-rose-700 flex items-center justify-center shrink-0">
+                <Clock size={15} className="shrink-0" />
+              </span>
+              <h3 className="text-sm font-bold text-slate-800">
+                متابعة دورية كل 6 شهور
+              </h3>
             </div>
-            <p className="text-slate-500 leading-relaxed">
+            <p className="text-xs text-slate-600 leading-relaxed mt-1.5">
               الحالات دي عدى عليها 6 شهور من آخر نزول ومحتاجة زيارة تحديث للتأكد من وضع الدخل والظروف المعيشية والصحية.
             </p>
           </div>
