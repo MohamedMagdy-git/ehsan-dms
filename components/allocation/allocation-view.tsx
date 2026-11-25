@@ -116,6 +116,7 @@ export function AllocationView() {
     currentAllocation?.totalBudget ?? actualUnrestricted
   );
   const [isNewCycleModalOpen, setIsNewCycleModalOpen] = useState(false);
+  const [isBatchConfigExpanded, setIsBatchConfigExpanded] = useState(false);
   const [expandedCaseIds, setExpandedCaseIds] = useState<Record<string, boolean>>({});
 
   const [excludingItemId, setExcludingItemId] = useState<string | null>(null);
@@ -235,6 +236,16 @@ export function AllocationView() {
     currentAllocation?.periodDate ||
     currentAllocation?.executionDate ||
     new Date().toISOString().split('T')[0];
+
+  const coverageSummaryLabel = isExceptionalCycle
+    ? currentAllocation?.exceptionalDistributionMode === 'split_budget'
+      ? 'تقسيم الميزانية'
+      : `مبلغ موحد (${(currentAllocation?.flatAmountPerCase ?? 1000).toLocaleString('ar-EG')} ج.م)`
+    : (currentAllocation?.coverageMonths || 1) === 1
+    ? 'شهر واحد'
+    : currentAllocation?.coverageMonths === 2
+    ? 'شهرين'
+    : `${currentAllocation?.coverageMonths} شهور`;
 
   // Auto-healing: ensure any open draft period immediately reflects newly approved/updated eligible cases
   const needsDraftAutoSync = Boolean(
@@ -458,7 +469,7 @@ export function AllocationView() {
   return (
     <div className="space-y-5">
       {/* 1. Page Header & Action Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3.5">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
@@ -479,7 +490,7 @@ export function AllocationView() {
         </div>
 
         {/* Header Actions */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
           {/* Cycle Dropdown */}
           <CustomSelect
             size="sm"
@@ -503,57 +514,59 @@ export function AllocationView() {
               </>
             }
             ariaLabel="اختيار دورة الصرف"
-            className="w-auto max-w-full"
-            triggerClassName="border-slate-200/80 font-semibold max-w-[300px] sm:max-w-[350px]"
+            className="w-full sm:w-auto max-w-full"
+            triggerClassName="border-slate-200/80 font-semibold w-full sm:max-w-[350px]"
             menuMinWidth={260}
           />
 
-          {/* Open New Disbursement Cycle (Secondary White Calm CTA) */}
-          {permissions.canEditAllocation && (
+          <div className="flex items-center gap-2">
+            {/* Open New Disbursement Cycle (Secondary White Calm CTA) */}
+            {permissions.canEditAllocation && (
+              <button
+                type="button"
+                onClick={() => setIsNewCycleModalOpen(true)}
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 h-9 bg-white border border-slate-200/80 hover:bg-slate-50 hover:border-[#005756]/40 hover:text-[#005756] text-slate-700 text-xs font-semibold rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                title="فتح دورة صرف شهرية أو منحة استثنائية جديدة"
+              >
+                <Plus size={14} className="text-[#005756]" />
+                <span>فتح دورة صرف جديدة</span>
+              </button>
+            )}
+
+            {/* Excel Export Button (Secondary White) */}
             <button
               type="button"
-              onClick={() => setIsNewCycleModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 h-9 bg-white border border-slate-200/80 hover:bg-slate-50 hover:border-[#005756]/40 hover:text-[#005756] text-slate-700 text-xs font-semibold rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-              title="فتح دورة صرف شهرية أو منحة استثنائية جديدة"
+              onClick={handleExportExcel}
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 h-9 bg-white border border-slate-200/80 hover:bg-slate-50 hover:text-[#005756] text-slate-700 text-xs font-semibold rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              title="تصدير كشف الصرف بصيغة إكسل"
             >
-              <Plus size={14} className="text-[#005756]" />
-              <span>فتح دورة صرف جديدة</span>
+              <FileSpreadsheet size={15} className="text-slate-400" />
+              <span>تصدير إكسل</span>
             </button>
-          )}
 
-          {/* Excel Export Button (Secondary White) */}
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            className="inline-flex items-center gap-1.5 px-3.5 h-9 bg-white border border-slate-200/80 hover:bg-slate-50 hover:text-[#005756] text-slate-700 text-xs font-semibold rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-            title="تصدير كشف الصرف بصيغة إكسل"
-          >
-            <FileSpreadsheet size={15} className="text-slate-400" />
-            <span>تصدير إكسل</span>
-          </button>
+            {/* Unlock Button for Approved cycle (Secondary White) */}
+            {isApproved && currentUserRole === 'admin' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setUnlockReasonInput('');
+                  setUnlockError('');
+                  setShowUnlockDialog(true);
+                }}
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 h-9 bg-white border border-slate-200/80 hover:bg-slate-50 hover:text-[#005756] text-slate-700 text-xs font-semibold rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                <Unlock size={14} className="text-slate-400" />
+                <span>فتح استثنائي</span>
+              </button>
+            )}
+          </div>
 
-          {/* Unlock Button for Approved cycle (Secondary White) */}
-          {isApproved && currentUserRole === 'admin' && (
-            <button
-              type="button"
-              onClick={() => {
-                setUnlockReasonInput('');
-                setUnlockError('');
-                setShowUnlockDialog(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-3.5 h-9 bg-white border border-slate-200/80 hover:bg-slate-50 hover:text-[#005756] text-slate-700 text-xs font-semibold rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              <Unlock size={14} className="text-slate-400" />
-              <span>فتح استثنائي</span>
-            </button>
-          )}
-
-          {/* Approve Button (Single Primary Teal CTA) */}
+          {/* Approve Button on Desktop/Tablet (Single Primary Teal CTA) */}
           {!isApproved && currentUserRole === 'admin' && (
             <button
               type="button"
               onClick={() => setShowApprovalDialog(true)}
-              className="inline-flex items-center gap-1.5 px-4 h-9 bg-[#005756] hover:bg-[#004241] text-white text-xs font-semibold rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="hidden sm:inline-flex items-center justify-center gap-1.5 px-4 h-9 bg-[#005756] hover:bg-[#004241] text-white text-xs font-semibold rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <CheckCircle2 size={15} />
               <span>
@@ -582,246 +595,41 @@ export function AllocationView() {
         </div>
       )}
 
-      {/* 2. Focused Batch Configuration & Uniform Slate KPI Strip */}
-      <div className="bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-none space-y-5">
-        {/* Top: Batch Title, Execution Date, Coverage / Exceptional Mode */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start pb-4 border-b border-slate-100">
-          {/* Field 1: Batch Title */}
-          <div className="md:col-span-5 space-y-1.5">
-            <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
-              <Tag size={13} className="text-slate-400" />
-              <span>اسم الدورة / الدفعة</span>
-            </label>
-            {isApproved ? (
-              <div className="h-10 px-3 py-2 bg-slate-50/80 border border-slate-200/80 rounded-xl text-sm font-medium text-slate-900 flex items-center">
-                {currentAllocation.batchTitle || currentAllocation.periodLabel}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  value={currentAllocation.batchTitle || ''}
-                  onChange={(e) =>
-                    updateAllocationBatchConfig(currentPeriod, { batchTitle: e.target.value })
-                  }
-                  placeholder="مثال: كفالات نوفمبر 2026 أو منحة دخول المدارس"
-                  className="w-full h-10 px-3 py-2 bg-slate-50/60 focus:bg-white border border-slate-200/80 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 transition-colors"
-                />
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] text-slate-400">مقترحات:</span>
-                  {(isExceptionalCycle
-                    ? [
-                        'منحة دخول المدارس',
-                        'كسوة العيد',
-                        'إعانة شتاء طارئة',
-                        'منحة شهر رمضان المبارك',
-                      ]
-                    : [
-                        `كفالات ${currentAllocation.periodLabel}`,
-                        `دفعة مجمعة ${currentAllocation.periodLabel}`,
-                        'إعانة شتاء طارئة',
-                      ]
-                  ).map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => updateAllocationBatchConfig(currentPeriod, { batchTitle: preset })}
-                      className="text-[11px] px-2.5 py-0.5 rounded-lg bg-white border border-slate-200/80 hover:bg-slate-50 hover:text-[#005756] text-slate-600 transition-colors cursor-pointer"
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Field 2: Execution Date */}
-          <div className="md:col-span-3 space-y-1.5">
-            <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
-              <Clock size={13} className="text-slate-400" />
-              <span>موعد الصرف المقرر</span>
-            </label>
-            {isApproved ? (
-              <div className="h-10 px-3 py-2 bg-slate-50/80 border border-slate-200/80 rounded-xl text-sm font-mono tabular-nums font-medium text-slate-900 flex items-center">
-                {resolvedExecutionDate}
-              </div>
-            ) : (
-              <input
-                type="date"
-                value={resolvedExecutionDate}
-                onChange={(e) =>
-                  updateAllocationBatchConfig(currentPeriod, {
-                    periodDate: e.target.value,
-                    executionDate: e.target.value,
-                  })
-                }
-                className="w-full h-10 px-3 py-2 bg-slate-50/60 focus:bg-white border border-slate-200/80 rounded-xl text-sm font-mono tabular-nums font-medium text-slate-900 focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 transition-colors cursor-pointer"
-              />
-            )}
-          </div>
-
-          {/* Field 3: Coverage Months (Regular) OR Distribution Mode (Exceptional) */}
-          <div className="md:col-span-4 space-y-1.5">
-            {isExceptionalCycle ? (
-              <>
-                <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
-                  <Layers size={13} className="text-slate-400" />
-                  <span>نظام المنحة الاستثنائية</span>
-                </label>
-                {isApproved ? (
-                  <div className="h-10 px-3 py-2 bg-slate-50/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-900 flex items-center justify-between gap-2">
-                    <span>
-                      {currentAllocation.exceptionalDistributionMode === 'split_budget'
-                        ? 'توزيع ميزانية محددة بالتساوي'
-                        : 'مبلغ موحد لكل أسرة'}
-                    </span>
-                    {currentAllocation.exceptionalDistributionMode !== 'split_budget' &&
-                      currentAllocation.flatAmountPerCase && (
-                        <span className="font-mono tabular-nums text-[#005756]">
-                          {currentAllocation.flatAmountPerCase.toLocaleString('ar-EG')} ج.م
-                        </span>
-                      )}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateAllocationBatchConfig(currentPeriod, {
-                            exceptionalDistributionMode: 'flat_per_case',
-                            flatAmountPerCase: currentAllocation.flatAmountPerCase || 1000,
-                          })
-                        }
-                        className={`h-10 px-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-center border whitespace-nowrap ${
-                          (currentAllocation.exceptionalDistributionMode || 'flat_per_case') ===
-                          'flat_per_case'
-                            ? 'bg-[#005756] text-white border-[#005756]'
-                            : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/80'
-                        }`}
-                      >
-                        مبلغ موحد للأسرة
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateAllocationBatchConfig(currentPeriod, {
-                            exceptionalDistributionMode: 'split_budget',
-                          })
-                        }
-                        className={`h-10 px-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-center border whitespace-nowrap ${
-                          currentAllocation.exceptionalDistributionMode === 'split_budget'
-                            ? 'bg-[#005756] text-white border-[#005756]'
-                            : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/80'
-                        }`}
-                      >
-                        تقسيم الميزانية
-                      </button>
-                    </div>
-                    {(currentAllocation.exceptionalDistributionMode || 'flat_per_case') ===
-                      'flat_per_case' && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-slate-500 shrink-0">قيمة المنحة:</span>
-                        <input
-                          type="number"
-                          min={50}
-                          step={50}
-                          value={currentAllocation.flatAmountPerCase ?? 1000}
-                          onChange={(e) => {
-                            const val = Math.max(0, Number(e.target.value) || 0);
-                            const activeCount = Math.max(
-                              1,
-                              currentAllocation.items.filter((i) => !i.isExcluded && !i.isVisitOverdue)
-                                .length
-                            );
-                            updateAllocationBatchConfig(currentPeriod, {
-                              flatAmountPerCase: val,
-                              totalBudget: val * activeCount,
-                            });
-                          }}
-                          className="w-28 h-8 px-2.5 bg-slate-50/60 focus:bg-white border border-slate-200/80 rounded-lg text-xs font-mono tabular-nums font-semibold text-slate-900 focus:outline-hidden focus:border-[#005756]"
-                        />
-                        <span className="text-[11px] text-slate-500">ج.م / أسرة</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
-                  <Repeat size={13} className="text-slate-400" />
-                  <span>عدد شهور الصرف</span>
-                </label>
-                {isApproved ? (
-                  <div className="h-10 px-3 py-2 bg-slate-50/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-900 flex items-center">
-                    {(currentAllocation.coverageMonths || 1) === 1
-                      ? 'شهر واحد'
-                      : currentAllocation.coverageMonths === 2
-                      ? 'شهرين'
-                      : `${currentAllocation.coverageMonths} شهور`}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {[
-                      { value: 1, label: 'شهر واحد' },
-                      { value: 2, label: 'شهرين' },
-                      { value: 3, label: '3 شهور' },
-                    ].map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() =>
-                          updateAllocationBatchConfig(currentPeriod, { coverageMonths: option.value })
-                        }
-                        className={`h-10 px-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-center border whitespace-nowrap ${
-                          (currentAllocation.coverageMonths || 1) === option.value
-                            ? 'bg-[#005756] text-white border-[#005756]'
-                            : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/80'
-                        }`}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Financial Numbers Strip (3 Uniform Soft Slate Cards) */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+      {/* 2. Compact Financial Bento First & Collapsible Batch Configuration */}
+      <div className="bg-white border border-slate-200/80 rounded-xl p-3.5 sm:p-5 shadow-none space-y-4">
+        {/* Financial Numbers Strip (Compact Bento on Mobile, 3 Columns on Desktop) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3.5">
           {/* Box 1: Available Budget */}
-          <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-1">
-            <span className="text-xs font-medium text-slate-500 block">
+          <div className="order-2 sm:order-1 col-span-1 p-3 sm:p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-1">
+            <span className="text-[11px] sm:text-xs font-medium text-slate-500 block">
               {isExceptionalCycle ? 'ميزانية الدورة الاستثنائية' : 'الرصيد المتاح للصرف'}
             </span>
             <div className="font-mono tabular-nums">
               <MoneyDisplay amount={currentAllocation.totalBudget} size="xl" variant="neutral" />
             </div>
-            <div className="text-[11px] text-slate-400">
+            <div className="text-[11px] text-slate-400 hidden sm:block">
               {isExceptionalCycle
                 ? 'سقف الصرف المخصص لهذه المنحة'
                 : 'المتاح في الخزينة الموحدة للدورة'}
             </div>
           </div>
 
-          {/* Box 2: Total Allocated / Disbursed */}
-          <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-1">
-            <span className="text-xs font-medium text-slate-500 block">إجمالي المبالغ المقررة</span>
-            <div className="font-mono tabular-nums">
-              <MoneyDisplay amount={totalAllocated} size="xl" variant="neutral" />
+          {/* Box 2: Total Allocated / Disbursed (Full-Width Primary Row on Mobile) */}
+          <div className="order-1 sm:order-2 col-span-2 sm:col-span-1 p-3.5 sm:p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 flex sm:block items-center justify-between gap-3 sm:space-y-1">
+            <div className="space-y-0.5 sm:space-y-1">
+              <span className="text-xs font-medium text-slate-500 block">إجمالي المبالغ المقررة</span>
+              <div className="font-mono tabular-nums">
+                <MoneyDisplay amount={totalAllocated} size="xl" variant="neutral" />
+              </div>
             </div>
-            <div className="text-[11px] text-slate-500 tabular-nums">
+            <div className="text-[11px] text-slate-600 sm:text-slate-500 tabular-nums bg-white sm:bg-transparent px-2.5 py-1 sm:p-0 rounded-lg border border-slate-200/70 sm:border-none shrink-0">
               تشمل {currentAllocation.summary.fundedCasesCount} أسرة مستحقة
             </div>
           </div>
 
           {/* Box 3: Unallocated Balance */}
-          <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-1">
-            <span className="text-xs font-medium text-slate-500 block">المتبقي بعد التوزيع</span>
+          <div className="order-3 sm:order-3 col-span-1 p-3 sm:p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-1">
+            <span className="text-[11px] sm:text-xs font-medium text-slate-500 block">المتبقي بعد التوزيع</span>
             <div className="font-mono tabular-nums">
               <MoneyDisplay
                 amount={currentAllocation.summary.unallocatedBalance}
@@ -829,7 +637,7 @@ export function AllocationView() {
                 variant="neutral"
               />
             </div>
-            <div className="text-[11px] text-slate-400">
+            <div className="text-[11px] text-slate-400 hidden sm:block">
               {isExceptionalCycle
                 ? 'يفضل ضمن رصيد الخزينة الموحدة'
                 : 'يرجع كرصيد متاح للدورة الجاية'}
@@ -882,90 +690,347 @@ export function AllocationView() {
           </div>
         )}
 
-        {/* Budget Setting Controls (Draft Mode) */}
-        {!isApproved && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
-            <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="text-xs font-medium text-slate-500 ml-1">سقف الصرف:</span>
-              {[
-                { label: 'كامل الرصيد المتاح', val: actualUnrestricted },
-                { label: '50 ألف', val: 50000 },
-                { label: '100 ألف', val: 100000 },
-                { label: '150 ألف', val: 150000 },
-              ].map((preset) => (
-                <button
-                  key={preset.label}
-                  type="button"
-                  onClick={() => {
-                    setBudgetInput(preset.val);
-                    generateOrRefreshAllocation(currentPeriod, preset.val, undefined, undefined, {
-                      strategy: currentStrategy,
-                    });
-                    toast.success('تمت إعادة توزيع مقترح الميزانية تلقائياً');
-                  }}
-                  className={`px-3 py-1.5 rounded-xl font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
-                    budgetInput === preset.val
-                      ? 'bg-[#005756] text-white border-[#005756]'
-                      : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/80'
-                  }`}
-                >
-                  {preset.label}
-                </button>
-              ))}
+        {/* Mobile Collapsible Summary Toggle for Cycle Settings */}
+        <button
+          type="button"
+          onClick={() => setIsBatchConfigExpanded((prev) => !prev)}
+          aria-expanded={isBatchConfigExpanded}
+          className="md:hidden w-full px-3.5 py-2.5 bg-slate-50/70 hover:bg-slate-100/70 border border-slate-200/80 rounded-xl flex items-center justify-between gap-2 text-right transition-colors cursor-pointer"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+              <Tag size={13} className="text-[#005756] shrink-0" />
+              <span>إعدادات الدورة وسقف الصرف</span>
+            </div>
+            <p className="text-[11px] text-slate-500 truncate mt-0.5 tabular-nums">
+              {currentAllocation.batchTitle || currentAllocation.periodLabel} · {resolvedExecutionDate} · {coverageSummaryLabel}
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 text-[11px] font-semibold text-[#005756] shrink-0">
+            <span>{isBatchConfigExpanded ? 'إخفاء' : isApproved ? 'التفاصيل' : 'تعديل'}</span>
+            <ChevronDown
+              size={13}
+              className={`transition-transform duration-200 ${
+                isBatchConfigExpanded ? 'rotate-180' : ''
+              }`}
+            />
+          </span>
+        </button>
 
-              {!isCustomBudgetOpen ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCustomBudgetOpen(true);
-                    setCustomBudgetValue(budgetInput);
-                  }}
-                  className="px-3 py-1.5 rounded-xl font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/80 transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  مبلغ تاني...
-                </button>
+        {/* Batch Configuration & Budget Cap Controls (Collapsed by Default on Mobile, Visible on Desktop) */}
+        <div
+          className={`${
+            isBatchConfigExpanded ? 'block' : 'hidden md:block'
+          } space-y-4 pt-3.5 border-t border-slate-100`}
+        >
+          {/* Batch Title, Execution Date, Coverage / Exceptional Mode */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+            {/* Field 1: Batch Title */}
+            <div className="md:col-span-5 space-y-1.5">
+              <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                <Tag size={13} className="text-slate-400" />
+                <span>اسم الدورة / الدفعة</span>
+              </label>
+              {isApproved ? (
+                <div className="h-10 px-3 py-2 bg-slate-50/80 border border-slate-200/80 rounded-xl text-sm font-medium text-slate-900 flex items-center">
+                  {currentAllocation.batchTitle || currentAllocation.periodLabel}
+                </div>
               ) : (
-                <div className="flex items-center gap-1 bg-slate-50 p-0.5 rounded-xl border border-[#005756]/40">
-                  <div className="w-24">
-                    <AmountInput
-                      value={customBudgetValue}
-                      onChange={(v) => setCustomBudgetValue(v)}
-                      size="sm"
-                      currency=""
-                      autoFocus
-                      className="border-none bg-transparent"
-                    />
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={currentAllocation.batchTitle || ''}
+                    onChange={(e) =>
+                      updateAllocationBatchConfig(currentPeriod, { batchTitle: e.target.value })
+                    }
+                    placeholder="مثال: كفالات نوفمبر 2026 أو منحة دخول المدارس"
+                    className="w-full h-10 px-3 py-2 bg-slate-50/60 focus:bg-white border border-slate-200/80 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 transition-colors"
+                  />
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] text-slate-400">مقترحات:</span>
+                    {(isExceptionalCycle
+                      ? [
+                          'منحة دخول المدارس',
+                          'كسوة العيد',
+                          'إعانة شتاء طارئة',
+                          'منحة شهر رمضان المبارك',
+                        ]
+                      : [
+                          `كفالات ${currentAllocation.periodLabel}`,
+                          `دفعة مجمعة ${currentAllocation.periodLabel}`,
+                          'إعانة شتاء طارئة',
+                        ]
+                    ).map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => updateAllocationBatchConfig(currentPeriod, { batchTitle: preset })}
+                        className="text-[11px] px-2.5 py-0.5 rounded-lg bg-white border border-slate-200/80 hover:bg-slate-50 hover:text-[#005756] text-slate-600 transition-colors cursor-pointer"
+                      >
+                        {preset}
+                      </button>
+                    ))}
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleApplyCustomBudget}
-                    className="p-1.5 rounded-lg bg-[#005756] text-white cursor-pointer"
-                    aria-label="تطبيق المبلغ"
-                  >
-                    <Check size={12} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsCustomBudgetOpen(false)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
-                    aria-label="إلغاء"
-                  >
-                    <X size={12} />
-                  </button>
                 </div>
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={handleResetToAutoProposal}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200/80 hover:bg-slate-50 hover:text-[#005756] text-slate-700 text-xs font-semibold transition-colors cursor-pointer self-start sm:self-auto whitespace-nowrap"
-              title="إعادة توزيع المقترح تلقائياً ومسح التعديلات اليدوية"
-            >
-              <RefreshCw size={13} className="text-slate-400" />
-              <span>إعادة التوزيع التلقائي</span>
-            </button>
+            {/* Field 2: Execution Date */}
+            <div className="md:col-span-3 space-y-1.5">
+              <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                <Clock size={13} className="text-slate-400" />
+                <span>موعد الصرف المقرر</span>
+              </label>
+              {isApproved ? (
+                <div className="h-10 px-3 py-2 bg-slate-50/80 border border-slate-200/80 rounded-xl text-sm font-mono tabular-nums font-medium text-slate-900 flex items-center">
+                  {resolvedExecutionDate}
+                </div>
+              ) : (
+                <input
+                  type="date"
+                  value={resolvedExecutionDate}
+                  onChange={(e) =>
+                    updateAllocationBatchConfig(currentPeriod, {
+                      periodDate: e.target.value,
+                      executionDate: e.target.value,
+                    })
+                  }
+                  className="w-full h-10 px-3 py-2 bg-slate-50/60 focus:bg-white border border-slate-200/80 rounded-xl text-sm font-mono tabular-nums font-medium text-slate-900 focus:outline-hidden focus:border-[#005756] focus:ring-2 focus:ring-[#005756]/15 transition-colors cursor-pointer"
+                />
+              )}
+            </div>
+
+            {/* Field 3: Coverage Months (Regular) OR Distribution Mode (Exceptional) */}
+            <div className="md:col-span-4 space-y-1.5">
+              {isExceptionalCycle ? (
+                <>
+                  <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                    <Layers size={13} className="text-slate-400" />
+                    <span>نظام المنحة الاستثنائية</span>
+                  </label>
+                  {isApproved ? (
+                    <div className="h-10 px-3 py-2 bg-slate-50/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-900 flex items-center justify-between gap-2">
+                      <span>
+                        {currentAllocation.exceptionalDistributionMode === 'split_budget'
+                          ? 'توزيع ميزانية محددة بالتساوي'
+                          : 'مبلغ موحد لكل أسرة'}
+                      </span>
+                      {currentAllocation.exceptionalDistributionMode !== 'split_budget' &&
+                        currentAllocation.flatAmountPerCase && (
+                          <span className="font-mono tabular-nums text-[#005756]">
+                            {currentAllocation.flatAmountPerCase.toLocaleString('ar-EG')} ج.م
+                          </span>
+                        )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateAllocationBatchConfig(currentPeriod, {
+                              exceptionalDistributionMode: 'flat_per_case',
+                              flatAmountPerCase: currentAllocation.flatAmountPerCase || 1000,
+                            })
+                          }
+                          className={`h-10 px-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-center border whitespace-nowrap ${
+                            (currentAllocation.exceptionalDistributionMode || 'flat_per_case') ===
+                            'flat_per_case'
+                              ? 'bg-[#005756] text-white border-[#005756]'
+                              : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/80'
+                          }`}
+                        >
+                          مبلغ موحد للأسرة
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateAllocationBatchConfig(currentPeriod, {
+                              exceptionalDistributionMode: 'split_budget',
+                            })
+                          }
+                          className={`h-10 px-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-center border whitespace-nowrap ${
+                            currentAllocation.exceptionalDistributionMode === 'split_budget'
+                              ? 'bg-[#005756] text-white border-[#005756]'
+                              : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/80'
+                          }`}
+                        >
+                          تقسيم الميزانية
+                        </button>
+                      </div>
+                      {(currentAllocation.exceptionalDistributionMode || 'flat_per_case') ===
+                        'flat_per_case' && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] text-slate-500 shrink-0">قيمة المنحة:</span>
+                          <input
+                            type="number"
+                            min={50}
+                            step={50}
+                            value={currentAllocation.flatAmountPerCase ?? 1000}
+                            onChange={(e) => {
+                              const val = Math.max(0, Number(e.target.value) || 0);
+                              const activeCount = Math.max(
+                                1,
+                                currentAllocation.items.filter((i) => !i.isExcluded && !i.isVisitOverdue)
+                                  .length
+                              );
+                              updateAllocationBatchConfig(currentPeriod, {
+                                flatAmountPerCase: val,
+                                totalBudget: val * activeCount,
+                              });
+                            }}
+                            className="w-28 h-8 px-2.5 bg-slate-50/60 focus:bg-white border border-slate-200/80 rounded-lg text-xs font-mono tabular-nums font-semibold text-slate-900 focus:outline-hidden focus:border-[#005756]"
+                          />
+                          <span className="text-[11px] text-slate-500">ج.م / أسرة</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                    <Repeat size={13} className="text-slate-400" />
+                    <span>عدد شهور الصرف</span>
+                  </label>
+                  {isApproved ? (
+                    <div className="h-10 px-3 py-2 bg-slate-50/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-900 flex items-center">
+                      {(currentAllocation.coverageMonths || 1) === 1
+                        ? 'شهر واحد'
+                        : currentAllocation.coverageMonths === 2
+                        ? 'شهرين'
+                        : `${currentAllocation.coverageMonths} شهور`}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {[
+                        { value: 1, label: 'شهر واحد' },
+                        { value: 2, label: 'شهرين' },
+                        { value: 3, label: '3 شهور' },
+                      ].map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() =>
+                            updateAllocationBatchConfig(currentPeriod, { coverageMonths: option.value })
+                          }
+                          className={`h-10 px-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-center border whitespace-nowrap ${
+                            (currentAllocation.coverageMonths || 1) === option.value
+                              ? 'bg-[#005756] text-white border-[#005756]'
+                              : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/80'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
+
+          {/* Budget Setting Controls (Draft Mode) */}
+          {!isApproved && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                <span className="text-xs font-medium text-slate-500 ml-1">سقف الصرف:</span>
+                {[
+                  { label: 'كامل الرصيد المتاح', val: actualUnrestricted },
+                  { label: '50 ألف', val: 50000 },
+                  { label: '100 ألف', val: 100000 },
+                  { label: '150 ألف', val: 150000 },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => {
+                      setBudgetInput(preset.val);
+                      generateOrRefreshAllocation(currentPeriod, preset.val, undefined, undefined, {
+                        strategy: currentStrategy,
+                      });
+                      toast.success('تمت إعادة توزيع مقترح الميزانية تلقائياً');
+                    }}
+                    className={`px-3 py-1.5 rounded-xl font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+                      budgetInput === preset.val
+                        ? 'bg-[#005756] text-white border-[#005756]'
+                        : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/80'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+
+                {!isCustomBudgetOpen ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCustomBudgetOpen(true);
+                      setCustomBudgetValue(budgetInput);
+                    }}
+                    className="px-3 py-1.5 rounded-xl font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/80 transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    مبلغ تاني...
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1 bg-slate-50 p-0.5 rounded-xl border border-[#005756]/40">
+                    <div className="w-24">
+                      <AmountInput
+                        value={customBudgetValue}
+                        onChange={(v) => setCustomBudgetValue(v)}
+                        size="sm"
+                        currency=""
+                        autoFocus
+                        className="border-none bg-transparent"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleApplyCustomBudget}
+                      className="p-1.5 rounded-lg bg-[#005756] text-white cursor-pointer"
+                      aria-label="تطبيق المبلغ"
+                    >
+                      <Check size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomBudgetOpen(false)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
+                      aria-label="إلغاء"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleResetToAutoProposal}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200/80 hover:bg-slate-50 hover:text-[#005756] text-slate-700 text-xs font-semibold transition-colors cursor-pointer self-start sm:self-auto whitespace-nowrap"
+                title="إعادة توزيع المقترح تلقائياً ومسح التعديلات اليدوية"
+              >
+                <RefreshCw size={13} className="text-slate-400" />
+                <span>إعادة التوزيع التلقائي</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile Primary Approve Action (Positioned After Reviewing Financial Totals) */}
+        {!isApproved && currentUserRole === 'admin' && (
+          <button
+            type="button"
+            onClick={() => setShowApprovalDialog(true)}
+            className="sm:hidden w-full h-10 bg-[#005756] hover:bg-[#004241] text-white text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <CheckCircle2 size={15} />
+            <span>
+              {currentAllocation.isExceptionallyUnlocked
+                ? 'إعادة اعتماد الميزانية'
+                : 'اعتماد الميزانية وقفل الدورة'}
+            </span>
+          </button>
         )}
       </div>
 
