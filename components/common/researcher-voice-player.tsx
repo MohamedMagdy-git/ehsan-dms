@@ -15,6 +15,7 @@ interface ResearcherVoicePlayerProps {
   fileName?: string;
   transcriptHint?: string;
   compact?: boolean;
+  hideSpeed?: boolean;
   onDelete?: () => void;
   onReRecord?: () => void;
   className?: string;
@@ -73,6 +74,7 @@ export function formatAudioTime(seconds: number): string {
 }
 
 const WAVEFORM_BAR_COUNT = 40;
+const COMPACT_WAVEFORM_BAR_COUNT = 26;
 const PLAYBACK_RATES = [1, 1.5, 2] as const;
 type PlaybackRate = (typeof PLAYBACK_RATES)[number];
 
@@ -116,6 +118,7 @@ export function ResearcherVoicePlayer({
   fileName: _fileName = 'تسجيل_صوتي_للباحث.webm',
   transcriptHint,
   compact = false,
+  hideSpeed = false,
   onDelete,
   onReRecord,
   className = '',
@@ -125,6 +128,9 @@ export function ResearcherVoicePlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [loadedDuration, setLoadedDuration] = useState<number | null>(null);
   const [playbackRate, setPlaybackRate] = useState<PlaybackRate>(1);
+
+  const isCompactMode = Boolean(compact || onReRecord);
+  const shouldHideSpeed = Boolean(hideSpeed || compact || onReRecord);
 
   const totalDuration = Math.max(1, loadedDuration || durationSeconds || 16);
   const progressRatio = Math.max(0, Math.min(1, currentTime / totalDuration));
@@ -164,9 +170,9 @@ export function ResearcherVoicePlayer({
     () =>
       generateWaveformBars(
         `${formattedResearcher || 'researcher'}-${durationSeconds}-${transcriptHint?.slice(0, 24) || ''}`,
-        compact ? 28 : WAVEFORM_BAR_COUNT
+        isCompactMode ? COMPACT_WAVEFORM_BAR_COUNT : WAVEFORM_BAR_COUNT
       ),
-    [formattedResearcher, durationSeconds, transcriptHint, compact]
+    [formattedResearcher, durationSeconds, transcriptHint, isCompactMode]
   );
 
   const togglePlay = () => {
@@ -241,7 +247,7 @@ export function ResearcherVoicePlayer({
 
   return (
     <div
-      className={`w-full max-w-full overflow-hidden rounded-2xl p-3 border transition-colors shadow-none flex flex-wrap md:flex-nowrap items-center justify-between gap-x-3.5 gap-y-2.5 text-right ${
+      className={`w-full max-w-full min-w-0 overflow-hidden rounded-2xl p-3 border transition-colors shadow-none flex flex-wrap md:flex-nowrap items-center justify-between gap-x-2.5 sm:gap-x-3 gap-y-2.5 text-right ${
         isPlaying
           ? 'bg-[#005756]/[0.025] border-[#005756]/25'
           : 'bg-slate-50/90 border-slate-200/80'
@@ -273,7 +279,7 @@ export function ResearcherVoicePlayer({
       />
 
       {/* 1. Right Zone: Circular Play/Pause Button + Researcher Identity */}
-      <div className="flex items-center gap-2.5 min-w-0 flex-1 md:flex-initial md:shrink-0">
+      <div className="flex items-center gap-2.5 min-w-0 shrink-0">
         <button
           type="button"
           onClick={togglePlay}
@@ -284,7 +290,7 @@ export function ResearcherVoicePlayer({
           {isPlaying ? <Pause size={15} /> : <Play size={15} className="mr-0.5" />}
         </button>
 
-        <div className="min-w-0 leading-snug">
+        <div className="min-w-0 max-w-[125px] sm:max-w-[200px] leading-snug">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 truncate">
             <Mic size={12} className="text-[#005756] shrink-0" aria-hidden="true" />
             <span className="truncate">تسجيل الباحث الصوتي</span>
@@ -305,8 +311,8 @@ export function ResearcherVoicePlayer({
         </div>
       </div>
 
-      {/* 2. Center Zone: Elapsed Time + Interactive Audio Waveform Bars + Total Duration */}
-      <div className="order-3 md:order-2 w-full md:w-auto md:flex-1 md:max-w-lg min-w-0 flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl bg-white/80 border border-slate-200/60">
+      {/* 2. Center Zone: Elapsed Time + Fluid Audio Waveform Bars + Total Duration */}
+      <div className="order-3 md:order-2 w-full md:w-auto flex-1 min-w-0 overflow-hidden flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/80 border border-slate-200/60">
         <span className="font-mono text-[11px] text-slate-700 font-semibold shrink-0 tabular-nums">
           {formatAudioTime(currentTime)}
         </span>
@@ -319,7 +325,7 @@ export function ResearcherVoicePlayer({
           aria-valuemax={Math.round(totalDuration)}
           aria-valuenow={Math.round(currentTime)}
           onKeyDown={handleWaveformKeyDown}
-          className="group flex-1 min-w-0 h-6 flex items-center justify-between gap-[2px] cursor-pointer select-none focus:outline-hidden"
+          className="group flex-1 min-w-0 overflow-hidden h-6 flex items-center justify-between gap-px sm:gap-[2px] cursor-pointer select-none focus:outline-hidden"
         >
           {waveformBars.map((heightPct, idx) => {
             const barRatio = idx / Math.max(1, waveformBars.length - 1);
@@ -335,11 +341,11 @@ export function ResearcherVoicePlayer({
                 aria-label={`الانتقال إلى الثانية ${Math.round(
                   barRatio * totalDuration
                 )}`}
-                className="flex-1 h-full flex items-center justify-center py-0.5 cursor-pointer focus:outline-hidden"
+                className="flex-1 min-w-0 shrink h-full flex items-center justify-center py-0.5 cursor-pointer focus:outline-hidden"
               >
                 <span
                   style={{ height: `${heightPct}%` }}
-                  className={`w-[2.5px] sm:w-[3px] rounded-full transition-colors duration-150 ${
+                  className={`w-full max-w-[3px] min-w-[1.5px] shrink rounded-full transition-colors duration-150 ${
                     isPlayed
                       ? 'bg-[#005756]'
                       : 'bg-slate-300/90 group-hover:bg-slate-400/80'
@@ -355,45 +361,50 @@ export function ResearcherVoicePlayer({
         </span>
       </div>
 
-      {/* 3. Left Zone: Playback Speed Toggle (1x / 1.5x / 2x) & Optional Record Actions */}
-      <div className="order-2 md:order-3 flex items-center gap-1.5 shrink-0">
-        <button
-          type="button"
-          onClick={handleCyclePlaybackRate}
-          title="تغيير سرعة تشغيل التسجيل الصوتي"
-          aria-label={`سرعة التشغيل الحالية ${playbackRate}x — اضغط للتغيير`}
-          className={`h-7 px-2.5 rounded-lg border font-mono text-[11px] font-bold tabular-nums transition-colors cursor-pointer ${
-            playbackRate > 1
-              ? 'bg-[#005756] text-white border-[#005756]'
-              : 'bg-white hover:bg-slate-100 text-slate-700 hover:text-[#005756] border-slate-200/80'
-          }`}
-        >
-          {playbackRate}x
-        </button>
+      {/* 3. Left Zone: Playback Speed Toggle & Optional Record Actions */}
+      {(!shouldHideSpeed || onReRecord || onDelete) && (
+        <div className="order-2 md:order-3 flex items-center gap-1.5 shrink-0">
+          {!shouldHideSpeed && (
+            <button
+              type="button"
+              onClick={handleCyclePlaybackRate}
+              title="تغيير سرعة تشغيل التسجيل الصوتي"
+              aria-label={`سرعة التشغيل الحالية ${playbackRate}x — اضغط للتغيير`}
+              className={`h-7 px-2.5 rounded-lg border font-mono text-[11px] font-bold tabular-nums transition-colors cursor-pointer shrink-0 ${
+                playbackRate > 1
+                  ? 'bg-[#005756] text-white border-[#005756]'
+                  : 'bg-white hover:bg-slate-100 text-slate-700 hover:text-[#005756] border-slate-200/80'
+              }`}
+            >
+              {playbackRate}x
+            </button>
+          )}
 
-        {onReRecord && (
-          <button
-            type="button"
-            onClick={onReRecord}
-            className="h-7 text-[11px] px-2.5 rounded-lg bg-white border border-slate-200/80 text-[#005756] hover:bg-slate-100 font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer"
-            title="إعادة التسجيل"
-          >
-            <Mic size={12} />
-            <span className="hidden sm:inline">إعادة</span>
-          </button>
-        )}
+          {onReRecord && (
+            <button
+              type="button"
+              onClick={onReRecord}
+              className="h-7 px-2 text-[11px] rounded-lg bg-white border border-slate-200/80 text-[#005756] hover:bg-slate-100 font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+              title="إعادة التسجيل"
+            >
+              <Mic size={12} className="shrink-0" />
+              <span>إعادة</span>
+            </button>
+          )}
 
-        {onDelete && (
-          <button
-            type="button"
-            onClick={onDelete}
-            className="h-7 text-[11px] px-2 rounded-lg bg-white border border-slate-200/80 text-rose-700 hover:bg-rose-50 font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer"
-            title="مسح التسجيل"
-          >
-            <Trash2 size={12} />
-          </button>
-        )}
-      </div>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              className="h-7 px-2 text-[11px] rounded-lg bg-white border border-slate-200/80 text-rose-700 hover:bg-rose-50 font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+              title="مسح التسجيل"
+              aria-label="مسح التسجيل"
+            >
+              <Trash2 size={12} className="shrink-0" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
