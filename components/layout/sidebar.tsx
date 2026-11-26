@@ -21,6 +21,7 @@ import {
   HandHeart,
   Wallet,
   ArrowLeftRight,
+  BookOpenCheck,
 } from 'lucide-react';
 import { NAVIGATION_SECTIONS } from '@/lib/navigation-config';
 import { useOnlineStatus } from '@/hooks/use-online-status';
@@ -112,6 +113,12 @@ export function Sidebar({
           id: 'researcher-profile',
           label: NAVIGATION_SECTIONS['researcher-profile'].sidebarLabel,
           icon: UserCheck,
+          badge: null,
+        },
+        {
+          id: 'researcher-guide',
+          label: NAVIGATION_SECTIONS['researcher-guide'].sidebarLabel,
+          icon: BookOpenCheck,
           badge: null,
         },
       ],
@@ -210,6 +217,12 @@ export function Sidebar({
           id: 'researcher-profile',
           label: 'ملفي الميداني',
           icon: UserCheck,
+          badge: null,
+        },
+        {
+          id: 'researcher-guide',
+          label: 'دليل الباحث',
+          icon: BookOpenCheck,
           badge: null,
         },
       ],

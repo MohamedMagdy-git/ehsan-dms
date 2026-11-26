@@ -49,6 +49,13 @@ export const NAVIGATION_SECTIONS: Record<string, SectionMeta> = {
     headerTitle: 'فريق البحث الميداني',
     headerDescription: 'بيانات الباحثين، نطاقات العمل الميداني، ومتابعة العهد.',
   },
+  'researcher-guide': {
+    id: 'researcher-guide',
+    sidebarLabel: 'دليل الباحث',
+    mobileTitle: 'دليل الباحث',
+    headerTitle: 'دليل الباحث الميداني',
+    headerDescription: 'مرجع خطوات البحث الميداني، معاني حالات الملفات، وإجراءات تسليم العهدة.',
+  },
   donations: {
     id: 'donations',
     sidebarLabel: 'سجل التبرعات',

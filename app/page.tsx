@@ -13,6 +13,7 @@ import { NewCaseModal } from '@/components/cases/new-case-modal';
 import { CaseReviewApprovalView } from '@/components/cases/case-review-approval-view';
 import { ResearchView } from '@/components/research/research-view';
 import { ResearcherProfileView } from '@/components/research/researcher-profile-view';
+import { ResearcherGuideView } from '@/components/research/guide/researcher-guide-view';
 import { DonationsView } from '@/components/donations/donations-view';
 import { NewDonationModal } from '@/components/donations/new-donation-modal';
 import { AllocationView } from '@/components/allocation/allocation-view';
@@ -112,6 +113,9 @@ function MainApp() {
           {effectiveSection === 'research' && <ResearchView />}
           {effectiveSection === 'researcher-profile' && (
             <ResearcherProfileView />
+          )}
+          {effectiveSection === 'researcher-guide' && (
+            <ResearcherGuideView />
           )}
 
           {/* Admin & Governance Routes (Strictly blocked in Researcher POV) */}

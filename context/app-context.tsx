@@ -82,6 +82,7 @@ export const ROLE_PROFILES: Record<AppUserRole, UserSessionProfile> = {
       'cases-review',
       'research',
       'researcher-profile',
+      'researcher-guide',
       'donations',
       'fast-track',
       'allocation',
@@ -108,7 +109,13 @@ export const ROLE_PROFILES: Record<AppUserRole, UserSessionProfile> = {
     avatarInitial: 'ط',
     badgeLabel: 'باحث ميداني',
     defaultTab: 'dashboard',
-    allowedTabs: ['dashboard', 'research', 'my-custody', 'researcher-profile'],
+    allowedTabs: [
+      'dashboard',
+      'research',
+      'my-custody',
+      'researcher-profile',
+      'researcher-guide',
+    ],
     description: 'متابعة الحالات المسندة، تنفيذ الزيارات الميدانية، وكشف عهدة التسليم',
   },
   donor: {
