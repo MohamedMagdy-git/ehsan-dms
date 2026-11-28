@@ -9,7 +9,7 @@ import {
   CheckCircle2,
   Mic,
   FileCheck2,
-  Signature,
+  MapPin,
 } from 'lucide-react';
 
 export interface StepPreviewProps {
@@ -260,8 +260,8 @@ export function Step04DeliveryPreview({
               : 'bg-slate-50 text-slate-600 border-slate-200'
           }`}
         >
-          <Signature size={11} className="text-[#005756]" />
-          <span>توقيع رقمي</span>
+          <FileCheck2 size={11} className="text-[#005756]" />
+          <span>صورة الإيصال</span>
         </motion.span>
 
         <motion.span
@@ -280,8 +280,8 @@ export function Step04DeliveryPreview({
               : 'bg-slate-50 text-slate-600 border-slate-200'
           }`}
         >
-          <FileCheck2 size={11} className="text-[#005756]" />
-          <span>إيصال معتمد</span>
+          <MapPin size={11} className="text-[#005756]" />
+          <span>موقع GPS</span>
         </motion.span>
       </div>
     </div>

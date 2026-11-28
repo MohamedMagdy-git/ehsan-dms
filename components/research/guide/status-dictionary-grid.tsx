@@ -35,21 +35,21 @@ interface StatusDictionaryGridProps {
 const STATUS_ITEMS: StatusDictionaryItem[] = [
   {
     id: 'pending_field_research',
-    badgeText: 'بانتظار الزيارة الأولى / مسودة محفوظة',
+    badgeText: 'بانتظار الزيارة الأولى · زيارة أولى',
     toneClass: 'text-teal-800 bg-teal-50/80 border-teal-200/80',
     category: 'researcher_action',
     ownerLabel: 'مسؤولية الباحث',
     meaning:
-      'حالة جديدة مسندة إليك، أو استمارة بدأت ملأها وحُفظت تلقائياً على جهازك.',
+      'حالة جديدة مسندة إليك؛ وعند بدء تعبئة الاستمارة تُحفظ إجاباتك تلقائياً كمسودة على جهازك وتُستعاد فور فتح الاستمارة مجدداً.',
     actionRequired:
       'زيارة الأسرة، استكمال أسئلة الاستمارة، ثم إرسال التقرير للمراجعة.',
     ctaLabel: 'بدء أو استكمال البحث',
-    targetSection: 'survey',
+    targetSection: 'research',
     icon: Clock,
   },
   {
     id: 'needs_revision',
-    badgeText: 'مطلوب استيفاء ملاحظات',
+    badgeText: 'تحتاج استكمال · راجِع من الإدارة',
     toneClass: 'text-amber-900 bg-amber-50 border-amber-200',
     category: 'researcher_action',
     ownerLabel: 'أولوية عاجلة للباحث',
@@ -68,7 +68,7 @@ const STATUS_ITEMS: StatusDictionaryItem[] = [
     category: 'admin_flow',
     ownerLabel: 'لدى مدير المنظومة',
     meaning:
-      'وصل تقريرك بنجاح وهو الآن تحت المراجعة لدى مدير المنظومة.',
+      'وصل تقريرك بنجاح وهو الآن تحت المراجعة لدى مدير المنظومة، وتظهر الحالة داخل تبويب «سجل الزيارات».',
     actionRequired:
       'لا يلزمك أي إجراء حالياً؛ سيتحدث وضع الحالة تلقائياً بعد قرار الإدارة.',
     ctaLabel: 'متابعة حالاتي المرسلة',
@@ -77,7 +77,7 @@ const STATUS_ITEMS: StatusDictionaryItem[] = [
   },
   {
     id: 'active_eligible',
-    badgeText: 'نشطة ومستحقة (جاهزة للتسليم)',
+    badgeText: 'نشطة ومستحقة · متبقي بالعهدة',
     toneClass: 'text-emerald-800 bg-emerald-50/90 border-emerald-200/80',
     category: 'researcher_action',
     ownerLabel: 'عهدة تسليم ميداني',
@@ -91,7 +91,7 @@ const STATUS_ITEMS: StatusDictionaryItem[] = [
   },
   {
     id: 'overdue_visit',
-    badgeText: 'متأخرة عن الزيارة الدورية',
+    badgeText: 'متابعة دورية متأخرة',
     toneClass: 'text-rose-800 bg-rose-50/90 border-rose-200/80',
     category: 'researcher_action',
     ownerLabel: 'متابعة ميدانية مطلوبة',
@@ -105,7 +105,7 @@ const STATUS_ITEMS: StatusDictionaryItem[] = [
   },
   {
     id: 'delivered_closed',
-    badgeText: 'تم التسليم وتوثيق العهدة',
+    badgeText: 'تم التسليم · موثّق بإثبات',
     toneClass: 'text-slate-700 bg-slate-50 border-slate-200',
     category: 'admin_flow',
     ownerLabel: 'مهمة مكتملة',

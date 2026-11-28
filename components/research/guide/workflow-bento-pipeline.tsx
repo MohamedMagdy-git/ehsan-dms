@@ -105,10 +105,12 @@ export function WorkflowBentoPipeline({
       roleLabel: 'إتمام المهمة الميدانية',
       title: 'التسليم للمستحق والإغلاق',
       description:
-        'تسليم المبلغ للأسرة يداً بيد، وتوثيق التسليم بالتوقيع الرقمي أو صورة الإيصال أو الإقرار الصوتي لإغلاق العهدة رسمياً.',
-      ctaLabel: 'الانتقال لتسليم الحالات والتوثيق',
+        'تسليم المبلغ للأسرة يداً بيد أو عبر التحويل، وتوثيق التسليم بتصوير إيصال الاستلام الموقّع (أو لقطة التحويل)، مع إمكانية تسجيل موقع التسليم (GPS) وملاحظة سريعة لإغلاق العهدة.',
+      ctaLabel: isResearcherPOV
+        ? 'الانتقال لتسليم الحالات والتوثيق'
+        : 'متابعة الميزانية والتسليمات',
       onAction: () =>
-        onNavigateSection(isResearcherPOV ? 'my-custody' : 'research'),
+        onNavigateSection(isResearcherPOV ? 'my-custody' : 'allocation'),
       renderPreview: (isActive: boolean) => (
         <Step04DeliveryPreview
           isActive={isActive}
